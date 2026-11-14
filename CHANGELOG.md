@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.10.0] — 2026-11-14
+### Adicionado
+- Tela **Conexão WhatsApp** (`/conexoes`, só supervisor; o item só aparece no menu dele):
+  - vários números, cada um com tipo (QR Code pela Evolution API ou API oficial da Meta), uso
+    (atendimento, envios em massa ou os dois), telefone e **setor do número**;
+  - situação de cada número (conectado, aguardando leitura, desconectado, desativado), com a hora da
+    última conferência e o erro, se houver; atendentes do setor do número;
+  - **QR Code na tela**: ao conectar um número de QR Code, o Talk configura o webhook na Evolution
+    (com o segredo no cabeçalho), mostra o QR Code e confere a cada 3 s até conectar;
+  - API oficial: "Verificar" consulta o número na Meta (telefone e qualidade) e a tela mostra o
+    endereço do webhook e o token de verificação para colar no Meta for Developers;
+  - número **padrão**, ativar/desativar (mensagens novas de um número desativado são ignoradas),
+    desconectar o celular, excluir (só número sem histórico).
+- Número com setor: quem escreve nele vai direto para a fila desse setor, sem a Jack escolher.
+  Número sem setor continua com a triagem da Jack.
+- Evento `connection.update` da Evolution atualiza a situação do número.
+- Tokens e chaves continuam cifrados; a tela só recebe os 4 últimos caracteres e senha em branco ao
+  editar mantém a atual.
+- Laboratório: QR Code de mentira com "Simular leitura"; números de exemplo (nenhum real); o
+  simulador aceita o número de destino (`channel_id`).
+- Migration `011_channels.sql`.
+
+### Pendente
+- Testar com uma Evolution e um número da Meta de verdade (aguarda aprovação para usar número real).
+
 ## [0.9.0] — 2026-11-14
 ### Adicionado
 - Tela **Contatos** (`/contatos`): lista com busca por nome, telefone (com ou sem máscara),

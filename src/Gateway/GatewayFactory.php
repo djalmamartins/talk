@@ -28,13 +28,23 @@ class GatewayFactory
         };
     }
 
+    public function channelStatus(int $channelId): ?string
+    {
+        return $this->db->one('SELECT status FROM talk_channels WHERE id = ?', [$channelId])['status'] ?? null;
+    }
+
+    public function markState(int $channelId, string $state): void
+    {
+        $this->db->run('UPDATE talk_channels SET connection_state = ?, state_checked_at = NOW() WHERE id = ?', [$state, $channelId]);
+    }
+
     /** Canal usado para envios em massa: o oficial, se existir; senão o de atendimento. */
     public function bulkChannelId(): int
     {
         $row = $this->db->one(
             "SELECT id FROM talk_channels WHERE status='active' AND purpose IN ('bulk','both')
              ORDER BY kind='official' DESC, id LIMIT 1"
-        ) ?? $this->db->one("SELECT id FROM talk_channels WHERE status='active' ORDER BY id LIMIT 1");
+        ) ?? $this->db->one("SELECT id FROM talk_channels WHERE status='active' ORDER BY is_default DESC, id LIMIT 1");
         if (!$row) {
             throw new GatewayException('Nenhum canal ativo');
         }

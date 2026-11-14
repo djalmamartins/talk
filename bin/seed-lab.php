@@ -25,6 +25,27 @@ if (!$db->one("SELECT id FROM talk_channels WHERE kind = 'lab'")) {
     ]);
 }
 
+// Conexão WhatsApp: números de exemplo (nenhum real). O simulado padrão recebe o simulador da caixa de entrada.
+$channelSeeds = [
+    ['Laboratório (simulado)', 'lab', 'both', '5531900000000', null, [], 'connected', 'active', 1],
+    ['Plantão Manutenção (simulado)', 'lab', 'attendance', '5531900000003', 'Manutenção', [], 'disconnected', 'active', 0],
+    ['Financeiro — QR Code', 'qrcode', 'attendance', '5531900000001', 'Financeiro',
+        ['base_url' => 'http://evolution.lab:8080', 'instance' => 'financeiro', 'api_key' => 'lab-nao-real', 'webhook_secret' => bin2hex(random_bytes(16))], 'disconnected', 'active', 0],
+    ['Avisos em massa — API oficial', 'official', 'bulk', '5531900000009', null,
+        ['phone_number_id' => '000000000000000', 'access_token' => 'lab-nao-real', 'app_secret' => 'lab-nao-real', 'verify_token' => bin2hex(random_bytes(12))], 'unknown', 'disabled', 0],
+];
+foreach ($channelSeeds as [$name, $kind, $purpose, $phone, $sector, $cfg, $conn, $status, $default]) {
+    if ($db->one('SELECT id FROM talk_channels WHERE name = ?', [$name])) {
+        continue;
+    }
+    $db->insert('talk_channels', [
+        'name' => $name, 'kind' => $kind, 'purpose' => $purpose, 'phone' => $phone, 'sector_id' => $sector ? $ids[$sector] : null,
+        'config_encrypted' => $app['crypto']->encrypt($cfg), 'connection_state' => $conn, 'status' => $status,
+        'is_default' => $default && !$db->one('SELECT id FROM talk_channels WHERE is_default = 1') ? 1 : 0,
+    ]);
+}
+$db->run("UPDATE talk_channels SET connection_state = 'connected' WHERE kind = 'lab' AND is_default = 1");
+
 $pass = getenv('LAB_PASSWORD') ?: 'connect123';
 $users = [
     [1, 'Djalma (Supervisor)', 'supervisor@connect.lab', 'supervisor', null],

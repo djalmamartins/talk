@@ -63,6 +63,58 @@ final class EvolutionGateway implements WhatsAppGateway
         return ['bytes' => $bytes, 'mime' => $data['mimetype'] ?? null];
     }
 
+    private function instanceUrl(string $path): string
+    {
+        return rtrim((string) $this->config['base_url'], '/') . "/$path/" . rawurlencode((string) $this->config['instance']);
+    }
+
+    public function connect(?string $webhookUrl = null, ?string $secret = null): array
+    {
+        $key = ['apikey' => (string) $this->config['api_key']];
+        $warn = null;
+        if ($webhookUrl !== null) {
+            // Evolution v2: webhook da instância com o segredo no cabeçalho (conferido em verifyWebhook)
+            $w = $this->http->postJson($this->instanceUrl('webhook/set'), ['webhook' => [
+                'enabled' => true, 'url' => $webhookUrl, 'byEvents' => false, 'base64' => false,
+                'headers' => ['X-Talk-Secret' => (string) ($secret ?? $this->config['webhook_secret'] ?? '')],
+                'events' => ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+            ]], $key);
+            if ($w['status'] >= 300) {
+                $warn = "webhook não configurado (HTTP {$w['status']}); configure na Evolution";
+            }
+        }
+        $state = $this->connectionState();
+        if ($state['state'] === 'connected') {
+            return $state + ['detail' => $warn];
+        }
+        $r = $this->http->request('GET', $this->instanceUrl('instance/connect'), null, $key);
+        $data = json_decode($r['body'], true) ?: [];
+        if ($r['status'] >= 300) {
+            throw new GatewayException('Evolution: ' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$r['status']}"));
+        }
+        $qr = $data['base64'] ?? null;
+        if ($qr !== null && !str_starts_with((string) $qr, 'data:image/')) {
+            $qr = 'data:image/png;base64,' . $qr;
+        }
+        return ['state' => $qr ? 'connecting' : $state['state'], 'qr' => $qr, 'detail' => $warn];
+    }
+
+    public function connectionState(): array
+    {
+        $r = $this->http->request('GET', $this->instanceUrl('instance/connectionState'), null, ['apikey' => (string) $this->config['api_key']]);
+        $data = json_decode($r['body'], true) ?: [];
+        if ($r['status'] >= 300) {
+            return ['state' => 'disconnected', 'detail' => $data['response']['message'][0] ?? "HTTP {$r['status']}"];
+        }
+        $s = strtolower((string) ($data['instance']['state'] ?? $data['state'] ?? ''));
+        return ['state' => match ($s) { 'open' => 'connected', 'connecting' => 'connecting', default => 'disconnected' }];
+    }
+
+    public function logout(): void
+    {
+        $this->http->request('DELETE', $this->instanceUrl('instance/logout'), null, ['apikey' => (string) $this->config['api_key']]);
+    }
+
     public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
     {
         $url = rtrim((string) $this->config['base_url'], '/') . '/chat/sendPresence/' . rawurlencode((string) $this->config['instance']);

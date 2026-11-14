@@ -39,6 +39,20 @@ interface WhatsAppGateway
      */
     public function downloadMedia(string $ref): array;
 
+    /**
+     * Conexão do número. state: connected | connecting | disconnected.
+     * connect(): pede a conexão; no QR Code devolve a imagem (data URL) para escanear.
+     * $webhookUrl/$secret: onde o provedor deve avisar das mensagens (QR Code configura sozinho).
+     * @return array{state:string, qr?:?string, phone?:?string, detail?:?string}
+     */
+    public function connect(?string $webhookUrl = null, ?string $secret = null): array;
+
+    /** @return array{state:string, phone?:?string, detail?:?string} */
+    public function connectionState(): array;
+
+    /** Desconecta o número (QR Code: sai do WhatsApp Web; oficial: não se aplica). */
+    public function logout(): void;
+
     /** Confere a autenticidade do webhook (assinatura/segredo). */
     public function verifyWebhook(string $rawBody, array $headers): bool;
 

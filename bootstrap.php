@@ -107,4 +107,5 @@ return [
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
+    'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $env('APP_ENV') === 'lab'),
 ];

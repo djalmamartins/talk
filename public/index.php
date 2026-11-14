@@ -62,7 +62,9 @@ $upload = static function () use ($json): array {
     }
     return [(string) file_get_contents($f['tmp_name']), (string) $f['type'], (string) $f['name']];
 };
-$view = static function (string $name, array $vars = []): never {
+$view = static function (string $name, array $vars = []) use ($app): never {
+    // o menu lateral mostra "Conexão WhatsApp" só para o supervisor
+    $vars['isSupervisor'] = !empty($_SESSION['user_id']) && $app['staff']->find((int) $_SESSION['user_id'])->supervisor;
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
     require __DIR__ . "/../views/$name.php";
@@ -132,6 +134,17 @@ try {
             exit;
         }
         $view('contacts', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
+    if ($path === '/conexoes') {
+        if (empty($_SESSION['user_id'])) {
+            header('Location: /login');
+            exit;
+        }
+        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
+            header('Location: /');
+            exit;
+        }
+        $view('channels', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
     if ($path === '/fila') {
         if (empty($_SESSION['user_id'])) {
@@ -231,6 +244,33 @@ try {
                 });
             }
         }
+        if ($path === '/api/channels') {
+            $json($method === 'POST' ? $app['channels']->save($me, $body()) : $app['channels']->list($me));
+        }
+        if (preg_match('#^/api/channels/(\d+)(?:/(connect|state|logout|default|toggle|delete|simulate-scan))?$#', $path, $m)) {
+            $ch = $app['channels'];
+            $cid = (int) $m[1];
+            $action = $m[2] ?? '';
+            if ($action === '' && $method === 'GET') {
+                $json($ch->one($me, $cid));
+            }
+            if ($method !== 'POST') {
+                $json(['error' => 'Use POST.'], 405);
+            }
+            if ($action === 'delete') {
+                $ch->delete($me, $cid);
+                $json(['ok' => true]);
+            }
+            $json(match ($action) {
+                '' => $ch->save($me, $body(), $cid),
+                'connect' => $ch->connect($me, $cid),
+                'state' => $ch->refresh($me, $cid),
+                'logout' => $ch->logout($me, $cid),
+                'default' => $ch->setDefault($me, $cid),
+                'toggle' => $ch->toggle($me, $cid),
+                'simulate-scan' => $ch->simulateScan($me, $cid),
+            });
+        }
         if ($path === '/api/queue') {
             $json($app['queue']->overview($me));
         }
@@ -324,7 +364,9 @@ try {
             if ($text === '' && $file === null) {
                 $json(['error' => 'Escreva a mensagem.'], 422);
             }
-            $channel = (int) $app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' ORDER BY id LIMIT 1")['id'];
+            // número de destino: o simulado escolhido (ex.: o do plantão da Manutenção) ou o primeiro simulado
+            $channel = (int) ($app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' AND id = ?", [(int) ($b['channel_id'] ?? 0)])
+                ?? $app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' ORDER BY is_default DESC, id LIMIT 1"))['id'];
             $pid = 'SIM-' . bin2hex(random_bytes(8));
             $type = $file['type'] ?? 'text';
             $id = $app['conversations']->handleInbound($channel, new InboundMessage(

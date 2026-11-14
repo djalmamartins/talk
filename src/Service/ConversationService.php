@@ -207,7 +207,13 @@ class ConversationService
                     "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type IN ('text','image','video') AND body IS NOT NULL ORDER BY id", // legenda de foto/vídeo também conta
                     [$conv['id']]
                 ), 'body');
-                $d = $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
+                // número dedicado a um setor (tela Conexão WhatsApp): vai direto para ele, sem a Jack adivinhar
+                $fixed = $this->db->one(
+                    'SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?',
+                    [$conv['channel_id']]
+                );
+                $d = $fixed ? ['action' => 'route', 'sector' => $fixed]
+                    : $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
                 if ($d === null) {
                     return false; // já perguntou e a pessoa ainda não disse o assunto: espera
                 }

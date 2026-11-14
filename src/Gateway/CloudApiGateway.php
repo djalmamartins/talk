@@ -82,6 +82,29 @@ final class CloudApiGateway implements WhatsAppGateway
         return ['bytes' => $file['body'], 'mime' => $info['mime_type'] ?? null];
     }
 
+    /** API oficial não tem QR Code: "conectar" é conferir se o número e o token respondem. */
+    public function connect(?string $webhookUrl = null, ?string $secret = null): array
+    {
+        return $this->connectionState() + ['qr' => null];
+    }
+
+    public function connectionState(): array
+    {
+        $r = $this->http->request('GET', $this->graph(rawurlencode((string) $this->config['phone_number_id']) . '?fields=display_phone_number,verified_name,quality_rating'),
+            null, ['Authorization' => 'Bearer ' . $this->config['access_token']]);
+        $data = json_decode($r['body'], true) ?: [];
+        if ($r['status'] >= 300) {
+            return ['state' => 'disconnected', 'detail' => mb_substr((string) ($data['error']['message'] ?? "HTTP {$r['status']}"), 0, 200)];
+        }
+        $phone = preg_replace('/\D+/', '', (string) ($data['display_phone_number'] ?? '')) ?: null;
+        return ['state' => 'connected', 'phone' => $phone, 'detail' => isset($data['quality_rating']) ? 'Qualidade: ' . $data['quality_rating'] : null];
+    }
+
+    public function logout(): void
+    {
+        // a API oficial não "desloga": para parar, desative o canal no Talk ou o número na Meta
+    }
+
     private function graph(string $path): string
     {
         return 'https://graph.facebook.com/' . ($this->config['api_version'] ?? 'v21.0') . '/' . $path;
