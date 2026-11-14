@@ -51,7 +51,13 @@ $view = static function (string $name, array $vars = []): never {
 };
 // no laboratório o envio é instantâneo: processa a fila ao final da requisição
 if ($isLab) {
-    register_shutdown_function(static fn () => $app['worker']->runOnce());
+    register_shutdown_function(static function () use ($app): void {
+        try {
+            $app['worker']->runOnce();
+        } catch (\Throwable $e) {
+            error_log('[talk] worker: ' . $e->getMessage());
+        }
+    });
 }
 
 try {

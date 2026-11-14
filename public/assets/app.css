@@ -43,7 +43,7 @@ dialog{border:0;border-radius:12px;padding:18px;width:min(420px,92vw)}dialog men
 /* casca: menu lateral cinza + logo dourada (referência: fila-de-atendimento.png) */
 .shell{display:grid;grid-template-columns:232px 1fr;height:100vh}
 .sidebar{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px 16px;gap:4px}
-.sidebar .logo{width:178px;margin:0 6px 22px}
+.sidebar .logo{width:190px;margin:-6px 0 14px}
 .profile{display:flex;gap:10px;align-items:center;padding:8px 6px 18px;border-bottom:1px solid var(--line);margin-bottom:12px}
 .profile b{display:block;font-size:14px}.avatar{width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
 .profile .live{font-size:12px;color:var(--muted)}.profile .live.on{color:var(--primary)}
