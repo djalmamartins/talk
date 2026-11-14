@@ -8,7 +8,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 |---|---|---|
 | Tickets / Chat | Caixa de entrada, conversa, aceitar, responder, encerrar | feito (0.2.0) |
 | Mídia (SendWhatsAppMedia, downloadMedia) | Enviar e receber arquivos: imagem, áudio, vídeo, PDF, documento; download com conferência de acesso | feito (0.6.0) |
-| Queues (filas) | Setores Financeiro, Administrativo, Manutenção | feito (0.1.0); cadastro em S5 |
+| Queues (filas) | Setores Financeiro, Administrativo, Manutenção | feito (0.1.0); cadastro na tela Equipe e setores (0.11.0), com cor e descrição. Sem mensagem de saudação por fila: quem cumprimenta é a Jack |
 | TicketNote | Notas internas | feito |
 | Transferência | Trocar atendente (setor ou atendente) | feito (0.5.0) |
 | QuickMessages | Mensagens rápidas: feito na 0.5.1, com mensagens por setor (no Atendechat eram por empresa/usuário) e campos {primeiro_nome}, {protocolo}, {setor}, {atendente} | S1 |
@@ -17,7 +17,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | ContactNotes (painel do contato) | Painel com dados do ERP, últimos chamados e notas do contato: feito (0.7.0) | S1 |
 | Contacts | Contatos: feito (0.9.0). Lista, busca, filtros, editar nome, histórico e bloquear. Sem importar da agenda do celular nem apagar (LGPD: exclusão vira processo à parte) | S3 |
 | Connections / Whatsapp | Conexão WhatsApp: feito (0.10.0). Vários números (QR Code pela Evolution, API oficial da Meta), setor por número, número padrão, QR Code na tela com conferência automática, ativar/desativar. Sem filas por conexão do Atendechat: aqui o setor do número substitui | S4 |
-| Users / UserQueue | Atendentes e setores | S5 |
+| Users / UserQueue | Equipe e setores: feito (0.11.0). Atendentes com papel (atendente, gerente, supervisor) e setores, senha com troca pela própria pessoa, desativar devolve os atendimentos à fila. Sem "perfil admin/user" do Atendechat: os três papéis do Talk cobrem | S5 |
 | Schedules | Agendamento de mensagens | S6 |
 | Campaigns / ContactLists | Envio em massa (API oficial) | S6 |
 | Tickets (aba "pendentes") + tela de referência | Fila de atendimento com indicadores, prioridade e atendentes online: feito (0.8.0). No Atendechat não existe tela própria; seguimos a tela de referência | S2 |

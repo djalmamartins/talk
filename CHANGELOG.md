@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0] — 2026-11-14
+### Adicionado
+- Tela **Equipe e setores** (`/equipe`, só supervisor), com três abas:
+  - **Atendentes:** cadastro com nome, e-mail de login, senha inicial, papel (atendente, gerente ou
+    supervisor), setores e, opcionalmente, o usuário correspondente no ERP. Busca, filtro por setor
+    e por situação; quem está disponível, atendendo ou offline; atendimentos em andamento e
+    encerrados hoje.
+  - **Setores:** criar, renomear, cor e descrição; pessoas, fila, atendimentos e números de cada
+    setor. Os três setores da Jack podem ser renomeados (ela continua reconhecendo) mas não
+    desativados. Setor com atendimento aberto não desativa; ao desativar, números dedicados a ele
+    voltam para a Jack.
+  - **Registro de alterações:** quem cadastrou, alterou, desativou ou reativou o quê (sem senhas).
+- **Desativar atendente:** a pessoa não entra mais, a sessão aberta cai na hora e os atendimentos
+  dela voltam para a fila do setor, com nota interna. Sempre fica pelo menos um supervisor ativo e
+  ninguém desativa ou rebaixa a si mesmo.
+- **Trocar senha** (menu lateral, para todos): confirma a senha atual; as sessões em outros
+  aparelhos caem. Senha: 8 a 72 caracteres, com letras e números. Redefinir pelo supervisor também
+  derruba as sessões da pessoa.
+- **Limite de tentativas de login:** 5 erros no mesmo e-mail ou 20 no mesmo IP em 15 minutos
+  bloqueiam novas tentativas até a janela passar.
+- Migration `012_team.sql` (`jack_key`, cor e descrição nos setores; `talk_login_attempts`;
+  `talk_audit_log`).
+
 ## [0.10.0] — 2026-11-14
 ### Adicionado
 - Tela **Conexão WhatsApp** (`/conexoes`, só supervisor; o item só aparece no menu dele):

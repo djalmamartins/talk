@@ -16,7 +16,7 @@ empresa só (`docs/porte-atendechat.md`).
 | S2 | Fila de atendimento: em espera, tempo médio, atendimentos do dia, taxa de resolução, prioridade, atendentes online | fila-de-atendimento.png | feito (0.8.0) |
 | S3 | Contatos: lista, busca, edição, bloquear | Atendechat Contacts | feito (0.9.0) |
 | S4 | Conexões WhatsApp: vários números, setor de cada número, QR Code, status | conexao-whatsapp.png | feito (0.10.0) |
-| S5 | Atendentes e setores: cadastro, papéis (atendente, gerente, supervisor), senha | Atendechat Users/Queues | a fazer |
+| S5 | Atendentes e setores: cadastro, papéis (atendente, gerente, supervisor), senha | Atendechat Users/Queues | feito (0.11.0) |
 | S6 | Agendamento de mensagens e envio em massa pela API oficial (boletos) | Atendechat Schedules/Campaigns | a fazer |
 | S7 | Painel e relatórios (tempo de espera e de atendimento por setor e atendente) e avaliação pós-atendimento | Atendechat Dashboard/UserRating | a fazer |
 | S8 | Horário de atendimento e mensagem fora do horário; produção (Docker, worker, backup) | Atendechat Settings | a fazer |

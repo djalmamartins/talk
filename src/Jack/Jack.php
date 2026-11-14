@@ -181,6 +181,11 @@ final class Jack
 
     private function sectorByKey(string $key): ?array
     {
+        // setor marcado para a Jack (pode ter sido renomeado na tela Equipe e setores)
+        $marked = $this->db->one('SELECT id, name FROM talk_sectors WHERE active = 1 AND jack_key = ?', [$key]);
+        if ($marked) {
+            return $marked;
+        }
         foreach ($this->db->all('SELECT id, name FROM talk_sectors WHERE active = 1') as $s) {
             if (str_replace(' ', '', Classifier::normalize($s['name'])) === $key) {
                 return $s;

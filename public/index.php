@@ -36,8 +36,21 @@ if ($method === 'POST' && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CO
     $json(['error' => 'Arquivo maior que 16 MB.'], 413);
 }
 $body = static fn (): array => json_decode((string) file_get_contents('php://input'), true) ?: $_POST;
-$user = static function () use ($app, $json) {
+// sessão vale enquanto o usuário está ativo e a senha não mudou depois do login
+$sessionOk = static function () use ($app): bool {
     if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+    if (!$app['login']->sessionValid((int) $_SESSION['user_id'], (int) ($_SESSION['auth_at'] ?? 0))) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        $_SESSION['csrf'] = bin2hex(random_bytes(16));
+        return false;
+    }
+    return true;
+};
+$user = static function () use ($app, $json, $sessionOk) {
+    if (!$sessionOk()) {
         $json(['error' => 'Faça login.'], 401);
     }
     return $app['staff']->find((int) $_SESSION['user_id']);
@@ -63,6 +76,7 @@ $upload = static function () use ($json): array {
     return [(string) file_get_contents($f['tmp_name']), (string) $f['type'], (string) $f['name']];
 };
 $view = static function (string $name, array $vars = []) use ($app): never {
+    $vars['csrf'] ??= $_SESSION['csrf'];
     // o menu lateral mostra "Conexão WhatsApp" só para o supervisor
     $vars['isSupervisor'] = !empty($_SESSION['user_id']) && $app['staff']->find((int) $_SESSION['user_id'])->supervisor;
     extract($vars);
@@ -103,14 +117,23 @@ try {
     if ($path === '/login') {
         if ($method === 'POST') {
             $csrf();
-            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [trim((string) ($_POST['email'] ?? ''))]);
+            $email = mb_strtolower(trim((string) ($_POST['email'] ?? '')));
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+            if ($app['login']->blocked($email, $ip)) {
+                http_response_code(429);
+                $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab]);
+            }
+            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [$email]);
             if ($u && password_verify((string) ($_POST['password'] ?? ''), $u['password_hash'])) {
+                $app['login']->succeeded($email);
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int) $u['id'];
                 $_SESSION['user_name'] = $u['name'];
+                $_SESSION['auth_at'] = time();
                 header('Location: /');
                 exit;
             }
+            $app['login']->failed($email, $ip);
             $view('login', ['error' => 'E-mail ou senha inválidos.', 'isLab' => $isLab]);
         }
         $view('login', ['error' => null, 'isLab' => $isLab]);
@@ -122,21 +145,32 @@ try {
         exit;
     }
     if ($path === '/') {
-        if (empty($_SESSION['user_id'])) {
+        if (!$sessionOk()) {
             header('Location: /login');
             exit;
         }
         $view('inbox', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
     if ($path === '/contatos') {
-        if (empty($_SESSION['user_id'])) {
+        if (!$sessionOk()) {
             header('Location: /login');
             exit;
         }
         $view('contacts', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/equipe') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
+            header('Location: /');
+            exit;
+        }
+        $view('team', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/conexoes') {
-        if (empty($_SESSION['user_id'])) {
+        if (!$sessionOk()) {
             header('Location: /login');
             exit;
         }
@@ -147,7 +181,7 @@ try {
         $view('channels', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
     if ($path === '/fila') {
-        if (empty($_SESSION['user_id'])) {
+        if (!$sessionOk()) {
             header('Location: /login');
             exit;
         }
@@ -243,6 +277,46 @@ try {
                     default => throw new DomainError('Ação inválida.', 404),
                 });
             }
+        }
+        if ($path === '/api/me/password' && $method === 'POST') {
+            $b = $body();
+            $app['team']->changeOwnPassword($me->userId, (string) ($b['current'] ?? ''), (string) ($b['new'] ?? ''));
+            $_SESSION['auth_at'] = time(); // esta sessão continua; as outras caem
+            $json(['ok' => true]);
+        }
+        if ($path === '/api/team/users') {
+            $json($method === 'POST' ? $app['team']->saveUser($me, $body()) : $app['team']->users($me));
+        }
+        if (preg_match('#^/api/team/users/(\d+)(?:/(activate|deactivate))?$#', $path, $m)) {
+            $uid = (int) $m[1];
+            if ($method === 'GET') {
+                $json($app['team']->user($me, $uid));
+            }
+            $r = match ($m[2] ?? '') {
+                '' => $app['team']->saveUser($me, $body(), $uid),
+                'activate' => $app['team']->setActive($me, $uid, true),
+                'deactivate' => $app['team']->setActive($me, $uid, false),
+            };
+            if ($uid === $me->userId) {
+                $_SESSION['auth_at'] = time();
+                $_SESSION['user_name'] = $r['name'];
+            }
+            $json($r);
+        }
+        if ($path === '/api/team/sectors') {
+            $json($method === 'POST' ? $app['team']->saveSector($me, $body()) : $app['team']->sectors($me));
+        }
+        if (preg_match('#^/api/team/sectors/(\d+)(?:/(activate|deactivate))?$#', $path, $m)) {
+            $sid = (int) $m[1];
+            $json(match (true) {
+                $method === 'GET' => $app['team']->sector($me, $sid),
+                ($m[2] ?? '') === 'activate' => $app['team']->setSectorActive($me, $sid, true),
+                ($m[2] ?? '') === 'deactivate' => $app['team']->setSectorActive($me, $sid, false),
+                default => $app['team']->saveSector($me, $body(), $sid),
+            });
+        }
+        if ($path === '/api/team/audit') {
+            $json($app['team']->auditLog($me, (int) ($_GET['limit'] ?? 50)));
         }
         if ($path === '/api/channels') {
             $json($method === 'POST' ? $app['channels']->save($me, $body()) : $app['channels']->list($me));

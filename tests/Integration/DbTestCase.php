@@ -50,7 +50,8 @@ abstract class DbTestCase extends TestCase
             'config_encrypted' => $this->crypto->encrypt(['base_url' => 'http://evo:8080', 'instance' => 'connect', 'api_key' => 'k', 'webhook_secret' => 's3cret']),
         ]);
         foreach ([['Financeiro', '1', 'boleto, pagamento, segunda via, taxa'], ['Administrativo', '2', 'assembleia, reserva, mudança'], ['Manutenção', '3', 'vazamento, elevador, portão, lâmpada']] as [$n, $k, $kw]) {
-            $this->sectors[$n] = $this->db->insert('talk_sectors', ['name' => $n, 'menu_key' => $k, 'keywords' => $kw]);
+            $this->sectors[$n] = $this->db->insert('talk_sectors', ['name' => $n, 'menu_key' => $k, 'keywords' => $kw,
+                'jack_key' => strtolower(str_replace(['ç', 'ã'], ['c', 'a'], $n))]);
         }
         $this->svc = $this->makeService();
     }
