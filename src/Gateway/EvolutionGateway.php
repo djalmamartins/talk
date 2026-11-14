@@ -34,6 +34,35 @@ final class EvolutionGateway implements WhatsAppGateway
         return new SendResult((string) $id);
     }
 
+    public function sendMedia(string $toPhone, string $type, string $filePath, string $mime, string $fileName, ?string $caption): SendResult
+    {
+        $b64 = base64_encode((string) file_get_contents($filePath));
+        $r = $type === 'audio'
+            ? $this->http->postJson($this->url('sendWhatsAppAudio'), ['number' => $toPhone, 'audio' => $b64], ['apikey' => (string) $this->config['api_key']])
+            : $this->http->postJson($this->url('sendMedia'), array_filter([
+                'number' => $toPhone, 'mediatype' => $type, 'mimetype' => $mime, 'media' => $b64,
+                'fileName' => $fileName, 'caption' => $caption,
+            ], fn ($v) => $v !== null && $v !== ''), ['apikey' => (string) $this->config['api_key']]);
+        $data = json_decode($r['body'], true) ?: [];
+        $id = $data['key']['id'] ?? null;
+        if ($r['status'] >= 300 || !$id) {
+            throw new GatewayException('Evolution: ' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$r['status']}"));
+        }
+        return new SendResult((string) $id);
+    }
+
+    public function downloadMedia(string $ref): array
+    {
+        $url = rtrim((string) $this->config['base_url'], '/') . '/chat/getBase64FromMediaMessage/' . rawurlencode((string) $this->config['instance']);
+        $r = $this->http->postJson($url, ['message' => ['key' => ['id' => $ref]], 'convertToMp4' => false], ['apikey' => (string) $this->config['api_key']]);
+        $data = json_decode($r['body'], true) ?: [];
+        $bytes = isset($data['base64']) ? base64_decode((string) $data['base64'], true) : false;
+        if ($r['status'] >= 300 || $bytes === false || $bytes === '') {
+            throw new GatewayException("Evolution: mídia indisponível (HTTP {$r['status']})");
+        }
+        return ['bytes' => $bytes, 'mime' => $data['mimetype'] ?? null];
+    }
+
     public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
     {
         $url = rtrim((string) $this->config['base_url'], '/') . '/chat/sendPresence/' . rawurlencode((string) $this->config['instance']);

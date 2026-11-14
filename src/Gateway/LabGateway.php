@@ -13,6 +13,16 @@ final class LabGateway implements WhatsAppGateway
         return new SendResult('LAB-' . bin2hex(random_bytes(8)));
     }
 
+    public function sendMedia(string $toPhone, string $type, string $filePath, string $mime, string $fileName, ?string $caption): SendResult
+    {
+        return $this->sendText($toPhone, (string) $caption);
+    }
+
+    public function downloadMedia(string $ref): array
+    {
+        throw new GatewayException('Laboratório: o simulador já grava o arquivo direto.');
+    }
+
     public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
     {
         // laboratório: o simulador mostra "digitando…" lendo a talk_outbox

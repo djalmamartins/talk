@@ -90,4 +90,21 @@ dialog:has(.quick){width:min(620px,94vw);padding:24px}
 .quick-list li span{display:flex;gap:6px;align-items:flex-start}.quick-list li.empty{color:var(--muted)}
 .quick-form{margin-top:14px}.quick-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:560px){.quick-row{grid-template-columns:1fr}}
+
+/* arquivos */
+.attach{display:flex;align-items:center;justify-content:center;width:40px;min-width:40px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.attach:hover{background:#eef1ef;color:var(--primary)}
+.attach svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.reply-wrap{flex-direction:column;gap:6px}
+.attach-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#e8f3ec;border-radius:8px;font-size:13px}
+.attach-chip small{color:var(--muted)}.attach-chip button{margin-left:auto;border:0;background:none;cursor:pointer;color:var(--muted);padding:0 4px}
+.msg.has-media{display:flex;flex-direction:column;gap:6px}
+.media-img{display:block;max-width:260px;max-height:260px;border-radius:8px;object-fit:cover}
+.media-audio{width:260px;max-width:100%}.media-video{max-width:300px;border-radius:8px}
+.media-doc{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:8px 10px;background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:8px;color:var(--text);text-decoration:none;min-width:200px}
+.media-doc span{grid-row:1/3;background:var(--primary);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:8px 6px;min-width:34px;text-align:center}
+.media-doc b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-doc small{color:var(--muted);font-size:11px}
+.media-off{font-size:13px;color:var(--muted)}
+.sim-thread .media-img{max-width:160px;max-height:160px}.sim-thread .media-doc{min-width:0}
+#sim-form{display:flex;gap:6px}#sim-form .attach{width:32px;min-width:32px}
 [hidden]{display:none!important}

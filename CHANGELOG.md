@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0] — 2026-11-14
+### Adicionado
+- Arquivos nas conversas. O atendente envia imagem, áudio, vídeo, PDF, Word, Excel ou texto pelo clipe,
+  colando um print no campo ou arrastando para a conversa (até 16 MB; a legenda sai assinada; áudio
+  vai sem legenda). O que o cliente manda é baixado pelo worker (Evolution `getBase64FromMediaMessage`;
+  API oficial pelo id da mídia), com 3 tentativas antes de ficar "indisponível".
+- Na conversa: foto em miniatura, player de áudio e vídeo, cartão do documento com nome e tamanho.
+  Na lista, a última mensagem aparece como "📷 Foto", "🎤 Áudio" etc.
+- `/media/{id}`: o arquivo só abre para quem vê a conversa (mesma regra de setor e de histórico
+  oculto). Fica fora da pasta pública (`TALK_STORAGE`, padrão `./storage`); o tipo é conferido pelo
+  conteúdo, não pelo nome. Migration `007_media.sql`.
+- Simulador do laboratório: o cliente também manda arquivo (clipe).
+
+### Corrigido
+- Atualização em tempo real apagava o que o atendente estava digitando; agora o rascunho fica.
+- Paginação das mensagens ignorava o "histórico oculto" da transferência sem manter histórico.
+- Triagem da Jaqueline passa a ler também a legenda de foto e vídeo (ex.: foto "água vazando").
+
+### Atenção na instalação
+- O PHP precisa aceitar envio de 17 MB (`public/.htaccess` e `public/.user.ini` já trazem isso).
+- Incluir a pasta `storage/` no backup.
+
 ## [0.5.1] — 2026-11-14
 ### Adicionado
 - Mensagens rápidas: no campo de resposta, `/` abre a lista (filtra pelo atalho e pelo texto; setas,

@@ -10,7 +10,7 @@ empresa só (`docs/porte-atendechat.md`).
 |---|---|---|---|
 | S1 | Trocar atendente: para setor **ou** atendente, motivo (até 500), manter histórico | trocar-atendente.png | feito (0.5.0) |
 | S1 | Mensagens rápidas (atalho `/` na resposta) | Atendechat QuickMessages | feito (0.5.1) |
-| S1 | Enviar e receber arquivos: imagem, áudio, PDF, documento | Atendechat Chat | a fazer |
+| S1 | Enviar e receber arquivos: imagem, áudio, PDF, documento | Atendechat Chat | feito (0.6.0) |
 | S1 | Painel do contato: dados do ERP, etiquetas, últimos chamados, notas, ações rápidas | caixa-de-entrada.png | a fazer |
 | S1 | Etiquetas nas conversas e contatos | Atendechat Tags | a fazer |
 | S2 | Fila de atendimento: em espera, tempo médio, atendimentos do dia, taxa de resolução, prioridade, atendentes online | fila-de-atendimento.png | a fazer |

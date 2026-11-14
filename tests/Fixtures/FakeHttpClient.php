@@ -18,6 +18,11 @@ final class FakeHttpClient implements HttpClient
         return $this->request('POST', $url, $body, $headers);
     }
 
+    public function postFile(string $url, array $fields, string $fileField, string $filePath, string $mime, string $fileName, array $headers = []): array
+    {
+        return $this->request('POST', $url, $fields + [$fileField => "@$fileName ($mime)"], $headers);
+    }
+
     public function request(string $method, string $url, ?array $body = null, array $headers = []): array
     {
         $this->calls[] = compact('method', 'url', 'body', 'headers');

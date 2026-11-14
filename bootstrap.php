@@ -84,7 +84,9 @@ $jack = new Jack(
     (int) $env('JACK_MAX_WAIT_SECONDS', '600'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
 );
-$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack);
+// arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
+$media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
+$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media);
 $gateways = new GatewayFactory($db, $crypto, $http);
 
 return [
@@ -96,7 +98,8 @@ return [
     'conversations' => $conversations,
     'inbox' => new InboxQuery($db, $policy),
     'webhook' => new WebhookHandler($gateways, $conversations),
-    'worker' => new OutboxWorker($db, $gateways, $events),
+    'worker' => new OutboxWorker($db, $gateways, $events, $media),
+    'media' => $media,
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,

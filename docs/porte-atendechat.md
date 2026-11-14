@@ -7,6 +7,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Atendechat | No Talk | Situação |
 |---|---|---|
 | Tickets / Chat | Caixa de entrada, conversa, aceitar, responder, encerrar | feito (0.2.0) |
+| Mídia (SendWhatsAppMedia, downloadMedia) | Enviar e receber arquivos: imagem, áudio, vídeo, PDF, documento; download com conferência de acesso | feito (0.6.0) |
 | Queues (filas) | Setores Financeiro, Administrativo, Manutenção | feito (0.1.0); cadastro em S5 |
 | TicketNote | Notas internas | feito |
 | Transferência | Trocar atendente (setor ou atendente) | feito (0.5.0) |

@@ -25,6 +25,8 @@ abstract class DbTestCase extends TestCase
     protected ConversationService $svc;
     protected int $channelId;
     protected array $sectors = [];
+    protected string $mediaRoot;
+    protected \ConnectTalk\Media\MediaStore $media;
     private int $seq = 0;
 
     protected function setUp(): void
@@ -39,6 +41,8 @@ abstract class DbTestCase extends TestCase
         foreach (glob(__DIR__ . '/../../migrations/*.sql') as $file) {
             $pdo->exec((string) file_get_contents($file));
         }
+        $this->mediaRoot = sys_get_temp_dir() . '/talk-media-' . bin2hex(random_bytes(4));
+        $this->media = new \ConnectTalk\Media\MediaStore($this->mediaRoot);
         $this->crypto = new Crypto(str_repeat('k', 32));
         $this->http = new FakeHttpClient();
         $this->channelId = $this->db->insert('talk_channels', [
@@ -61,6 +65,7 @@ abstract class DbTestCase extends TestCase
             $hd ?? new NullHelpdesk(),
             new \ConnectTalk\Service\Texts(),
             new \ConnectTalk\Jack\Jack($this->db),
+            $this->media,
         );
     }
 
@@ -76,6 +81,13 @@ abstract class DbTestCase extends TestCase
         $id = (int) $this->inbound($text, $phone);
         $this->triage();
         return $id;
+    }
+
+    protected function tearDown(): void
+    {
+        if (isset($this->mediaRoot) && is_dir($this->mediaRoot)) {
+            exec('rm -rf ' . escapeshellarg($this->mediaRoot));
+        }
     }
 
     protected function gateways(): GatewayFactory

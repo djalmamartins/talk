@@ -48,6 +48,45 @@ final class CloudApiGateway implements WhatsAppGateway
         ], ['Authorization' => 'Bearer ' . $this->config['access_token']]);
     }
 
+    /** Sobe o arquivo para a Meta e envia pelo id (a mídia fica 30 dias lá). */
+    public function sendMedia(string $toPhone, string $type, string $filePath, string $mime, string $fileName, ?string $caption): SendResult
+    {
+        $auth = ['Authorization' => 'Bearer ' . $this->config['access_token']];
+        $up = $this->http->postFile($this->graph("{$this->config['phone_number_id']}/media"), ['messaging_product' => 'whatsapp', 'type' => $mime], 'file', $filePath, $mime, $fileName, $auth);
+        $mediaId = (json_decode($up['body'], true) ?: [])['id'] ?? null;
+        if ($up['status'] >= 300 || !$mediaId) {
+            throw new GatewayException("Cloud API: upload da mídia falhou (HTTP {$up['status']})");
+        }
+        $obj = ['id' => $mediaId];
+        if ($type !== 'audio' && $caption !== null && $caption !== '') {
+            $obj['caption'] = $caption;
+        }
+        if ($type === 'document') {
+            $obj['filename'] = $fileName;
+        }
+        return $this->send(['messaging_product' => 'whatsapp', 'to' => $toPhone, 'type' => $type, $type => $obj]);
+    }
+
+    public function downloadMedia(string $ref): array
+    {
+        $auth = ['Authorization' => 'Bearer ' . $this->config['access_token']];
+        $meta = $this->http->request('GET', $this->graph(rawurlencode($ref)), null, $auth);
+        $info = json_decode($meta['body'], true) ?: [];
+        if ($meta['status'] >= 300 || empty($info['url'])) {
+            throw new GatewayException("Cloud API: mídia indisponível (HTTP {$meta['status']})");
+        }
+        $file = $this->http->request('GET', (string) $info['url'], null, $auth);
+        if ($file['status'] >= 300 || $file['body'] === '') {
+            throw new GatewayException("Cloud API: download da mídia falhou (HTTP {$file['status']})");
+        }
+        return ['bytes' => $file['body'], 'mime' => $info['mime_type'] ?? null];
+    }
+
+    private function graph(string $path): string
+    {
+        return 'https://graph.facebook.com/' . ($this->config['api_version'] ?? 'v21.0') . '/' . $path;
+    }
+
     public function sendTemplate(string $toPhone, string $template, string $language, array $params, string $fallbackText): SendResult
     {
         $components = $params === [] ? [] : [[

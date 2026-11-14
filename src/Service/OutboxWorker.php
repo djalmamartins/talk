@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace ConnectTalk\Service;
 
 use ConnectTalk\Gateway\GatewayFactory;
+use ConnectTalk\Media\MediaStore;
 use ConnectTalk\Realtime\EventBus;
 use ConnectTalk\Support\Db;
 
@@ -15,7 +16,9 @@ final class OutboxWorker
 {
     public const MAX_ATTEMPTS = 5;
 
-    public function __construct(private Db $db, private GatewayFactory $gateways, private EventBus $events)
+    public const MEDIA_ATTEMPTS = 3;
+
+    public function __construct(private Db $db, private GatewayFactory $gateways, private EventBus $events, private ?MediaStore $media = null)
     {
     }
 
@@ -24,7 +27,7 @@ final class OutboxWorker
     {
         $jobs = $this->db->transaction(function () use ($limit) {
             $rows = $this->db->all(
-                "SELECT o.*, m.body, m.conversation_id FROM talk_outbox o JOIN talk_messages m ON m.id = o.message_id
+                "SELECT o.*, m.body, m.conversation_id, m.type, m.media_path, m.media_mime, m.media_name FROM talk_outbox o JOIN talk_messages m ON m.id = o.message_id
                  WHERE o.status = 'queued' AND o.next_attempt_at <= NOW()
                  ORDER BY o.id LIMIT " . (int) $limit . ' FOR UPDATE SKIP LOCKED'
             );
@@ -41,7 +44,11 @@ final class OutboxWorker
                 continue;
             }
             try {
-                $result = $this->gateways->forChannel((int) $job['channel_id'])->sendText($job['to_phone'], (string) $job['body']);
+                $gw = $this->gateways->forChannel((int) $job['channel_id']);
+                $result = $job['media_path'] !== null && $this->media !== null
+                    ? $gw->sendMedia($job['to_phone'], (string) $job['type'], $this->media->absolute((string) $job['media_path']),
+                        (string) $job['media_mime'], (string) $job['media_name'], $job['body'])
+                    : $gw->sendText($job['to_phone'], (string) $job['body']);
                 $this->db->run("UPDATE talk_outbox SET status = 'sent', last_error = NULL WHERE id = ?", [$job['id']]);
                 $this->db->run("UPDATE talk_messages SET ack = 'sent', provider_message_id = ? WHERE id = ?", [$result->providerMessageId, $job['message_id']]);
                 $this->ack((int) $job['conversation_id'], (int) $job['message_id'], 'sent');
@@ -62,6 +69,60 @@ final class OutboxWorker
             }
         }
         return $sent;
+    }
+
+    /**
+     * Baixa as mídias recebidas (imagem, áudio, PDF...) que ainda estão no WhatsApp.
+     * media_path: "pending:<n>:<ref>" (n = tentativas) → caminho no storage, ou "failed:<ref>" depois de 3 erros.
+     */
+    public function fetchMedia(int $limit = 10): int
+    {
+        if ($this->media === null) {
+            return 0;
+        }
+        $rows = $this->db->all(
+            "SELECT m.id, m.conversation_id, m.media_path, m.media_mime, m.type, m.body, c.channel_id, c.sector_id
+               FROM talk_messages m JOIN talk_conversations c ON c.id = m.conversation_id
+              WHERE m.direction = 'in' AND m.media_path LIKE 'pending:%' ORDER BY m.id LIMIT " . (int) $limit
+        );
+        $done = 0;
+        foreach ($rows as $r) {
+            [, $tries, $ref] = self::pending((string) $r['media_path']);
+            // reserva a linha: outro worker que pegar a mesma não faz nada
+            $claim = 'fetching:' . $ref;
+            if ($this->db->run('UPDATE talk_messages SET media_path = ? WHERE id = ? AND media_path = ?', [mb_substr($claim, 0, 255), $r['id'], $r['media_path']])->rowCount() !== 1) {
+                continue;
+            }
+            try {
+                $got = $this->gateways->forChannel((int) $r['channel_id'])->downloadMedia($ref);
+                $name = $r['type'] === 'document' ? $r['body'] : null; // documento: o nome do arquivo vem no corpo
+                $file = $this->media->save($got['bytes'], $got['mime'] ?? $r['media_mime'], $name);
+                $this->db->run('UPDATE talk_messages SET media_path = ?, media_mime = ?, media_name = ?, media_size = ? WHERE id = ?',
+                    [$file['path'], $file['mime'], $file['name'], $file['size'], $r['id']]);
+                $done++;
+                $status = 'ok';
+            } catch (\Throwable $e) {
+                error_log('[talk] mídia ' . $r['id'] . ': ' . $e->getMessage());
+                $next = $tries + 1 >= self::MEDIA_ATTEMPTS ? 'failed:' . $ref : 'pending:' . ($tries + 1) . ':' . $ref;
+                $this->db->run('UPDATE talk_messages SET media_path = ? WHERE id = ?', [mb_substr($next, 0, 255), $r['id']]);
+                $status = str_starts_with($next, 'failed:') ? 'failed' : 'retry';
+            }
+            if ($status !== 'retry') {
+                $this->events->publish('message.media', (int) $r['conversation_id'], $r['sector_id'] !== null ? (int) $r['sector_id'] : null, null,
+                    ['message_id' => (int) $r['id'], 'status' => $status]);
+            }
+        }
+        return $done;
+    }
+
+    /** "pending:<ref>" (como chega) ou "pending:<n>:<ref>" → [, tentativas, ref] */
+    private static function pending(string $path): array
+    {
+        $rest = substr($path, strlen('pending:'));
+        if (preg_match('/^(\d):(.+)$/s', $rest, $m)) {
+            return [null, (int) $m[1], $m[2]];
+        }
+        return [null, 0, $rest];
     }
 
     /**

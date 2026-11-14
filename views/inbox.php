@@ -50,7 +50,7 @@
       <label>Telefone<input id="sim-phone" value="5531999990001"></label>
       <label>Nome<input id="sim-name" value="Maria Silva"></label>
       <div id="sim-thread" class="sim-thread"></div>
-      <form id="sim-form"><input id="sim-text" placeholder="Mensagem do cliente…" autocomplete="off"><button>Enviar</button></form>
+      <form id="sim-form"><label class="attach" title="Cliente envia um arquivo"><input type="file" id="sim-file" hidden><svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"/></svg></label><input id="sim-text" placeholder="Mensagem do cliente…" autocomplete="off"><button>Enviar</button></form>
     </div>
     <?php endif ?>
   </aside>

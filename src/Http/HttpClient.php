@@ -13,4 +13,10 @@ interface HttpClient
      * @return array{status:int, body:string}
      */
     public function request(string $method, string $url, ?array $body = null, array $headers = []): array;
+
+    /**
+     * POST multipart/form-data com um arquivo (upload de mídia na API oficial).
+     * @return array{status:int, body:string}
+     */
+    public function postFile(string $url, array $fields, string $fileField, string $filePath, string $mime, string $fileName, array $headers = []): array;
 }

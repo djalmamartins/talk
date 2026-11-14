@@ -40,7 +40,8 @@ final class InboxQuery
         }
         $sql = 'SELECT c.id, c.protocol, c.status, c.sector_id, s.name AS sector_name, c.assigned_user_id, c.unread,
                        c.last_message_at, ct.name AS contact_name, ct.phone, ct.erp_person_id, ct.erp_snapshot,
-                       (SELECT body FROM talk_messages m WHERE m.conversation_id = c.id AND m.direction <> \'internal\' ORDER BY m.id DESC LIMIT 1) AS last_body
+                       (SELECT COALESCE(NULLIF(m.body, \'\'), CASE m.type WHEN \'image\' THEN \'📷 Foto\' WHEN \'audio\' THEN \'🎤 Áudio\' WHEN \'video\' THEN \'🎬 Vídeo\' WHEN \'document\' THEN \'📄 Documento\' END)
+                          FROM talk_messages m WHERE m.conversation_id = c.id AND m.direction <> \'internal\' ORDER BY m.id DESC LIMIT 1) AS last_body
                 FROM talk_conversations c
                 JOIN talk_contacts ct ON ct.id = c.contact_id
                 LEFT JOIN talk_sectors s ON s.id = c.sector_id
@@ -66,15 +67,41 @@ final class InboxQuery
             $params[] = (int) $conv['history_from_message_id'];
         }
         if ($beforeId) {
-            $extra = ' AND id < ?';
+            $extra .= ' AND id < ?'; // .= : não pode apagar o filtro de histórico acima
             $params[] = $beforeId;
         }
         $rows = $this->db->all(
-            'SELECT id, direction, author_user_id, type, body, media_path, media_mime, ack, created_at
+            'SELECT id, direction, author_user_id, type, body, media_path, media_mime, media_name, media_size, ack, created_at
              FROM talk_messages WHERE conversation_id = ?' . $extra . ' ORDER BY id DESC LIMIT ' . (int) $limit,
             $params
         );
         return array_reverse($rows);
+    }
+
+    /**
+     * Arquivo de uma mensagem, para download: mesma regra de quem vê a conversa (inclusive histórico oculto).
+     * @return array{media_path:string, media_mime:string, media_name:?string}
+     */
+    public function mediaFor(StaffMember $u, int $messageId): array
+    {
+        $m = $this->db->one('SELECT id, conversation_id, media_path, media_mime, media_name FROM talk_messages WHERE id = ?', [$messageId]);
+        if (!$m || $m['media_path'] === null) {
+            throw new DomainError('Arquivo não encontrado.', 404);
+        }
+        $visible = array_column($this->messagesAround($u, (int) $m['conversation_id'], $messageId), 'id');
+        if (!in_array((int) $m['id'], array_map('intval', $visible), true)) {
+            throw new DomainError('Sem acesso a este arquivo.', 403);
+        }
+        if (!str_starts_with((string) $m['media_path'], 'media/')) {
+            throw new DomainError(str_starts_with((string) $m['media_path'], 'failed:') ? 'Arquivo indisponível no WhatsApp.' : 'Arquivo ainda sendo baixado.', 404);
+        }
+        return $m;
+    }
+
+    /** A própria mensagem, se o usuário puder vê-la (reaproveita o filtro de messages()). */
+    private function messagesAround(StaffMember $u, int $convId, int $messageId): array
+    {
+        return $this->messages($u, $convId, $messageId + 1, 1);
     }
 
     /**

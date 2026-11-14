@@ -47,6 +47,10 @@ async function runSearch() {
 
 // ------------------------------------------------------------ conversa
 async function openConversation(id) {
+  // atualização em tempo real da mesma conversa: guarda o rascunho e o arquivo escolhido
+  const same = state.current == id && $('#reply');
+  const draft = same ? { text: $('#reply').value, focus: document.activeElement === $('#reply'), pos: $('#reply').selectionStart } : null;
+  if (!same) state.attach = null;
   state.current = id;
   document.querySelector('.layout').classList.add('has-chat');
   const { conversation: c, contact, messages, can_act } = await api(`/api/conversations/${id}`);
@@ -63,10 +67,15 @@ async function openConversation(id) {
     </div>
     <div class="msgs" id="msgs">${messages.map(renderMsg).join('')}</div>
     ${can_act && (c.status === 'open' || c.status === 'pending')
-      ? `<form class="composer" id="composer"><div class="reply-wrap"><ul id="quick-pick" class="quick-pick" hidden></ul><textarea id="reply" placeholder="Escreva a resposta… (/ para mensagens rápidas, Enter envia)"></textarea></div><button class="primary">Enviar</button></form>`
+      ? `<form class="composer" id="composer"><label class="attach" title="Enviar arquivo (imagem, áudio, vídeo, PDF, documento)"><input type="file" id="attach-input" hidden accept="image/jpeg,image/png,image/webp,audio/*,video/mp4,video/3gpp,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"><svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"/></svg></label><div class="reply-wrap"><div id="attach-chip" class="attach-chip" hidden></div><ul id="quick-pick" class="quick-pick" hidden></ul><textarea id="reply" placeholder="Escreva a resposta… (/ para mensagens rápidas, Enter envia)"></textarea></div><button class="primary">Enviar</button></form>`
       : `<div class="banner">${c.status === 'closed' ? 'Atendimento encerrado.' : c.status === 'bot' ? 'O cliente ainda está escolhendo o setor.' : 'Somente leitura.'}</div>`}`;
   const box = $('#msgs');
   box.scrollTop = box.scrollHeight;
+  if (draft && $('#reply')) {
+    $('#reply').value = draft.text;
+    if (draft.focus) { $('#reply').focus(); $('#reply').selectionStart = $('#reply').selectionEnd = draft.pos; }
+  }
+  if (state.attach && $('#reply')) { const f = state.attach; pickAttach(f, draft ? !draft.focus : true); }
   renderContact(contact, c);
   state.ctx = { nome: contact.name || '', protocolo: c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
   if (c.unread > 0 && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
@@ -80,7 +89,21 @@ function renderMsg(m) {
     return `<div class="sys-hint" title="Os termos que levaram à sugestão ficam no registro do supervisor">${esc(m.body)} · ${hhmm(m.created_at)}</div>`;
   }
   const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : '';
-  return `<div class="msg ${m.direction}">${m.direction === 'internal' ? who : ''}${label}${esc(m.body)}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
+  const media = renderMedia(m);
+  const text = media && m.type === 'document' && m.direction === 'in' ? '' : esc(m.body); // documento recebido: o corpo é o nome
+  return `<div class="msg ${m.direction}${media ? ' has-media' : ''}">${m.direction === 'internal' ? who : ''}${label}${media}${text}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
+}
+const kb = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+function renderMedia(m) {
+  if (!m.media_path) return '';
+  if (m.media_path.startsWith('failed:')) return '<div class="media-off">⚠ Arquivo indisponível no WhatsApp</div>';
+  if (!m.media_path.startsWith('media/')) return '<div class="media-off">⏳ Baixando arquivo…</div>';
+  const url = `/media/${m.id}`;
+  if (m.type === 'image') return `<a href="${url}" target="_blank" rel="noopener"><img class="media-img" src="${url}" alt="${esc(m.media_name || 'imagem')}" loading="lazy"></a>`;
+  if (m.type === 'audio') return `<audio class="media-audio" controls preload="none" src="${url}"></audio>`;
+  if (m.type === 'video') return `<video class="media-video" controls preload="metadata" src="${url}"></video>`;
+  const ext = (m.media_name || '').split('.').pop().toUpperCase().slice(0, 4) || 'ARQ';
+  return `<a class="media-doc" href="${url}" target="_blank" rel="noopener"><span>${esc(ext)}</span><b>${esc(m.media_name || 'arquivo')}</b><small>${m.media_size ? kb(m.media_size) : ''}</small></a>`;
 }
 
 function renderContact(contact, c) {
@@ -171,6 +194,7 @@ document.addEventListener('submit', async (e) => {
   if (e.target.id === 'composer') {
     e.preventDefault();
     const text = $('#reply').value.trim();
+    if (state.attach) return sendAttach(text);
     if (!text) return;
     $('#reply').value = '';
     try { await api(`/api/conversations/${state.current}/reply`, { method: 'POST', body: { text } }); await openConversation(state.current); }
@@ -189,6 +213,55 @@ document.addEventListener('submit', async (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.id === 'reply' && quickPickKey(e)) return;
   if (e.target.id === 'reply' && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
+});
+
+// ------------------------------------------------------------ arquivos
+const MAX_FILE = 16 * 1024 * 1024;
+function pickAttach(file, noFocus = false) {
+  if (!file) return;
+  if (file.size > MAX_FILE) { toast('Arquivo maior que 16 MB.'); return; }
+  state.attach = file;
+  const chip = $('#attach-chip');
+  chip.innerHTML = `📎 <b>${esc(file.name)}</b> <small>${kb(file.size)}</small> <button type="button" id="attach-clear" title="Remover">✕</button>`;
+  chip.hidden = false;
+  $('#reply').placeholder = file.type.startsWith('audio/') ? 'Áudio não leva legenda. Enter envia.' : 'Legenda (opcional). Enter envia o arquivo.';
+  if (!noFocus) $('#reply').focus();
+}
+function clearAttach() {
+  state.attach = null;
+  if ($('#attach-chip')) { $('#attach-chip').hidden = true; $('#attach-chip').innerHTML = ''; }
+  if ($('#attach-input')) $('#attach-input').value = '';
+  if ($('#reply')) $('#reply').placeholder = 'Escreva a resposta… (/ para mensagens rápidas, Enter envia)';
+}
+async function sendAttach(caption) {
+  const fd = new FormData();
+  fd.append('file', state.attach);
+  if (caption) fd.append('caption', caption);
+  const btn = $('#composer button.primary'); btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const res = await fetch(`/api/conversations/${state.current}/attach`, { method: 'POST', headers: { 'X-CSRF': csrf }, body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || (res.status === 413 ? 'Arquivo grande demais.' : 'Erro ao enviar o arquivo.'));
+    clearAttach(); $('#reply').value = '';
+    await openConversation(state.current);
+  } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Enviar'; }
+}
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'attach-input') pickAttach(e.target.files[0]);
+  if (e.target.id === 'sim-file' && e.target.files[0]) simSendFile(e.target.files[0]);
+});
+document.addEventListener('click', (e) => { if (e.target.id === 'attach-clear') clearAttach(); });
+// colar uma imagem (print) direto no campo de resposta
+document.addEventListener('paste', (e) => {
+  if (e.target.id !== 'reply') return;
+  const f = [...(e.clipboardData?.files || [])][0];
+  if (f) { e.preventDefault(); pickAttach(f); }
+});
+// arrastar um arquivo para a conversa
+document.addEventListener('dragover', (e) => { if (e.target.closest?.('#chat') && $('#composer')) e.preventDefault(); });
+document.addEventListener('drop', (e) => {
+  if (!e.target.closest?.('#chat') || !$('#composer')) return;
+  e.preventDefault(); pickAttach(e.dataTransfer.files[0]);
 });
 
 // ------------------------------------------------------------ mensagens rápidas
@@ -280,11 +353,19 @@ $('#quick-form').addEventListener('submit', async (e) => {
 $('#sector-filter').addEventListener('change', (e) => { state.sector = e.target.value; loadList(); });
 
 // ------------------------------------------------------------ simulador
+async function simSendFile(file) {
+  const fd = new FormData();
+  fd.append('file', file); fd.append('phone', $('#sim-phone').value); fd.append('name', $('#sim-name').value);
+  if ($('#sim-text').value.trim()) { fd.append('text', $('#sim-text').value.trim()); $('#sim-text').value = ''; }
+  const res = await fetch('/lab/simulate', { method: 'POST', headers: { 'X-CSRF': csrf }, body: fd });
+  if (!res.ok) toast((await res.json().catch(() => ({}))).error || 'Erro');
+  $('#sim-file').value = ''; loadSim();
+}
 async function loadSim() {
   if (!isLab) return;
   const { messages: rows, typing } = await api(`/lab/customer?phone=${encodeURIComponent($('#sim-phone').value)}`);
   const box = $('#sim-thread');
-  box.innerHTML = rows.map((m) => `<div class="msg ${m.direction}">${esc(m.body)}</div>`).join('')
+  box.innerHTML = rows.map((m) => `<div class="msg ${m.direction}">${renderMedia(m)}${m.type === 'document' && m.direction === 'in' ? '' : esc(m.body)}</div>`).join('')
     + (typing ? '<div class="msg out typing">digitando…</div>' : '');
   box.scrollTop = box.scrollHeight;
 }
@@ -312,7 +393,7 @@ function connect() {
   const es = new EventSource('/events');
   es.onopen = () => { $('#live').textContent = '● Online'; $('#live').classList.add('on'); };
   es.onerror = () => { $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
-  ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created', 'message.ack'].forEach((t) =>
+  ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created', 'message.ack', 'message.media'].forEach((t) =>
     es.addEventListener(t, (ev) => {
       const d = JSON.parse(ev.data);
       if (t === 'message.created' && d.direction === 'in' && document.hidden) document.title = '(nova) Connect Talk';

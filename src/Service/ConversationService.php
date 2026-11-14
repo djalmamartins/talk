@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace ConnectTalk\Service;
 
+use ConnectTalk\Media\MediaStore;
+
 use ConnectTalk\Contracts\ContactDirectory;
 use ConnectTalk\Contracts\Helpdesk;
 use ConnectTalk\Domain\InboundMessage;
@@ -29,6 +31,7 @@ class ConversationService
         private Helpdesk $helpdesk,
         private Texts $texts = new Texts(),
         private ?Jack $jack = null,
+        private ?MediaStore $media = null,
     ) {
     }
 
@@ -198,7 +201,7 @@ class ConversationService
                     return false; // outro processo já encaminhou
                 }
                 $texts = array_column($this->db->all(
-                    "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type = 'text' ORDER BY id",
+                    "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type IN ('text','image','video') AND body IS NOT NULL ORDER BY id", // legenda de foto/vídeo também conta
                     [$conv['id']]
                 ), 'body');
                 $d = $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
@@ -281,6 +284,41 @@ class ConversationService
             }
             $body = $signature ? "*{$signature}:*\n{$text}" : $text;
             return $this->queueOutbound($conv, $body, $u->userId);
+        });
+    }
+
+    /**
+     * Envia um arquivo ao cliente (imagem, áudio, vídeo, PDF, documento). A legenda vai assinada
+     * como as respostas; áudio não tem legenda no WhatsApp.
+     */
+    public function sendFile(int $convId, StaffMember $u, string $bytes, ?string $declaredMime, ?string $fileName, ?string $caption = null, ?string $signature = null): int
+    {
+        if ($this->media === null) {
+            throw new DomainError('Envio de arquivos não configurado.', 500);
+        }
+        $caption = trim((string) $caption);
+        if (mb_strlen($caption) > 1000) {
+            throw new DomainError('Legenda: até 1000 caracteres.');
+        }
+        // confere o acesso antes de gravar qualquer coisa
+        $this->authorize($u, $this->get($convId));
+        $file = $this->media->save($bytes, $declaredMime, $fileName);
+        return $this->db->transaction(function () use ($convId, $u, $file, $caption, $signature) {
+            $conv = $this->lock($convId);
+            $this->authorize($u, $conv);
+            if ($conv['status'] === 'closed' || $conv['status'] === 'bot') {
+                throw new DomainError('Conversa não está em atendimento.');
+            }
+            if ($conv['status'] === 'pending') {
+                $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ? WHERE id = ?", [$u->userId, $convId]);
+                $conv = $this->get($convId);
+                $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
+            }
+            $body = null;
+            if ($file['type'] !== 'audio') {
+                $body = $signature ? "*{$signature}:*" . ($caption !== '' ? "\n{$caption}" : '') : ($caption !== '' ? $caption : null);
+            }
+            return $this->queueOutbound($conv, (string) $body, $u->userId, $file['type'], 0, $file);
         });
     }
 
@@ -419,14 +457,19 @@ class ConversationService
     }
 
     /** Grava a mensagem de saída e coloca na fila de envio. */
-    public function queueOutbound(array $conv, string $text, ?int $userId, string $type = 'text', int $typingSeconds = 0): int
+    /** @param array{path:string, mime:string, name:string, size:int}|null $file */
+    public function queueOutbound(array $conv, string $text, ?int $userId, string $type = 'text', int $typingSeconds = 0, ?array $file = null): int
     {
         $msgId = $this->db->insert('talk_messages', [
             'conversation_id' => $conv['id'],
             'direction' => 'out',
             'author_user_id' => $userId,
             'type' => $type,
-            'body' => $text,
+            'body' => $file !== null && $text === '' ? null : $text,
+            'media_path' => $file['path'] ?? null,
+            'media_mime' => $file['mime'] ?? null,
+            'media_name' => $file['name'] ?? null,
+            'media_size' => $file['size'] ?? null,
             'ack' => 'pending',
         ]);
         $phone = $this->db->one('SELECT phone FROM talk_contacts WHERE id = ?', [$conv['contact_id']])['phone'];
@@ -438,7 +481,7 @@ class ConversationService
         ]);
         $this->db->run('UPDATE talk_conversations SET last_message_at = NOW() WHERE id = ?', [$conv['id']]);
         $this->events->publish('message.created', (int) $conv['id'], $this->sector($conv), $userId, [
-            'message_id' => $msgId, 'direction' => 'out', 'type' => 'text', 'body' => $text, 'ack' => 'pending',
+            'message_id' => $msgId, 'direction' => 'out', 'type' => $type, 'body' => $text, 'ack' => 'pending',
         ]);
         return $msgId;
     }

@@ -15,7 +15,7 @@ while (true) {
             $conversations->triage();
             $lastTriage = time();
         }
-        $sent = $worker->runOnce();
+        $sent = $worker->runOnce() + $worker->fetchMedia();
         if ($sent === 0) {
             usleep(500_000);
         }

@@ -30,6 +30,11 @@ $json = static function ($data, int $status = 200): never {
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 };
+// envio acima do post_max_size: o PHP descarta o corpo inteiro (sem $_POST/$_FILES); avisa em vez de "sessão expirada"
+if ($method === 'POST' && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
+    && str_starts_with((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data')) {
+    $json(['error' => 'Arquivo maior que 16 MB.'], 413);
+}
 $body = static fn (): array => json_decode((string) file_get_contents('php://input'), true) ?: $_POST;
 $user = static function () use ($app, $json) {
     if (empty($_SESSION['user_id'])) {
@@ -43,6 +48,20 @@ $csrf = static function () use ($json): void {
         $json(['error' => 'Sessão expirada, recarregue a página.'], 419);
     }
 };
+// arquivo enviado pelo formulário (campo "file"): [conteúdo, mime declarado, nome]
+$upload = static function () use ($json): array {
+    $f = $_FILES['file'] ?? null;
+    if (!$f || is_array($f['error'])) {
+        $json(['error' => 'Escolha um arquivo.'], 422);
+    }
+    if ($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE) {
+        $json(['error' => 'Arquivo maior que 16 MB.'], 422);
+    }
+    if ($f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) {
+        $json(['error' => 'Falha no envio do arquivo.'], 422);
+    }
+    return [(string) file_get_contents($f['tmp_name']), (string) $f['type'], (string) $f['name']];
+};
 $view = static function (string $name, array $vars = []): never {
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
@@ -55,6 +74,7 @@ if ($isLab) {
         try {
             $app['conversations']->triage();
             $app['worker']->runOnce();
+            $app['worker']->fetchMedia();
         } catch (\Throwable $e) {
             error_log('[talk] worker: ' . $e->getMessage());
         }
@@ -119,6 +139,27 @@ try {
         exit;
     }
 
+    // ---------------------------------------------------------------- arquivos (com conferência de acesso)
+    if (preg_match('#^/media/(\d+)$#', $path, $m)) {
+        $me = $user();
+        session_write_close();
+        $file = $app['inbox']->mediaFor($me, (int) $m[1]);
+        $abs = $app['media']->absolute((string) $file['media_path']);
+        $mime = (string) $file['media_mime'];
+        $inline = preg_match('#^(image/(jpeg|png|webp)|audio/|video/|application/pdf$)#', $mime) === 1;
+        $name = (string) ($file['media_name'] ?: basename($abs));
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($abs));
+        header('X-Content-Type-Options: nosniff');
+        if ($mime !== 'application/pdf') { // o leitor de PDF do navegador não abre com sandbox
+            header("Content-Security-Policy: default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+        }
+        header('Cache-Control: private, max-age=86400');
+        header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . addcslashes(preg_replace('/[^\x20-\x7E]/', '_', $name), '"\\') . "\"; filename*=UTF-8''" . rawurlencode($name));
+        readfile($abs);
+        exit;
+    }
+
     // ---------------------------------------------------------------- API
     if (str_starts_with($path, '/api/')) {
         $me = $user();
@@ -180,6 +221,10 @@ try {
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
                     $json($svc->accept($id, $me));
+                case 'attach':
+                    [$bytes, $mime, $fname] = $upload();
+                    $json(['message_id' => $svc->sendFile($id, $me, $bytes, $mime, $fname, isset($_POST['caption']) ? (string) $_POST['caption'] : null,
+                        ($_POST['sign'] ?? '1') !== '0' ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
                 case 'reply':
                     $json(['message_id' => $svc->reply($id, $me, (string) ($b['text'] ?? ''), ($b['sign'] ?? true) ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
                 case 'transfer':
@@ -210,19 +255,31 @@ try {
             $csrf();
             $b = $body();
             $text = trim((string) ($b['text'] ?? ''));
-            if ($text === '') {
+            $file = null;
+            if (!empty($_FILES['file'])) {
+                [$bytes, $mime, $fname] = $upload();
+                $file = $app['media']->save($bytes, $mime, $fname);
+            }
+            if ($text === '' && $file === null) {
                 $json(['error' => 'Escreva a mensagem.'], 422);
             }
             $channel = (int) $app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' ORDER BY id LIMIT 1")['id'];
+            $pid = 'SIM-' . bin2hex(random_bytes(8));
+            $type = $file['type'] ?? 'text';
             $id = $app['conversations']->handleInbound($channel, new InboundMessage(
-                'SIM-' . bin2hex(random_bytes(8)), (string) ($b['phone'] ?? '5531999990001'), 'text', $text, ($b['name'] ?? '') ?: null
+                $pid, (string) ($b['phone'] ?? '5531999990001'), $type,
+                $type === 'document' ? $file['name'] : ($text !== '' ? $text : null), ($b['name'] ?? '') ?: null
             ));
+            if ($file !== null) { // no laboratório o arquivo já está aqui: grava direto, sem "baixar do WhatsApp"
+                $app['db']->run('UPDATE talk_messages SET media_path = ?, media_mime = ?, media_name = ?, media_size = ? WHERE provider_message_id = ?',
+                    [$file['path'], $file['mime'], $file['name'], $file['size'], $pid]);
+            }
             $json(['conversation_id' => $id]);
         }
         if ($path === '/lab/customer') {
             $phone = preg_replace('/\D+/', '', (string) ($_GET['phone'] ?? ''));
             $rows = $app['db']->all(
-                "SELECT m.direction, m.body, m.ack, m.created_at, c.protocol FROM talk_messages m
+                "SELECT m.id, m.direction, m.type, m.body, m.media_path, m.media_name, m.ack, m.created_at, c.protocol FROM talk_messages m
                  JOIN talk_conversations c ON c.id = m.conversation_id JOIN talk_contacts ct ON ct.id = c.contact_id
                  WHERE ct.phone = ? AND m.direction <> 'internal' ORDER BY m.id DESC LIMIT 40",
                 [\ConnectTalk\Support\Phone::normalize($phone)]
