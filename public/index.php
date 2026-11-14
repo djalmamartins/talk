@@ -136,6 +136,12 @@ try {
             $sector = isset($_GET['sector']) && $_GET['sector'] !== '' ? (int) $_GET['sector'] : null;
             $json($app['inbox']->list($me, (string) ($_GET['tab'] ?? 'pending'), $sector));
         }
+        if ($path === '/api/jack/stats') {
+            if (!$me->supervisor && $me->managerSectors === []) {
+                $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
+            }
+            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+        }
         if ($path === '/api/search') {
             $json($app['inbox']->search($me, $_GET));
         }

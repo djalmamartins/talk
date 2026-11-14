@@ -8,6 +8,7 @@ use ConnectTalk\Contracts\Helpdesk;
 use ConnectTalk\Domain\InboundMessage;
 use ConnectTalk\Domain\StaffMember;
 use ConnectTalk\Domain\StatusUpdate;
+use ConnectTalk\Jack\Jack;
 use ConnectTalk\Realtime\EventBus;
 use ConnectTalk\Support\Db;
 use ConnectTalk\Support\Phone;
@@ -27,6 +28,7 @@ class ConversationService
         private ContactDirectory $directory,
         private Helpdesk $helpdesk,
         private Texts $texts = new Texts(),
+        private ?Jack $jack = null,
     ) {
     }
 
@@ -74,6 +76,14 @@ class ConversationService
                 'message_id' => $msgId, 'direction' => 'in', 'type' => $in->type, 'body' => $in->body,
             ]);
 
+            // Jack lê antes do menu; no modo automático, se tiver certeza, direciona em silêncio.
+            if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
+                $target = $this->jack->observe($conv, $msgId, (string) $in->body);
+                if ($target !== null) {
+                    $this->route($conv, $target, $contact, silent: true);
+                    return (int) $conv['id'];
+                }
+            }
             if ($conv['status'] === 'bot') {
                 $this->runMenu($conv, $in, $isNew, $contact);
             }
@@ -189,7 +199,7 @@ class ConversationService
         return count($hits) === 1 ? array_values($hits)[0] : null;
     }
 
-    private function route(array $conv, array $sector, array $contact): void
+    private function route(array $conv, array $sector, array $contact, bool $silent = false): void
     {
         $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending' WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
@@ -197,7 +207,10 @@ class ConversationService
         if ($ticketId !== null) {
             $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $conv['id']]);
         }
-        $this->queueOutbound($conv, $this->texts->routed($sector['name'], $conv['protocol']), null);
+        $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
+        if (!$silent) {
+            $this->queueOutbound($conv, $this->texts->routed($sector['name'], $conv['protocol']), null);
+        }
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
     }
 
@@ -269,6 +282,7 @@ class ConversationService
                 "UPDATE talk_conversations SET sector_id = ?, status = 'pending', assigned_user_id = NULL WHERE id = ?",
                 [$toSectorId, $convId]
             );
+            $this->jack?->settle($convId, $toSectorId);
             if ($conv['helpdesk_ticket_id']) {
                 $this->safeHelpdesk(fn () => $this->helpdesk->transfer((int) $conv['helpdesk_ticket_id'], $to['name'], $u->userId, $note));
             }

@@ -24,6 +24,8 @@ use ConnectTalk\Service\StaffRepository;
 use ConnectTalk\Service\WebhookHandler;
 use ConnectTalk\Support\Crypto;
 use ConnectTalk\Support\Db;
+use ConnectTalk\Jack\Classifier;
+use ConnectTalk\Jack\Jack;
 
 if (is_file(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -74,7 +76,8 @@ if ($env('ERP_API_URL')) {
     $directory = $env('TALK_CONTACT_SQL') ? new SqlContactDirectory($db, (string) $env('TALK_CONTACT_SQL')) : new NullContactDirectory();
     $helpdesk = new NullHelpdesk();
 }
-$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk);
+$jack = new Jack($db, new Classifier(), (string) $env('JACK_MODE', 'shadow'));
+$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack);
 $gateways = new GatewayFactory($db, $crypto, $http);
 
 return [
@@ -89,4 +92,5 @@ return [
     'worker' => new OutboxWorker($db, $gateways, $events),
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
+    'jack' => $jack,
 ];

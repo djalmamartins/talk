@@ -1,6 +1,6 @@
 # ADR 0004 — Jack (Jaqueline): primeiro atendimento automático e controlado
 
-- Status: **Proposta** (aguardando aprovação do Djalma)
+- Status: **Aceita** (aprovada pelo Djalma em 14/11/2026; J1 implementada em modo sombra)
 - Data: 14/11/2026
 
 ## Contexto

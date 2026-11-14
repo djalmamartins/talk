@@ -75,6 +75,9 @@ async function openConversation(id) {
 function renderMsg(m) {
   const who = m.author_user_id ? `<b>${esc(state.users[m.author_user_id] || '')}</b><br>` : '';
   const ack = m.direction === 'out' ? { pending: '🕓', sent: '✓', delivered: '✓✓', read: '✓✓ lido', failed: '⚠ falhou' }[m.ack] || '' : '';
+  if (m.type === 'jack') {
+    return `<div class="msg internal jack"><img src="/assets/jack/avatar-64.jpg" alt=""><div><b>Jack</b> <small>automático</small><br>${esc(m.body)}<time>${hhmm(m.created_at)}</time></div></div>`;
+  }
   const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : '';
   return `<div class="msg ${m.direction}">${m.direction === 'internal' ? who : ''}${label}${esc(m.body)}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
 }
@@ -124,7 +127,12 @@ $('#transfer-dialog').addEventListener('close', async () => {
   if ($('#transfer-dialog').returnValue !== 'ok') return;
   try {
     await api(`/api/conversations/${state.current}/transfer`, { method: 'POST', body: { sector_id: +$('#transfer-sector').value, note: $('#transfer-note').value } });
-    await openConversation(state.current); loadList();
+    loadList();
+    // quem transferiu pode ter perdido o acesso (outro setor): nesse caso só fecha a conversa
+    await openConversation(state.current).catch((err) => {
+      if (err.status !== 403) throw err;
+      state.current = null; $('#chat').innerHTML = '<div class="empty">Conversa transferida para outro setor.</div>'; $('#contact-panel').innerHTML = '';
+    });
   } catch (err) { toast(err.message); }
 });
 $('#close-dialog').addEventListener('close', async () => {

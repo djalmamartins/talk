@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] — 2026-11-14
+### Adicionado
+- Jack, fase J1 (ADR 0004): classificador por regras (Financeiro, boleto, Administrativo, cotação,
+  Manutenção), modo `JACK_MODE` off/shadow/auto (padrão shadow), nota interna com a sugestão e
+  avatar, registro em `talk_jack_decisions` e acertos em `GET /api/jack/stats` (supervisor e gerentes).
+- Telas de referência em `docs/referencias/` e plano em `docs/telas.md`; paleta verde e dourado.
+### Corrigido
+- Quem transfere para outro setor não vê mais o aviso "Sem acesso a esta conversa".
+
 ## [0.2.0] — 2026-11-14
 ### Adicionado
 - Aplicação web: login, caixa de entrada (Fila, Meus, Em atendimento, Encerrados), conversa,
