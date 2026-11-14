@@ -203,4 +203,57 @@ final class ConversationFlowTest extends DbTestCase
         $this->svc->close($id, $this->agent(10, 'Financeiro'));
         $this->assertSame('closed', $this->conv($id)['status']);
     }
+
+    private function staffUser(string $name, string $sector, string $role = 'agent'): int
+    {
+        $id = $this->db->insert('talk_users', ['name' => $name, 'email' => strtolower(strtok($name, ' ')) . '@t.lab', 'password_hash' => 'x']);
+        $this->db->insert('talk_staff', ['user_id' => $id, 'sector_id' => $this->sectors[$sector], 'role' => $role]);
+        return $id;
+    }
+
+    public function test_trocar_atendente_direto_para_uma_pessoa_do_setor(): void
+    {
+        $beto = $this->staffUser('Beto Reparos', 'Manutenção');
+        $id = $this->routed('preciso da segunda via do boleto');
+        $ana = $this->agent(10, 'Financeiro');
+        $this->svc->accept($id, $ana);
+        $this->svc->transfer($id, $ana, $this->sectors['Manutenção'], 'vazamento no 101', $beto);
+
+        $c = $this->conv($id);
+        $this->assertSame('open', $c['status']);
+        $this->assertSame($beto, (int) $c['assigned_user_id']);
+        $note = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND type = 'transfer'", [$id])['body'];
+        $this->assertStringContainsString('para Manutenção (Beto Reparos)', $note);
+        $this->assertStringContainsString('Motivo: vazamento no 101', $note);
+    }
+
+    public function test_nao_transfere_para_atendente_de_outro_setor_nem_motivo_longo(): void
+    {
+        $carla = $this->staffUser('Carla Contas', 'Financeiro');
+        $id = $this->routed('preciso da segunda via do boleto');
+        $sup = new StaffMember(1, true);
+        try {
+            $this->svc->transfer($id, $sup, $this->sectors['Manutenção'], null, $carla);
+            $this->fail('Carla não é da Manutenção');
+        } catch (DomainError $e) {
+            $this->assertStringContainsString('não faz parte do setor', $e->getMessage());
+        }
+        $this->expectExceptionMessage('até 500 caracteres');
+        $this->svc->transfer($id, $sup, $this->sectors['Manutenção'], str_repeat('a', 501));
+    }
+
+    public function test_sem_manter_historico_o_novo_atendente_ve_so_a_partir_da_transferencia(): void
+    {
+        $beto = $this->staffUser('Beto Reparos', 'Manutenção');
+        $id = $this->routed('preciso da segunda via do boleto, meu CPF é 123');
+        $sup = new StaffMember(1, true);
+        $this->svc->transfer($id, $sup, $this->sectors['Manutenção'], 'só o reparo', $beto, keepHistory: false);
+        $q = new \ConnectTalk\Service\InboxQuery($this->db, new \ConnectTalk\Service\AccessPolicy());
+
+        $doBeto = implode(' ', array_column($q->messages($this->agent($beto, 'Manutenção'), $id), 'body'));
+        $this->assertStringNotContainsString('CPF', $doBeto);
+        $this->assertStringContainsString('Transferido', $doBeto);
+        $doGerente = implode(' ', array_column($q->messages(new StaffMember(30, false, [], [$this->sectors['Manutenção']]), $id), 'body'));
+        $this->assertStringContainsString('CPF', $doGerente, 'gerente do setor vê tudo');
+    }
 }

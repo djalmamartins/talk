@@ -58,11 +58,23 @@
 </div>
 
 <dialog id="transfer-dialog">
-  <form method="dialog" id="transfer-form">
-    <h3>Transferir conversa</h3>
-    <label>Para o setor<select id="transfer-sector"></select></label>
-    <label>Nota interna (o cliente não vê)<textarea id="transfer-note" rows="3" placeholder="Ex.: morador relata vazamento no 101"></textarea></label>
-    <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Transferir</button></menu>
+  <form method="dialog" id="transfer-form" class="xfer">
+    <header><h3><svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>Trocar atendente</h3>
+      <p>Transfira este atendimento para outro setor ou atendente. O cliente será avisado da transferência.</p></header>
+    <fieldset>
+      <legend>Para onde deseja transferir?</legend>
+      <div class="xfer-row"><label class="radio"><input type="radio" name="xfer-mode" value="sector" checked> Transferir para um setor</label>
+        <select id="transfer-sector"></select></div>
+      <div class="xfer-row"><label class="radio"><input type="radio" name="xfer-mode" value="user"> Transferir para um atendente</label>
+        <select id="transfer-user" disabled><option value="">Selecione um atendente</option></select></div>
+    </fieldset>
+    <label class="xfer-note"><b>Relate o motivo da transferência</b>
+      <span>Descreva o motivo e as informações importantes para o próximo atendente.</span>
+      <textarea id="transfer-note" rows="4" maxlength="500" placeholder="Ex.: morador relata vazamento no teto da garagem, bloco A"></textarea>
+      <small id="transfer-count">0/500</small></label>
+    <label class="check"><input type="checkbox" id="transfer-history" checked> Manter histórico visível para o próximo atendente
+      <span>O novo atendente poderá ver todo o histórico da conversa.</span></label>
+    <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Transferir atendimento</button></menu>
   </form>
 </dialog>
 <dialog id="close-dialog">

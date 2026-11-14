@@ -285,32 +285,61 @@ class ConversationService
     }
 
     /** Transfere para outro setor com nota interna (o cliente não vê a nota). */
-    public function transfer(int $convId, StaffMember $u, int $toSectorId, ?string $note = null): array
+    /**
+     * Trocar atendente: para um setor (vai para a fila) ou direto para um atendente desse setor.
+     * $keepHistory = false: o novo atendente só vê a conversa a partir da transferência
+     * (supervisor e gerente do setor continuam vendo tudo).
+     */
+    public function transfer(int $convId, StaffMember $u, int $toSectorId, ?string $note = null, ?int $toUserId = null, bool $keepHistory = true): array
     {
-        return $this->db->transaction(function () use ($convId, $u, $toSectorId, $note) {
+        return $this->db->transaction(function () use ($convId, $u, $toSectorId, $note, $toUserId, $keepHistory) {
             $conv = $this->lock($convId);
             $this->authorize($u, $conv);
             if ($conv['status'] === 'closed') {
                 throw new DomainError('Conversa encerrada não pode ser transferida.');
             }
+            $note = $note !== null ? trim($note) : null;
+            if ($note !== null && mb_strlen($note) > 500) {
+                throw new DomainError('O motivo da transferência pode ter até 500 caracteres.');
+            }
             $to = $this->db->one('SELECT id, name FROM talk_sectors WHERE id = ? AND active = 1', [$toSectorId]);
             if (!$to) {
                 throw new DomainError('Setor de destino inválido.');
             }
+            $toUser = null;
+            if ($toUserId !== null) {
+                $toUser = $this->db->one(
+                    "SELECT u.id, u.name FROM talk_users u JOIN talk_staff s ON s.user_id = u.id
+                      WHERE u.id = ? AND u.active = 1 AND (s.sector_id = ? OR s.role = 'supervisor') LIMIT 1",
+                    [$toUserId, $toSectorId]
+                );
+                if (!$toUser) {
+                    throw new DomainError('Este atendente não faz parte do setor escolhido.');
+                }
+                if ((int) $toUser['id'] === (int) $conv['assigned_user_id'] && (int) $conv['sector_id'] === $toSectorId) {
+                    throw new DomainError('A conversa já está com este atendente.');
+                }
+            }
             $from = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
             $fromSector = $this->sector($conv);
 
-            $this->db->insert('talk_messages', [
+            $noteId = $this->db->insert('talk_messages', [
                 'conversation_id' => $convId,
                 'direction' => 'internal',
                 'author_user_id' => $u->userId,
                 'type' => 'transfer',
-                'body' => sprintf('Transferido de %s para %s.%s', $from['name'] ?? 'menu', $to['name'], $note ? "\nNota: " . trim($note) : ''),
+                'body' => sprintf(
+                    'Transferido de %s para %s%s.%s',
+                    $from['name'] ?? 'triagem',
+                    $to['name'],
+                    $toUser ? ' (' . $toUser['name'] . ')' : '',
+                    $note ? "\nMotivo: " . $note : ''
+                ),
                 'ack' => 'received',
             ]);
             $this->db->run(
-                "UPDATE talk_conversations SET sector_id = ?, status = 'pending', assigned_user_id = NULL WHERE id = ?",
-                [$toSectorId, $convId]
+                'UPDATE talk_conversations SET sector_id = ?, status = ?, assigned_user_id = ?, history_from_message_id = ? WHERE id = ?',
+                [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $convId]
             );
             $this->jack?->settle($convId, $toSectorId);
             if ($conv['helpdesk_ticket_id']) {

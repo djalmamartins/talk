@@ -137,6 +137,11 @@ try {
                     'agent_sectors' => $me->agentSectors, 'manager_sectors' => $me->managerSectors],
                 'sectors' => $app['db']->all('SELECT id, name, menu_key FROM talk_sectors WHERE active = 1 ORDER BY menu_key'),
                 'users' => $names,
+                // para "Trocar atendente": quem atende em cada setor
+                'staff' => $app['db']->all(
+                    "SELECT s.user_id, u.name, s.sector_id, s.role FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
+                      WHERE u.active = 1 ORDER BY u.name"
+                ),
             ]);
         }
         if ($path === '/api/conversations') {
@@ -168,7 +173,14 @@ try {
                 case 'reply':
                     $json(['message_id' => $svc->reply($id, $me, (string) ($b['text'] ?? ''), ($b['sign'] ?? true) ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
                 case 'transfer':
-                    $json($svc->transfer($id, $me, (int) ($b['sector_id'] ?? 0), $b['note'] ?? null));
+                    $json($svc->transfer(
+                        $id,
+                        $me,
+                        (int) ($b['sector_id'] ?? 0),
+                        isset($b['note']) ? (string) $b['note'] : null,
+                        !empty($b['user_id']) ? (int) $b['user_id'] : null,
+                        !isset($b['keep_history']) || (bool) $b['keep_history'],
+                    ));
                 case 'close':
                     $json($svc->close($id, $me, $b['resolution'] ?? null));
                 case 'notes':

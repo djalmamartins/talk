@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0] — 2026-11-14
+### Adicionado
+- `ROADMAP.md` até a v1.0 (sistema completo primeiro, Jack depois) e `docs/porte-atendechat.md`.
+- Trocar atendente no padrão da tela de referência: para um setor ou direto para um atendente do
+  setor, motivo de até 500 caracteres com contador e opção "manter histórico visível" (sem ela, o
+  novo atendente vê a conversa a partir da transferência; gerente e supervisor veem tudo).
+  Migration `005_transfer_history.sql`.
+
 ## [0.4.1] — 2026-11-14
 ### Alterado
 - Mensagens assinadas como *Jack:* (pedido do Djalma); na apresentação ela continua dizendo que se chama Jaqueline.

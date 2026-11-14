@@ -114,7 +114,10 @@ document.addEventListener('click', async (e) => {
     }
     if (act === 'transfer') {
       $('#transfer-sector').innerHTML = state.sectors.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
-      $('#transfer-note').value = '';
+      $('#transfer-note').value = ''; $('#transfer-count').textContent = '0/500';
+      $('#transfer-history').checked = true;
+      document.querySelector('input[name=xfer-mode][value=sector]').checked = true;
+      fillTransferUsers(); toggleTransferMode();
       $('#transfer-dialog').showModal();
       return;
     }
@@ -126,7 +129,11 @@ document.addEventListener('click', async (e) => {
 $('#transfer-dialog').addEventListener('close', async () => {
   if ($('#transfer-dialog').returnValue !== 'ok') return;
   try {
-    await api(`/api/conversations/${state.current}/transfer`, { method: 'POST', body: { sector_id: +$('#transfer-sector').value, note: $('#transfer-note').value } });
+    const toUser = document.querySelector('input[name=xfer-mode]:checked').value === 'user' ? +$('#transfer-user').value || null : null;
+    const opt = $('#transfer-user').selectedOptions[0];
+    const sectorId = toUser ? +opt.dataset.sector : +$('#transfer-sector').value;
+    await api(`/api/conversations/${state.current}/transfer`, { method: 'POST', body: {
+      sector_id: sectorId, user_id: toUser, note: $('#transfer-note').value, keep_history: $('#transfer-history').checked } });
     loadList();
     // quem transferiu pode ter perdido o acesso (outro setor): nesse caso só fecha a conversa
     await openConversation(state.current).catch((err) => {
@@ -135,6 +142,22 @@ $('#transfer-dialog').addEventListener('close', async () => {
     });
   } catch (err) { toast(err.message); }
 });
+// Trocar atendente: atendentes de todos os setores (menos eu), agrupados por setor
+function fillTransferUsers() {
+  const groups = state.sectors.map((s) => {
+    const people = state.staff.filter((p) => p.sector_id == s.id && p.user_id != state.me.id);
+    return people.length ? `<optgroup label="${esc(s.name)}">${people.map((p) => `<option value="${p.user_id}" data-sector="${s.id}">${esc(p.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  $('#transfer-user').innerHTML = '<option value="">Selecione um atendente</option>' + groups;
+}
+function toggleTransferMode() {
+  const user = document.querySelector('input[name=xfer-mode]:checked').value === 'user';
+  $('#transfer-user').disabled = !user; $('#transfer-sector').disabled = user;
+  $('#transfer-user').required = user;
+}
+document.querySelectorAll('input[name=xfer-mode]').forEach((r) => r.addEventListener('change', toggleTransferMode));
+$('#transfer-note').addEventListener('input', (e) => { $('#transfer-count').textContent = `${e.target.value.length}/500`; });
+
 $('#close-dialog').addEventListener('close', async () => {
   if ($('#close-dialog').returnValue !== 'ok') return;
   try {
@@ -212,7 +235,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
 // ------------------------------------------------------------ início
 (async function init() {
   const me = await api('/api/me');
-  Object.assign(state, { me: me.user, sectors: me.sectors, users: me.users });
+  Object.assign(state, { me: me.user, sectors: me.sectors, users: me.users, staff: me.staff || [] });
   $('#sector-filter').innerHTML += me.sectors.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   await loadList();
   loadSim();

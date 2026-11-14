@@ -59,6 +59,12 @@ final class InboxQuery
         }
         $params = [$convId];
         $extra = '';
+        // transferida sem "manter histórico": quem recebeu vê a partir da transferência
+        $sector = $conv['sector_id'] !== null ? (int) $conv['sector_id'] : null;
+        if ($conv['history_from_message_id'] && !$u->supervisor && !in_array($sector, $u->managerSectors, true)) {
+            $extra .= ' AND id >= ?';
+            $params[] = (int) $conv['history_from_message_id'];
+        }
         if ($beforeId) {
             $extra = ' AND id < ?';
             $params[] = $beforeId;
