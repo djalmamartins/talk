@@ -7,7 +7,8 @@
 </head>
 <body class="login-page">
 <form class="login-card" method="post" action="/login">
-  <h1>Connect <span>Talk</span></h1>
+  <img src="/assets/logo.svg" alt="Connect Condomínios" class="login-logo">
+  <h1>Talk</h1>
   <?php if ($error): ?><p class="error"><?= htmlspecialchars($error) ?></p><?php endif ?>
   <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
   <label>E-mail<input type="email" name="email" required autofocus></label>

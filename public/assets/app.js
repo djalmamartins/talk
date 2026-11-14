@@ -33,7 +33,7 @@ async function loadList() {
       <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
       <span class="last">${esc(c.last_body || '')}</span>
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
-  if (state.tab === 'pending') $('#badge-pending').textContent = rows.length || '';
+  if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; }
 }
 
 async function runSearch() {
@@ -194,7 +194,7 @@ function scheduleRefresh(convId) {
 }
 function connect() {
   const es = new EventSource('/events');
-  es.onopen = () => { $('#live').textContent = '● ao vivo'; $('#live').classList.add('on'); };
+  es.onopen = () => { $('#live').textContent = '● Online'; $('#live').classList.add('on'); };
   es.onerror = () => { $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
   ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created', 'message.ack'].forEach((t) =>
     es.addEventListener(t, (ev) => {
@@ -214,3 +214,5 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   loadSim();
   connect();
 })();
+
+$('#nav-search')?.addEventListener('click', (e) => { e.preventDefault(); $('#search').focus(); });

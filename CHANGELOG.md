@@ -5,6 +5,8 @@
 - Jaqueline se apresenta quando perguntam se é robô/IA e passa adiante o que está fora do escopo
   (textos aprovados em `Texts`).
 ### Alterado
+- Novo layout no padrão da tela de referência da Fila: menu lateral cinza, logo dourada da
+  Connect Condomínios (provisória, em SVG), cabeçalho da página e painéis em cartões; login escuro.
 - Sugestão da Jack aparece como uma linha discreta, sem foto nem selo "automático".
 
 ## [0.3.0] — 2026-11-14
