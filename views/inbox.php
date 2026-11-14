@@ -16,6 +16,7 @@
   </div>
   <a class="nav active" href="/"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H8l-4 4z"/></svg>Atendimentos <b id="badge-nav"></b></a>
   <a class="nav" href="#" id="nav-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar conversas</a>
+  <a class="nav" href="#" id="nav-quick"><svg viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>Mensagens rápidas</a>
   <form class="logout" method="post" action="/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button class="nav"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>Sair</button></form>
 </nav>
 <div class="page">
@@ -76,6 +77,22 @@
       <span>O novo atendente poderá ver todo o histórico da conversa.</span></label>
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Transferir atendimento</button></menu>
   </form>
+</dialog>
+<dialog id="quick-dialog">
+  <div class="quick">
+    <header><h3>Mensagens rápidas</h3>
+      <p>No campo de resposta, digite <b>/</b> e o atalho para inserir. Campos trocados na hora:
+        <code>{primeiro_nome}</code> <code>{nome}</code> <code>{protocolo}</code> <code>{setor}</code> <code>{atendente}</code>.</p></header>
+    <ul id="quick-list" class="quick-list"></ul>
+    <form id="quick-form" class="quick-form" hidden>
+      <input type="hidden" id="quick-id">
+      <div class="quick-row"><label>Atalho<input id="quick-shortcut" required maxlength="40" placeholder="bomdia"></label>
+        <label>Setor<select id="quick-sector"></select></label></div>
+      <label>Mensagem<textarea id="quick-body" rows="4" required maxlength="2000" placeholder="Bom dia, {primeiro_nome}! Em que posso ajudar?"></textarea></label>
+      <menu><button type="button" id="quick-cancel">Cancelar</button><button class="primary">Salvar</button></menu>
+    </form>
+    <menu id="quick-actions"><button type="button" id="quick-new" class="primary">Nova mensagem</button><button type="button" id="quick-close">Fechar</button></menu>
+  </div>
 </dialog>
 <dialog id="close-dialog">
   <form method="dialog">

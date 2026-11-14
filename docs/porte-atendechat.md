@@ -10,7 +10,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Queues (filas) | Setores Financeiro, Administrativo, Manutenção | feito (0.1.0); cadastro em S5 |
 | TicketNote | Notas internas | feito |
 | Transferência | Trocar atendente (setor ou atendente) | feito (0.5.0) |
-| QuickMessages | Mensagens rápidas | S1 |
+| QuickMessages | Mensagens rápidas: feito na 0.5.1, com mensagens por setor (no Atendechat eram por empresa/usuário) e campos {primeiro_nome}, {protocolo}, {setor}, {atendente} | S1 |
 | Envio de mídia | Arquivos na conversa | S1 |
 | Tags / TicketTag | Etiquetas | S1 |
 | Contacts | Contatos | S3 |

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1] — 2026-11-14
+### Adicionado
+- Mensagens rápidas: no campo de resposta, `/` abre a lista (filtra pelo atalho e pelo texto; setas,
+  Enter/Tab inserem, Esc fecha). Campos trocados na hora: `{primeiro_nome}`, `{nome}`, `{protocolo}`,
+  `{setor}`, `{atendente}`. Cadastro no menu lateral: supervisor cria gerais e de qualquer setor;
+  gerente cria só do seu setor; atendente só usa as gerais e as do seu setor.
+  API `GET/POST /api/quick-messages`, `POST /api/quick-messages/{id}` e `/{id}/delete`.
+  Migration `006_quick_messages.sql`; exemplos no seed do laboratório.
+
 ## [0.5.0] — 2026-11-14
 ### Adicionado
 - `ROADMAP.md` até a v1.0 (sistema completo primeiro, Jack depois) e `docs/porte-atendechat.md`.

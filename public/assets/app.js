@@ -63,11 +63,12 @@ async function openConversation(id) {
     </div>
     <div class="msgs" id="msgs">${messages.map(renderMsg).join('')}</div>
     ${can_act && (c.status === 'open' || c.status === 'pending')
-      ? `<form class="composer" id="composer"><textarea id="reply" placeholder="Escreva a resposta… (Enter envia, Shift+Enter quebra linha)"></textarea><button class="primary">Enviar</button></form>`
+      ? `<form class="composer" id="composer"><div class="reply-wrap"><ul id="quick-pick" class="quick-pick" hidden></ul><textarea id="reply" placeholder="Escreva a resposta… (/ para mensagens rápidas, Enter envia)"></textarea></div><button class="primary">Enviar</button></form>`
       : `<div class="banner">${c.status === 'closed' ? 'Atendimento encerrado.' : c.status === 'bot' ? 'O cliente ainda está escolhendo o setor.' : 'Somente leitura.'}</div>`}`;
   const box = $('#msgs');
   box.scrollTop = box.scrollHeight;
   renderContact(contact, c);
+  state.ctx = { nome: contact.name || '', protocolo: c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
   if (c.unread > 0 && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
   document.querySelectorAll('#conversations li').forEach((li) => li.classList.toggle('active', li.dataset.id == id));
 }
@@ -186,7 +187,95 @@ document.addEventListener('submit', async (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
+  if (e.target.id === 'reply' && quickPickKey(e)) return;
   if (e.target.id === 'reply' && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
+});
+
+// ------------------------------------------------------------ mensagens rápidas
+async function loadQuick() { state.quick = await api('/api/quick-messages'); return state.quick; }
+const fillQuick = (body) => {
+  const x = state.ctx || {};
+  const first = (x.nome || '').trim().split(' ')[0] || '';
+  return body.replace(/\{(primeiro_nome|nome|protocolo|setor|atendente)\}/g, (_, k) => (k === 'primeiro_nome' ? first : x[k] || ''))
+    .replace(/ +([,!.?])/g, '$1').replace(/  +/g, ' ');
+};
+// "/termo" no começo do campo ou depois de um espaço/linha
+const quickQuery = (ta) => { const m = ta.value.slice(0, ta.selectionStart).match(/(^|\s)\/([\w-]*)$/); return m ? m[2].toLowerCase() : null; };
+function renderQuickPick() {
+  const ta = $('#reply'); const pick = $('#quick-pick');
+  if (!ta || !pick) return;
+  const q = quickQuery(ta);
+  // atalho que começa com o termo primeiro, depois atalho que contém, depois o texto
+  const rank = (m) => (m.shortcut.startsWith(q) ? 0 : m.shortcut.includes(q) ? 1 : m.body.toLowerCase().includes(q) ? 2 : 9);
+  const items = q === null ? [] : (state.quick || []).filter((m) => rank(m) < 9).sort((a, b) => rank(a) - rank(b)).slice(0, 8);
+  pick.hidden = items.length === 0;
+  pick.innerHTML = items.map((m, i) => `<li data-id="${m.id}" class="${i === 0 ? 'sel' : ''}"><b>/${esc(m.shortcut)}</b><span>${esc(fillQuick(m.body))}</span></li>`).join('');
+}
+function useQuick(id) {
+  const m = (state.quick || []).find((x) => x.id == id); const ta = $('#reply');
+  if (!m || !ta) return;
+  const before = ta.value.slice(0, ta.selectionStart).replace(/\/[\w-]*$/, '');
+  const text = fillQuick(m.body);
+  ta.value = before + text + ta.value.slice(ta.selectionStart);
+  ta.selectionStart = ta.selectionEnd = before.length + text.length;
+  $('#quick-pick').hidden = true; ta.focus();
+}
+function quickPickKey(e) {
+  const pick = $('#quick-pick');
+  if (!pick || pick.hidden) return false;
+  const li = [...pick.children]; let i = li.findIndex((x) => x.classList.contains('sel'));
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); i = (i + (e.key === 'ArrowDown' ? 1 : li.length - 1)) % li.length;
+    li.forEach((x, j) => x.classList.toggle('sel', j === i)); li[i].scrollIntoView({ block: 'nearest' }); return true;
+  }
+  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); useQuick(li[Math.max(0, i)].dataset.id); return true; }
+  if (e.key === 'Escape') { e.preventDefault(); pick.hidden = true; return true; }
+  return false;
+}
+document.addEventListener('input', (e) => { if (e.target.id === 'reply') renderQuickPick(); });
+document.addEventListener('mousedown', (e) => { const li = e.target.closest('#quick-pick li'); if (li) { e.preventDefault(); useQuick(li.dataset.id); } });
+
+// cadastro (supervisor: gerais e de todos os setores; gerente: do seu setor)
+const canManageQuick = () => state.me.supervisor || (state.me.manager_sectors || []).length > 0;
+function renderQuickList() {
+  $('#quick-list').innerHTML = (state.quick || []).map((m) => `
+    <li><div><b>/${esc(m.shortcut)}</b> <small>${esc(m.sector_name || 'Todos os setores')}</small><p>${esc(m.body)}</p></div>
+    ${m.can_edit ? `<span><button type="button" data-qedit="${m.id}">Editar</button><button type="button" data-qdel="${m.id}">Excluir</button></span>` : ''}</li>`).join('')
+    || '<li class="empty">Nenhuma mensagem rápida ainda.</li>';
+  $('#quick-new').hidden = !canManageQuick();
+}
+function quickEdit(m) {
+  const opts = [];
+  if (state.me.supervisor) opts.push('<option value="">Todos os setores</option>');
+  state.sectors.filter((s) => state.me.supervisor || (state.me.manager_sectors || []).includes(Number(s.id)))
+    .forEach((s) => opts.push(`<option value="${s.id}">${esc(s.name)}</option>`));
+  $('#quick-sector').innerHTML = opts.join('');
+  $('#quick-id').value = m?.id || ''; $('#quick-shortcut').value = m?.shortcut || ''; $('#quick-body').value = m?.body || '';
+  $('#quick-sector').value = m?.sector_id ?? (state.me.supervisor ? '' : $('#quick-sector').value);
+  $('#quick-form').hidden = false; $('#quick-actions').hidden = true; $('#quick-shortcut').focus();
+}
+const quickFormClose = () => { $('#quick-form').hidden = true; $('#quick-actions').hidden = false; };
+$('#nav-quick')?.addEventListener('click', async (e) => {
+  e.preventDefault(); await loadQuick(); renderQuickList(); quickFormClose(); $('#quick-dialog').showModal();
+});
+$('#quick-new').addEventListener('click', () => quickEdit(null));
+$('#quick-cancel').addEventListener('click', quickFormClose);
+$('#quick-close').addEventListener('click', () => $('#quick-dialog').close());
+$('#quick-list').addEventListener('click', async (e) => {
+  const ed = e.target.dataset.qedit; const del = e.target.dataset.qdel;
+  if (ed) quickEdit(state.quick.find((m) => m.id == ed));
+  if (del && confirm('Excluir esta mensagem rápida?')) {
+    try { await api(`/api/quick-messages/${del}/delete`, { method: 'POST' }); await loadQuick(); renderQuickList(); } catch (err) { toast(err.message); }
+  }
+});
+$('#quick-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#quick-id').value;
+  try {
+    await api(id ? `/api/quick-messages/${id}` : '/api/quick-messages', { method: 'POST',
+      body: { shortcut: $('#quick-shortcut').value, body: $('#quick-body').value, sector_id: $('#quick-sector').value } });
+    await loadQuick(); renderQuickList(); quickFormClose();
+  } catch (err) { toast(err.message); }
 });
 $('#sector-filter').addEventListener('change', (e) => { state.sector = e.target.value; loadList(); });
 
@@ -238,6 +327,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   Object.assign(state, { me: me.user, sectors: me.sectors, users: me.users, staff: me.staff || [] });
   $('#sector-filter').innerHTML += me.sectors.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   await loadList();
+  loadQuick().catch(() => {});
   loadSim();
   connect();
 })();

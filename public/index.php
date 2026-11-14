@@ -154,6 +154,16 @@ try {
             }
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
         }
+        if ($path === '/api/quick-messages') {
+            $json($method === 'POST' ? $app['quick']->save($me, $body()) : $app['quick']->available($me));
+        }
+        if (preg_match('#^/api/quick-messages/(\d+)(/delete)?$#', $path, $m) && $method === 'POST') {
+            if (!empty($m[2])) {
+                $app['quick']->delete($me, (int) $m[1]);
+                $json(['ok' => true]);
+            }
+            $json($app['quick']->save($me, $body(), (int) $m[1]));
+        }
         if ($path === '/api/search') {
             $json($app['inbox']->search($me, $_GET));
         }

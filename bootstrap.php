@@ -100,4 +100,5 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'quick' => new \ConnectTalk\Service\QuickMessages($db),
 ];

@@ -41,4 +41,14 @@ foreach ($users as [$id, $name, $email, $role, $sector]) {
         $db->insert('talk_staff', ['user_id' => $id, 'sector_id' => $sid, 'role' => $role]);
     }
 }
+$quick = [
+    ['bomdia', 'Bom dia, {primeiro_nome}! Aqui é {atendente}, da Connect. Como posso te ajudar?', null],
+    ['protocolo', 'O protocolo do seu atendimento é *{protocolo}*. Guarde para acompanhar.', null],
+    ['encerrar', 'Posso ajudar em mais alguma coisa, {primeiro_nome}? Se não, vou encerrar por aqui. Obrigado!', null],
+    ['boleto-app', 'Você também pode pegar a 2ª via no aplicativo do morador, em *Financeiro > Boletos*.', 'Financeiro'],
+    ['visita', 'Certo, {primeiro_nome}! Vamos agendar a visita da equipe de Manutenção e te avisamos o horário.', 'Manutenção'],
+];
+foreach ($quick as [$sc, $bodyText, $sector]) {
+    $db->run('INSERT IGNORE INTO talk_quick_messages (shortcut, body, sector_id, created_by) VALUES (?, ?, ?, 1)', [$sc, $bodyText, $sector ? $ids[$sector] : null]);
+}
 echo "seed de laboratório ok (senha: $pass)\n";
