@@ -12,7 +12,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | TicketNote | Notas internas | feito |
 | Transferência | Trocar atendente (setor ou atendente) | feito (0.5.0) |
 | QuickMessages | Mensagens rápidas: feito na 0.5.1, com mensagens por setor (no Atendechat eram por empresa/usuário) e campos {primeiro_nome}, {protocolo}, {setor}, {atendente} | S1 |
-| Envio de mídia | Arquivos na conversa | S1 |
+| Envio de mídia | Arquivos na conversa: feito (0.6.0), ver linha "Mídia" acima | S1 |
 | Tags / TicketTag | Etiquetas: feito (0.7.0), no contato (não no ticket), para seguir a pessoa em todas as conversas; filtro na lista | S1 |
 | ContactNotes (painel do contato) | Painel com dados do ERP, últimos chamados e notas do contato: feito (0.7.0) | S1 |
 | Contacts | Contatos | S3 |
