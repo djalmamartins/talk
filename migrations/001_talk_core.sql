@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS talk_contacts (
 -- Sequência diária para protocolo AAAAMMDD-NNNNN
 CREATE TABLE IF NOT EXISTS talk_protocol_seq (
   day DATE PRIMARY KEY,
-  last_value INT UNSIGNED NOT NULL
+  `last_value` INT UNSIGNED NOT NULL
 ) ENGINE=InnoDB;
 
 -- Conversa = atendimento = chamado (protocolo)

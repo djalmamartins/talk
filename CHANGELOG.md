@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2] — 2026-11-14
+### Corrigido
+- Compatível com MySQL 8 (o banco do XAMPP do Mac): `last_value` é palavra reservada no MySQL 8 e
+  derrubava a criação das tabelas. Testes passam em MariaDB 11.4 e MySQL 8.0.
+- `bin/migrate.php` roda comando por comando, mostra o erro e recria tabelas que faltam mesmo se a
+  migration já constar como aplicada.
+
 ## [0.3.1] — 2026-11-14
 ### Adicionado
 - Jaqueline se apresenta quando perguntam se é robô/IA e passa adiante o que está fora do escopo

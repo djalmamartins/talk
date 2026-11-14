@@ -162,10 +162,10 @@ class ConversationService
     {
         $day = date('Y-m-d');
         $this->db->run(
-            'INSERT INTO talk_protocol_seq (day, last_value) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_value = last_value + 1',
+            'INSERT INTO talk_protocol_seq (day, `last_value`) VALUES (?, 1) ON DUPLICATE KEY UPDATE `last_value` = `last_value` + 1',
             [$day]
         );
-        $n = (int) $this->db->one('SELECT last_value FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
+        $n = (int) $this->db->one('SELECT `last_value` FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
         return date('Ymd') . '-' . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
     }
 
