@@ -1,0 +1,23 @@
+{
+  "name": "connect/talk",
+  "description": "Connect Talk — núcleo de atendimento WhatsApp para o ERP (PHP + MariaDB)",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-curl": "*",
+    "ext-sodium": "*",
+    "ext-json": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.5"
+  },
+  "autoload": { "psr-4": { "ConnectTalk\\": "src/" } },
+  "autoload-dev": { "psr-4": { "ConnectTalk\\Tests\\": "tests/" } },
+  "scripts": {
+    "test": "phpunit",
+    "lint": "find src public bin tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+  },
+  "config": { "sort-packages": true }
+}

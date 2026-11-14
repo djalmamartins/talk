@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+// Worker de envio. Uso: php bin/talk-worker  (rodar sob supervisor/Docker com restart)
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+$app = require __DIR__ . '/../bootstrap.php';
+
+$worker = $app['worker'];
+fwrite(STDOUT, "[talk-worker] iniciado\n");
+while (true) {
+    try {
+        $sent = $worker->runOnce();
+        if ($sent === 0) {
+            usleep(500_000);
+        }
+    } catch (\Throwable $e) {
+        fwrite(STDERR, '[talk-worker] erro: ' . $e->getMessage() . "\n");
+        sleep(2);
+    }
+}

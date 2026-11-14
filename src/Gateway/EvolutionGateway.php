@@ -1,0 +1,99 @@
+<?php
+declare(strict_types=1);
+
+namespace ConnectTalk\Gateway;
+
+use ConnectTalk\Domain\InboundMessage;
+use ConnectTalk\Domain\SendResult;
+use ConnectTalk\Domain\StatusUpdate;
+use ConnectTalk\Http\HttpClient;
+
+/**
+ * Canal por QR Code via Evolution API (v2), que roda em um container ao lado.
+ * config: base_url, instance, api_key, webhook_secret
+ */
+final class EvolutionGateway implements WhatsAppGateway
+{
+    public function __construct(private array $config, private HttpClient $http)
+    {
+    }
+
+    private function url(string $action): string
+    {
+        return rtrim((string) $this->config['base_url'], '/') . "/message/{$action}/" . rawurlencode((string) $this->config['instance']);
+    }
+
+    public function sendText(string $toPhone, string $text): SendResult
+    {
+        $r = $this->http->postJson($this->url('sendText'), ['number' => $toPhone, 'text' => $text], ['apikey' => (string) $this->config['api_key']]);
+        $data = json_decode($r['body'], true) ?: [];
+        $id = $data['key']['id'] ?? null;
+        if ($r['status'] >= 300 || !$id) {
+            throw new GatewayException('Evolution: ' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$r['status']}"));
+        }
+        return new SendResult((string) $id);
+    }
+
+    public function sendTemplate(string $toPhone, string $template, string $language, array $params, string $fallbackText): SendResult
+    {
+        // QR Code não tem modelos: envia o texto já montado
+        return $this->sendText($toPhone, $fallbackText);
+    }
+
+    /** A Evolution não assina o corpo: usamos um segredo na URL/cabeçalho do webhook. */
+    public function verifyWebhook(string $rawBody, array $headers): bool
+    {
+        $headers = array_change_key_case($headers, CASE_LOWER);
+        $given = (string) ($headers['x-talk-secret'] ?? '');
+        return $given !== '' && hash_equals((string) $this->config['webhook_secret'], $given);
+    }
+
+    public function parseWebhook(string $rawBody): array
+    {
+        $data = json_decode($rawBody, true) ?: [];
+        $event = strtolower(str_replace('_', '.', (string) ($data['event'] ?? '')));
+        $items = $data['data'] ?? [];
+        if (isset($items['key']) || isset($items['keyId'])) {
+            $items = [$items];
+        }
+        $out = [];
+        foreach ($items as $d) {
+            if ($event === 'messages.upsert') {
+                $key = $d['key'] ?? [];
+                $jid = (string) ($key['remoteJid'] ?? '');
+                if (($key['fromMe'] ?? false) || str_ends_with($jid, '@g.us') || $jid === 'status@broadcast') {
+                    continue; // ignora enviadas por nós, grupos e status
+                }
+                $msg = $d['message'] ?? [];
+                [$type, $body, $mime] = match (true) {
+                    isset($msg['conversation']) => ['text', $msg['conversation'], null],
+                    isset($msg['extendedTextMessage']) => ['text', $msg['extendedTextMessage']['text'] ?? null, null],
+                    isset($msg['imageMessage']) => ['image', $msg['imageMessage']['caption'] ?? null, $msg['imageMessage']['mimetype'] ?? null],
+                    isset($msg['audioMessage']) => ['audio', null, $msg['audioMessage']['mimetype'] ?? null],
+                    isset($msg['videoMessage']) => ['video', $msg['videoMessage']['caption'] ?? null, $msg['videoMessage']['mimetype'] ?? null],
+                    isset($msg['documentMessage']) => ['document', $msg['documentMessage']['fileName'] ?? null, $msg['documentMessage']['mimetype'] ?? null],
+                    isset($msg['locationMessage']) => ['location', ($msg['locationMessage']['degreesLatitude'] ?? '') . ',' . ($msg['locationMessage']['degreesLongitude'] ?? ''), null],
+                    default => ['other', null, null],
+                };
+                $out[] = new InboundMessage(
+                    providerMessageId: (string) $key['id'],
+                    fromPhone: explode('@', $jid)[0],
+                    type: $type,
+                    body: $body,
+                    contactName: $d['pushName'] ?? null,
+                    mediaRef: in_array($type, ['image', 'audio', 'video', 'document'], true) ? (string) $key['id'] : null,
+                    mediaMime: $mime,
+                );
+            } elseif ($event === 'messages.update') {
+                $id = $d['keyId'] ?? $d['key']['id'] ?? null;
+                $ack = match (strtoupper((string) ($d['status'] ?? ''))) {
+                    'SERVER_ACK' => 'sent', 'DELIVERY_ACK' => 'delivered', 'READ', 'PLAYED' => 'read', 'ERROR' => 'failed', default => null,
+                };
+                if ($id && $ack) {
+                    $out[] = new StatusUpdate((string) $id, $ack);
+                }
+            }
+        }
+        return $out;
+    }
+}
