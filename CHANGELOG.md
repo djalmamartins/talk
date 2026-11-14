@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.8.0] — 2026-11-14
+### Adicionado
+- Tela **Fila de atendimento** (`/fila`, no menu lateral), no padrão da tela de referência:
+  - em espera, tempo médio de espera (de quem está na fila agora), atendimentos de hoje e taxa de
+    resolução (encerradas das conversas de hoje);
+  - tabela por ordem de chegada com posição, contato, etiquetas, setor, protocolo e assunto, tempo de
+    espera correndo ao vivo (amarelo a partir de 15 min, vermelho a partir de 30; `QUEUE_WARN_MINUTES`
+    e `QUEUE_LATE_MINUTES`), prioridade e "Atender" (aceita e abre a conversa);
+  - abas por setor, busca, ordenação por mais antigo, prioridade ou mais recente; menu ⋮ para mudar a
+    prioridade (alta, normal, baixa);
+  - distribuição da fila por setor (rosca), atendentes online, atendendo ou offline, e maior, médio e
+    menor tempo de espera.
+- Cada setor só vê a própria fila e os próprios números; o supervisor vê tudo.
+- Presença: o atendente com a tela aberta aparece online (conexão de tempo real do último minuto).
+- A espera conta a partir da entrada no setor: transferir para outro setor recomeça a contagem.
+- Migration `009_queue.sql` (`queued_at`, `accepted_at`, `priority`, `last_seen_at`).
+- Links `/?c=ID` abrem a conversa direto (usado pela fila e pelo chamado no ERP).
+
 ## [0.7.0] — 2026-11-14
 ### Adicionado
 - Etiquetas (ex.: Síndico, Inadimplente, 2ª via, Obra), com cor. Ficam no **contato**: seguem a pessoa

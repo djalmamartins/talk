@@ -20,6 +20,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Users / UserQueue | Atendentes e setores | S5 |
 | Schedules | Agendamento de mensagens | S6 |
 | Campaigns / ContactLists | Envio em massa (API oficial) | S6 |
+| Tickets (aba "pendentes") + tela de referência | Fila de atendimento com indicadores, prioridade e atendentes online: feito (0.8.0). No Atendechat não existe tela própria; seguimos a tela de referência | S2 |
 | Dashboard | Painel e relatórios | S7 |
 | UserRating | Avaliação pós-atendimento | S7 |
 | Settings (horário) | Horário de atendimento | S8 |

@@ -34,7 +34,7 @@ async function loadList() {
       <span class="last">${esc(c.last_body || '')}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
-  if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; }
+  if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; if ($('#badge-queue')) $('#badge-queue').textContent = rows.length || ''; }
 }
 
 async function runSearch() {
@@ -518,6 +518,14 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   if (!(me.user.supervisor || (me.user.manager_sectors || []).length)) $('#nav-tags')?.remove();
   await loadList();
   loadQuick().catch(() => {});
+  // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('c')) openConversation(Number(qs.get('c'))).catch((err) => toast(err.message));
+  const abrir = qs.get('abrir');
+  if (abrir === 'mensagens') $('#nav-quick')?.click();
+  if (abrir === 'etiquetas') $('#nav-tags')?.click();
+  if (abrir === 'busca') $('#search').focus();
+  if (qs.toString()) history.replaceState(null, '', '/');
   loadSim();
   connect();
 })();

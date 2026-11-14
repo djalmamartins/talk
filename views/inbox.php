@@ -8,18 +8,7 @@
 </head>
 <body data-lab="<?= $isLab ? '1' : '0' ?>">
 <div class="shell">
-<nav class="sidebar" aria-label="Navegação">
-  <img class="logo" src="/assets/logo.svg" alt="Connect Condomínios">
-  <div class="profile">
-    <span class="avatar"><?= htmlspecialchars(mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice(preg_split('/\s+/', trim(preg_replace('/\(.*\)/', '', $userName))), 0, 2))))) ?></span>
-    <div><b><?= htmlspecialchars($userName) ?></b><span class="live" id="live" title="Tempo real">● conectando</span></div>
-  </div>
-  <a class="nav active" href="/"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H8l-4 4z"/></svg>Atendimentos <b id="badge-nav"></b></a>
-  <a class="nav" href="#" id="nav-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar conversas</a>
-  <a class="nav" href="#" id="nav-quick"><svg viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>Mensagens rápidas</a>
-  <a class="nav" href="#" id="nav-tags"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>Etiquetas</a>
-  <form class="logout" method="post" action="/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button class="nav"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>Sair</button></form>
-</nav>
+<?php $active = 'inbox'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
 <header class="page-head">
   <div><h1>Atendimentos</h1><p>Acompanhe a fila e responda os clientes pelo WhatsApp.</p></div>

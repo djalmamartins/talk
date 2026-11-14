@@ -237,7 +237,7 @@ class ConversationService
     /** Coloca a conversa na fila do setor e abre o chamado. Não manda nada para o cliente. */
     private function route(array $conv, array $sector, array $contact): void
     {
-        $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending' WHERE id = ?", [$sector['id'], $conv['id']]);
+        $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending', queued_at = NOW() WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
         $ticketId = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sector['name']));
         if ($ticketId !== null) {
@@ -257,9 +257,28 @@ class ConversationService
             if ($conv['status'] !== 'pending') {
                 throw new DomainError('Esta conversa já foi aceita por outra pessoa.');
             }
-            $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, unread = 0 WHERE id = ?", [$u->userId, $convId]);
+            $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, unread = 0, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
             $conv = $this->get($convId);
             $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
+            return $conv;
+        });
+    }
+
+    /** Prioridade na fila (alta passa na frente na ordenação "Prioridade"). */
+    public function setPriority(int $convId, StaffMember $u, string $priority): array
+    {
+        if (!in_array($priority, ['low', 'normal', 'high'], true)) {
+            throw new DomainError('Prioridade inválida.');
+        }
+        return $this->db->transaction(function () use ($convId, $u, $priority) {
+            $conv = $this->lock($convId);
+            $this->authorize($u, $conv);
+            if ($conv['status'] === 'closed') {
+                throw new DomainError('Conversa encerrada.');
+            }
+            $this->db->run('UPDATE talk_conversations SET priority = ? WHERE id = ?', [$priority, $convId]);
+            $conv = $this->get($convId);
+            $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv) + ['priority' => $priority]);
             return $conv;
         });
     }
@@ -278,7 +297,7 @@ class ConversationService
                 throw new DomainError('Conversa não está em atendimento.');
             }
             if ($conv['status'] === 'pending') {
-                $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ? WHERE id = ?", [$u->userId, $convId]);
+                $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
                 $conv = $this->get($convId);
                 $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
             }
@@ -310,7 +329,7 @@ class ConversationService
                 throw new DomainError('Conversa não está em atendimento.');
             }
             if ($conv['status'] === 'pending') {
-                $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ? WHERE id = ?", [$u->userId, $convId]);
+                $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
                 $conv = $this->get($convId);
                 $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
             }
@@ -376,8 +395,9 @@ class ConversationService
                 'ack' => 'received',
             ]);
             $this->db->run(
-                'UPDATE talk_conversations SET sector_id = ?, status = ?, assigned_user_id = ?, history_from_message_id = ? WHERE id = ?',
-                [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $convId]
+                'UPDATE talk_conversations SET sector_id = ?, status = ?, assigned_user_id = ?, history_from_message_id = ?,
+                        queued_at = IF(? = \'pending\', NOW(), queued_at) WHERE id = ?',
+                [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
             );
             $this->jack?->settle($convId, $toSectorId);
             if ($conv['helpdesk_ticket_id']) {

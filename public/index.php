@@ -126,11 +126,19 @@ try {
         }
         $view('inbox', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/fila') {
+        if (empty($_SESSION['user_id'])) {
+            header('Location: /login');
+            exit;
+        }
+        $view('queue', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
 
     // ---------------------------------------------------------------- tempo real
     if ($path === '/events') {
         $me = $user();
         session_write_close(); // não travar a sessão enquanto o stream está aberto
+        $app['queue']->touch($me->userId); // presença: conectado = online (o stream reconecta a cada ~25 s)
         $last = (int) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? $_GET['last'] ?? 0);
         if ($last === 0) {
             $last = (int) ($app['db']->one('SELECT COALESCE(MAX(id),0) m FROM talk_events')['m']);
@@ -196,6 +204,9 @@ try {
             }
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
         }
+        if ($path === '/api/queue') {
+            $json($app['queue']->overview($me));
+        }
         if ($path === '/api/tags') {
             $json($method === 'POST' ? $app['contacts']->saveTag($me, $body()) : $app['contacts']->tags());
         }
@@ -236,6 +247,8 @@ try {
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
                     $json($svc->accept($id, $me));
+                case 'priority':
+                    $json($svc->setPriority($id, $me, (string) ($b['priority'] ?? '')));
                 case 'panel':
                     $json($app['contacts']->panel($me, $id));
                 case 'tags':
