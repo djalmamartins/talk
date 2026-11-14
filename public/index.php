@@ -53,6 +53,7 @@ $view = static function (string $name, array $vars = []): never {
 if ($isLab) {
     register_shutdown_function(static function () use ($app): void {
         try {
+            $app['conversations']->triage();
             $app['worker']->runOnce();
         } catch (\Throwable $e) {
             error_log('[talk] worker: ' . $e->getMessage());

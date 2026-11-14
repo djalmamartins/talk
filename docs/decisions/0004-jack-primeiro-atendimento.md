@@ -1,6 +1,6 @@
 # ADR 0004 — Jack (Jaqueline): primeiro atendimento automático e controlado
 
-- Status: **Aceita** (aprovada pelo Djalma em 14/11/2026; J1 implementada em modo sombra)
+- Status: **Aceita** (aprovada pelo Djalma em 14/11/2026; triagem sem menu desde a 0.4.0)
 - Data: 14/11/2026
 
 ## Contexto
@@ -118,3 +118,19 @@ confiança. Ele não escreve respostas; o texto continua vindo dos modelos aprov
   alguma dúvida, eles podem esclarecer." e passa a conversa (Administrativo quando ainda não tem
   setor; se já tem, cita o setor atual). Opção do menu ou assunto claro seguem o fluxo normal.
 - Funciona nos modos shadow e auto; com atendente humano na conversa ela não responde.
+
+## Atualização 14/11/2026 — sem menu; a Jaqueline faz a triagem (pedido do Djalma)
+
+- Acabou o menu "1, 2, 3". Toda conversa nova fica em triagem e a Jaqueline espera a pessoa parar de
+  escrever (`JACK_WAIT_SECONDS`, padrão 60 s) antes de ler tudo o que ela mandou.
+- Assunto claro (ex.: "o portão quebrou", "água no chão do corredor", "segunda via do boleto"): abre
+  o chamado no setor certo e responde "Certo, João! Abri o chamado *20261114-00012* e já encaminhei
+  para a equipe de *Manutenção*. Já vamos te atender."
+- Só cumprimentou ("oi", "bom dia") e parou: pergunta uma vez "Oi, João! Como posso te ajudar?" e
+  espera o assunto.
+- Assunto que ela não reconhece, dois setores empatados, ou passou `JACK_MAX_WAIT_SECONDS` (padrão
+  10 min): vai para o Administrativo com a mesma mensagem de chamado aberto.
+- O modo sombra deixou de existir (sem menu não há quem decida no lugar dela). `JACK_MODE=off` manda
+  tudo direto para o setor padrão, sem mensagem.
+- A taxa de acertos continua em `/api/jack/stats`: conta como erro quando um atendente transfere a
+  conversa para outro setor.

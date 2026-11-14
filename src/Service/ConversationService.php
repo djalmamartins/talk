@@ -76,33 +76,29 @@ class ConversationService
                 'message_id' => $msgId, 'direction' => 'in', 'type' => $in->type, 'body' => $in->body,
             ]);
 
-            // Jack lê antes do menu; no modo automático, se tiver certeza, direciona em silêncio.
+            // Sem menu: a Jack lê em silêncio e encaminha depois que a pessoa termina de escrever (triage()).
+            // Ela só fala quando perguntam se é robô, ou quando o assunto sai do que ela sabe.
             if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
-                // "você é um robô?" e perguntas fora do escopo depois disso
                 $talk = $this->jack->converse($conv, (string) $in->body);
-                if ($talk !== null) {
-                    if ($talk['kind'] === 'identity') {
-                        $this->queueOutbound($conv, $this->texts->jackIdentity(), null, 'jack_identity');
-                        if ($isNew) {
-                            $this->runMenu($conv, $in, true, $contact); // primeira mensagem: segue com protocolo e menu
-                        }
-                        return (int) $conv['id'];
-                    }
-                    $sector = $talk['sector'];
-                    $this->queueOutbound($conv, $this->texts->jackOutOfScope($sector['name']), null, 'jack_scope');
-                    if ($conv['status'] === 'bot') {
-                        $this->route($conv, $sector, $contact, silent: true);
-                    }
+                if ($talk !== null && $talk['kind'] === 'identity') {
+                    $this->queueOutbound($conv, $this->texts->jackIdentity(), null, 'jack_identity');
                     return (int) $conv['id'];
                 }
-                $target = $this->jack->observe($conv, $msgId, (string) $in->body);
-                if ($target !== null) {
-                    $this->route($conv, $target, $contact, silent: true);
+                if ($talk !== null) {
+                    $this->queueOutbound($conv, $this->texts->jackOutOfScope($talk['sector']['name']), null, 'jack_scope');
+                    if ($conv['status'] === 'bot') {
+                        $this->jack->record($conv, $talk['sector'], 'scope', null);
+                        // o texto de "fora do escopo" já avisa a transferência
+                        $this->route($conv, $talk['sector'], $contact);
+                    }
                     return (int) $conv['id'];
                 }
             }
-            if ($conv['status'] === 'bot') {
-                $this->runMenu($conv, $in, $isNew, $contact);
+            if ($conv['status'] === 'bot' && ($this->jack === null || $this->jack->mode() === 'off')) {
+                $fallback = $this->fallbackSector();
+                if ($fallback !== null) {
+                    $this->route($conv, $fallback, $contact);
+                }
             }
             return (int) $conv['id'];
         });
@@ -169,54 +165,68 @@ class ConversationService
         return date('Ymd') . '-' . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
     }
 
-    // ------------------------------------------------------------------ menu / roteamento
+    // ------------------------------------------------------------------ triagem (Jack)
 
-    private function runMenu(array $conv, InboundMessage $in, bool $isNew, array $contact): void
+    /**
+     * Encaminha as conversas que estão na triagem (status "bot") quando a pessoa parou de escrever.
+     * Roda no worker (e no fim de cada requisição no laboratório). $clockShift só para testes.
+     * @return int quantas conversas foram encaminhadas
+     */
+    public function triage(int $clockShift = 0): int
     {
-        $sectors = $this->db->all('SELECT id, name, menu_key, keywords FROM talk_sectors WHERE active = 1 ORDER BY menu_key');
-        $answer = trim(mb_strtolower((string) $in->body));
-
-        $chosen = null;
-        foreach ($sectors as $s) {
-            if ($answer !== '' && $answer === mb_strtolower($s['menu_key'])) {
-                $chosen = $s;
-                break;
+        if ($this->jack === null) {
+            return 0;
+        }
+        $rows = $this->db->all(
+            "SELECT c.id,
+                    TIMESTAMPDIFF(SECOND, MAX(m.created_at), NOW() + INTERVAL ? SECOND) AS quiet,
+                    TIMESTAMPDIFF(SECOND, c.opened_at, NOW() + INTERVAL ? SECOND) AS age
+               FROM talk_conversations c
+               JOIN talk_messages m ON m.conversation_id = c.id AND m.direction = 'in'
+              WHERE c.status = 'bot'
+              GROUP BY c.id, c.opened_at",
+            [$clockShift, $clockShift]
+        );
+        $routed = 0;
+        foreach ($rows as $r) {
+            if (!$this->jack->isDue((int) $r['quiet'], (int) $r['age'])) {
+                continue;
             }
-        }
-        if ($chosen === null) {
-            $chosen = $this->guessSector($sectors, $answer);
-        }
-
-        if ($chosen !== null) {
-            $this->route($conv, $chosen, $contact);
-            return;
-        }
-        $first = $contact['name'] ? explode(' ', (string) $contact['name'])[0] : null;
-        $text = $isNew
-            ? $this->texts->welcome($first, $conv['protocol'], $sectors)
-            : $this->texts->invalidOption($sectors);
-        $this->queueOutbound($conv, $text, null);
-    }
-
-    /** Sugere o setor pelas palavras-chave, só se apenas um setor bater. */
-    private function guessSector(array $sectors, string $text): ?array
-    {
-        if ($text === '') {
-            return null;
-        }
-        $hits = [];
-        foreach ($sectors as $s) {
-            foreach (array_filter(array_map('trim', explode(',', (string) $s['keywords']))) as $kw) {
-                if (preg_match('/\b' . preg_quote(mb_strtolower($kw), '/') . '/u', $text)) {
-                    $hits[$s['id']] = $s;
-                    break;
+            $routed += (int) $this->db->transaction(function () use ($r): bool {
+                $conv = $this->lock((int) $r['id']);
+                if ($conv['status'] !== 'bot') {
+                    return false; // outro processo já encaminhou
                 }
-            }
+                $texts = array_column($this->db->all(
+                    "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type = 'text' ORDER BY id",
+                    [$conv['id']]
+                ), 'body');
+                $d = $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
+                if ($d === null) {
+                    return false; // já perguntou e a pessoa ainda não disse o assunto: espera
+                }
+                $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+                $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
+                if ($d['action'] === 'ask') {
+                    $this->queueOutbound($conv, $this->texts->jackAsk($first), null, 'jack_ask');
+                    return false;
+                }
+                $this->route($conv, $d['sector'], $contact);
+                $this->queueOutbound($this->get((int) $conv['id']), $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), null, 'jack_routed');
+                return true;
+            });
         }
-        return count($hits) === 1 ? array_values($hits)[0] : null;
+        return $routed;
     }
 
-    private function route(array $conv, array $sector, array $contact, bool $silent = false): void
+    private function fallbackSector(): ?array
+    {
+        return $this->jack?->fallbackSector()
+            ?? $this->db->one("SELECT id, name FROM talk_sectors WHERE active = 1 ORDER BY menu_key LIMIT 1");
+    }
+
+    /** Coloca a conversa na fila do setor e abre o chamado. Não manda nada para o cliente. */
+    private function route(array $conv, array $sector, array $contact): void
     {
         $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending' WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
@@ -225,9 +235,6 @@ class ConversationService
             $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $conv['id']]);
         }
         $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
-        if (!$silent) {
-            $this->queueOutbound($conv, $this->texts->routed($sector['name'], $conv['protocol']), null);
-        }
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
     }
 

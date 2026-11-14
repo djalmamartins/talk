@@ -14,8 +14,8 @@ final class InboxAndRealtimeTest extends DbTestCase
 {
     public function test_cada_setor_so_ve_a_propria_fila(): void
     {
-        $this->inbound('boleto atrasado', '5531911111111');
-        $this->inbound('vazamento na garagem', '5531922222222');
+        $this->routed('boleto atrasado', '5531911111111');
+        $this->routed('vazamento na garagem', '5531922222222');
         $q = new InboxQuery($this->db, new AccessPolicy());
 
         $fin = $q->list($this->agent(10, 'Financeiro'), 'pending');
@@ -30,7 +30,7 @@ final class InboxAndRealtimeTest extends DbTestCase
 
     public function test_atendente_nao_ve_conversa_aberta_de_colega_mas_gerente_ve(): void
     {
-        $id = $this->inbound('boleto');
+        $id = $this->routed('preciso do boleto');
         $this->svc->accept($id, $this->agent(10, 'Financeiro'));
         $q = new InboxQuery($this->db, new AccessPolicy());
         $this->assertCount(0, $q->list($this->agent(11, 'Financeiro'), 'open'));
@@ -40,7 +40,7 @@ final class InboxAndRealtimeTest extends DbTestCase
 
     public function test_busca_o_que_chegou_e_o_que_saiu(): void
     {
-        $id = $this->inbound('boleto de outubro atrasado');
+        $id = $this->routed('boleto de outubro atrasado');
         $ana = $this->agent(10, 'Financeiro');
         $this->svc->reply($id, $ana, 'Vou gerar o boleto atualizado');
         $q = new InboxQuery($this->db, new AccessPolicy());
@@ -59,7 +59,7 @@ final class InboxAndRealtimeTest extends DbTestCase
         $ana = $this->agent(10, 'Financeiro');
         $beto = $this->agent(20, 'Manutenção');
 
-        $id = $this->inbound('segunda via do boleto');
+        $id = $this->routed('segunda via do boleto');
         $this->assertNotEmpty($sse->fetch($ana, 0));
         $this->assertSame([], $sse->fetch($beto, 0));
 
@@ -74,7 +74,7 @@ final class InboxAndRealtimeTest extends DbTestCase
 
     public function test_worker_envia_e_tenta_de_novo_quando_falha(): void
     {
-        $id = $this->inbound('oi');          // gera o menu na outbox
+        $id = $this->routed('oi');           // Jaqueline pergunta "como posso te ajudar?" (vai para a outbox)
         $this->http->responses[] = new \RuntimeException('timeout');
         $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));
 

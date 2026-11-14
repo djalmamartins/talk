@@ -6,20 +6,29 @@ namespace ConnectTalk\Jack;
 use ConnectTalk\Support\Db;
 
 /**
- * Jack (Jaqueline): lê o que o cliente escreve antes de um humano assumir e decide o setor.
- *  - off:    não faz nada.
- *  - shadow: só registra e deixa uma nota interna com a sugestão (fase J1, padrão).
- *  - auto:   direciona em silêncio quando tem confiança; sem confiança, segue o menu/humano.
- * Nunca escreve para o cliente nesta fase.
+ * Jack (Jaqueline): faz a triagem de toda conversa nova, sem menu de números.
+ *  - Espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
+ *  - Assunto claro → abre o chamado no setor certo e avisa a pessoa com o protocolo.
+ *  - Só cumprimentou ("oi") → pergunta "como posso te ajudar?" (uma vez) e espera de novo.
+ *  - Falou algo que ela não reconhece, ou passou $maxWaitSeconds → setor padrão (Administrativo).
+ *  - mode "off": sem triagem; tudo cai direto no setor padrão.
+ * Só usa textos aprovados (Service\Texts).
  */
 final class Jack
 {
     public const NAME = 'Jack';
+    private const GREETING = '/^(oi+|ola|ole|bom dia|boa tarde|boa noite|tudo bem|td bem|tudo bom|e ai|opa|ei|alo|hello|hi|blz|beleza|ok|obrigad[oa]|por favor|pf|\?|\.|!|,|\s)+$/u';
 
-    public function __construct(private Db $db, private Classifier $classifier = new Classifier(), private string $mode = 'shadow')
-    {
-        if (!in_array($mode, ['off', 'shadow', 'auto'], true)) {
-            $this->mode = 'shadow';
+    public function __construct(
+        private Db $db,
+        private Classifier $classifier = new Classifier(),
+        private string $mode = 'auto',
+        private int $waitSeconds = 60,
+        private int $maxWaitSeconds = 600,
+        private string $fallbackKey = 'administrativo',
+    ) {
+        if (!in_array($mode, ['off', 'auto'], true)) {
+            $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
         }
     }
 
@@ -28,46 +37,57 @@ final class Jack
         return $this->mode;
     }
 
-    /**
-     * Avalia a mensagem. Retorna o setor (linha de talk_sectors) que deve receber a conversa
-     * agora, ou null quando a Jack não deve agir (modo sombra, sem confiança ou já com humano).
-     */
-    public function observe(array $conv, int $messageId, string $text): ?array
+    /** A pessoa parou de escrever (ou já esperou demais)? */
+    public function isDue(int $quietSeconds, int $ageSeconds): bool
     {
-        if ($this->mode === 'off' || !in_array($conv['status'], ['bot', 'pending'], true) || $conv['assigned_user_id'] !== null) {
+        return $quietSeconds >= $this->waitSeconds || $ageSeconds >= $this->maxWaitSeconds;
+    }
+
+    /**
+     * Decide o que fazer com uma conversa na triagem, lendo tudo o que a pessoa escreveu.
+     * @return array{action:string, sector:?array}|null  action = route | fallback | ask; null = esperar
+     */
+    public function decide(array $conv, string $text, int $quietSeconds, int $ageSeconds): ?array
+    {
+        $r = $this->classifier->classify($text);
+        $sector = $r['sector'] !== null && $r['confident'] ? $this->sectorByKey($r['sector']) : null;
+        if ($sector !== null) {
+            $this->record($conv, $sector, $r['intent'], $r);
+            return ['action' => 'route', 'sector' => $sector];
+        }
+        $onlyGreeting = (bool) preg_match(self::GREETING, Classifier::normalize($text));
+        if ($onlyGreeting && $ageSeconds < $this->maxWaitSeconds) {
+            $asked = $this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND type = 'jack_ask' LIMIT 1", [$conv['id']]);
+            return $asked ? null : ['action' => 'ask', 'sector' => null];
+        }
+        $fallback = $this->fallbackSector();
+        if ($fallback === null) {
             return null;
         }
-        $r = $this->classifier->classify($text);
-        $sector = $r['sector'] !== null ? $this->sectorByKey($r['sector']) : null;
-        $act = $sector !== null && $r['confident'];
-        $route = $act && $this->mode === 'auto' && $conv['status'] === 'bot';
-        $suggest = $act && !$route && $this->shouldNote((int) $conv['id'], (int) $sector['id'], $conv);
+        $this->record($conv, $fallback, null, $r);
+        return ['action' => 'fallback', 'sector' => $fallback];
+    }
 
+    /** Registra a decisão (gabarito: final_sector_id é atualizado se um humano transferir). */
+    public function record(array $conv, array $sector, ?string $intent, ?array $r): void
+    {
         $this->db->insert('talk_jack_decisions', [
             'conversation_id' => $conv['id'],
-            'message_id' => $messageId,
-            'mode' => $this->mode,
-            'intent' => $r['intent'],
-            'suggested_sector_id' => $sector['id'] ?? null,
-            'confident' => $r['confident'] ? 1 : 0,
-            'scores' => mb_substr(json_encode($r['scores'], JSON_UNESCAPED_UNICODE), 0, 255),
-            'matched' => $r['matched'] ? mb_substr(implode(', ', $r['matched']), 0, 255) : null,
-            'action' => $route ? 'routed' : ($suggest ? 'suggested' : 'none'),
-            'final_sector_id' => $conv['sector_id'],
+            'message_id' => (int) ($this->db->one("SELECT MAX(id) id FROM talk_messages WHERE conversation_id = ? AND direction = 'in'", [$conv['id']])['id'] ?? 0),
+            'mode' => 'auto',
+            'intent' => $intent,
+            'suggested_sector_id' => $sector['id'],
+            'confident' => $r !== null && $r['confident'] ? 1 : 0,
+            'scores' => mb_substr(json_encode($r['scores'] ?? [], JSON_UNESCAPED_UNICODE), 0, 255),
+            'matched' => !empty($r['matched']) ? mb_substr(implode(', ', $r['matched']), 0, 255) : null,
+            'action' => 'routed',
+            'final_sector_id' => $sector['id'],
         ]);
+    }
 
-        if ($suggest) {
-            $this->note((int) $conv['id'], 'jack', sprintf(
-                'Sugestão: %s%s',
-                $sector['name'],
-                $r['intent'] === 'boleto' ? ' (boleto)' : ($r['intent'] === 'cotacao' ? ' (cotação)' : '')
-            ));
-        }
-        if ($route) {
-            $this->note((int) $conv['id'], 'jack', 'Direcionado para ' . $sector['name']);
-            return $sector;
-        }
-        return null;
+    public function fallbackSector(): ?array
+    {
+        return $this->sectorByKey($this->fallbackKey);
     }
 
     /**
@@ -152,15 +172,6 @@ final class Jack
             'taxa' => $judged ? round($hits / $judged, 3) : null, 'por_setor' => array_values($per)];
     }
 
-    private function shouldNote(int $convId, int $sectorId, array $conv): bool
-    {
-        if ($conv['sector_id'] !== null && (int) $conv['sector_id'] === $sectorId) {
-            return false; // já está no setor que ela sugeriria
-        }
-        $last = $this->db->one("SELECT suggested_sector_id FROM talk_jack_decisions WHERE conversation_id = ? AND action = 'suggested' ORDER BY id DESC LIMIT 1", [$convId]);
-        return $last === null || (int) $last['suggested_sector_id'] !== $sectorId;
-    }
-
     private function sectorByKey(string $key): ?array
     {
         foreach ($this->db->all('SELECT id, name FROM talk_sectors WHERE active = 1') as $s) {
@@ -171,8 +182,4 @@ final class Jack
         return null;
     }
 
-    private function note(int $convId, string $type, string $body): void
-    {
-        $this->db->insert('talk_messages', ['conversation_id' => $convId, 'direction' => 'internal', 'type' => $type, 'body' => $body, 'ack' => 'received']);
-    }
 }

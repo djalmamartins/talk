@@ -10,17 +10,13 @@ use ConnectTalk\Service\DomainError;
 
 final class ConversationFlowTest extends DbTestCase
 {
-    public function test_primeira_mensagem_cria_conversa_com_protocolo_e_envia_menu(): void
+    public function test_primeira_mensagem_cria_conversa_com_protocolo_sem_menu(): void
     {
         $id = $this->inbound('oi');
         $c = $this->conv($id);
-
         $this->assertMatchesRegularExpression('/^\d{8}-00001$/', $c['protocol']);
-        $this->assertSame('bot', $c['status']);
-        $menu = $this->lastOutbound($id);
-        $this->assertStringContainsString($c['protocol'], $menu);
-        $this->assertStringContainsString('*3* - Manutenção', $menu);
-        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) n FROM talk_outbox')['n']);
+        $this->assertSame('bot', $c['status'], 'fica na triagem da Jack');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) n FROM talk_outbox')['n'], 'nada de menu 1, 2, 3');
     }
 
     public function test_protocolos_sao_sequenciais_por_dia(): void
@@ -37,34 +33,47 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE direction='in'")['n']);
     }
 
-    public function test_opcao_do_menu_direciona_para_o_setor(): void
+    public function test_espera_a_pessoa_terminar_de_escrever_antes_de_encaminhar(): void
     {
-        $id = $this->inbound('oi');
-        $this->inbound('3');
+        $id = $this->inbound('Bom dia');
+        $this->inbound('passei no corredor');
+        $this->inbound('e tem uma água aqui no chão');
+        $this->assertSame(0, $this->svc->triage(10), 'ainda escrevendo: não mexe');
+        $this->assertSame('bot', $this->conv($id)['status']);
+
+        $this->assertSame(1, $this->triage());
         $c = $this->conv($id);
         $this->assertSame('pending', $c['status']);
         $this->assertSame($this->sectors['Manutenção'], (int) $c['sector_id']);
-        $this->assertStringContainsString('fila do *Manutenção*', $this->lastOutbound($id));
+        $this->assertStringContainsString("Abri o chamado *{$c['protocol']}*", $this->lastOutbound($id));
+        $this->assertStringContainsString('*Manutenção*', $this->lastOutbound($id));
     }
 
-    public function test_palavra_chave_na_primeira_mensagem_ja_direciona(): void
-    {
-        $id = $this->inbound('Bom dia, preciso da segunda via do boleto');
-        $this->assertSame($this->sectors['Financeiro'], (int) $this->conv($id)['sector_id']);
-    }
-
-    public function test_palavras_de_dois_setores_nao_adivinha_e_mostra_menu(): void
-    {
-        $id = $this->inbound('o boleto da taxa e o vazamento do portão');
-        $this->assertSame('bot', $this->conv($id)['status']);
-    }
-
-    public function test_opcao_invalida_repete_menu(): void
+    public function test_so_um_oi_ela_pergunta_como_ajudar_e_depois_encaminha(): void
     {
         $id = $this->inbound('oi');
-        $this->inbound('banana');
+        $this->triage();
         $this->assertSame('bot', $this->conv($id)['status']);
-        $this->assertStringContainsString('Não entendi', $this->lastOutbound($id));
+        $this->assertSame("*Jaqueline:*\nOi, Maria! Como posso te ajudar?", $this->lastOutbound($id));
+        $this->triage();
+        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE type = 'jack_ask'")['n'], 'pergunta uma vez só');
+
+        $this->inbound('o portão da garagem quebrou');
+        $this->triage();
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($id)['sector_id']);
+    }
+
+    public function test_assunto_que_ela_nao_reconhece_vai_para_o_administrativo(): void
+    {
+        $id = $this->routed('queria falar com alguém sobre uma situação aqui do prédio');
+        $this->assertSame($this->sectors['Administrativo'], (int) $this->conv($id)['sector_id']);
+        $this->assertStringContainsString('*Administrativo*', $this->lastOutbound($id));
+    }
+
+    public function test_dois_assuntos_empatados_vao_para_o_administrativo(): void
+    {
+        $id = $this->routed('o boleto veio errado e tem um vazamento no teto');
+        $this->assertSame($this->sectors['Administrativo'], (int) $this->conv($id)['sector_id']);
     }
 
     public function test_identifica_morador_pelo_telefone_sem_o_nono_digito(): void
@@ -85,12 +94,13 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertSame(77, (int) $contact['erp_person_id']);
         $this->assertSame('João Morador', $contact['name']);
         $this->assertStringContainsString('Jardins', $contact['erp_snapshot']);
-        $this->assertStringStartsWith('Olá, João!', $this->lastOutbound($id));
+        $this->triage();
+        $this->assertStringContainsString('Oi, João!', $this->lastOutbound($id));
     }
 
     public function test_atendente_aceita_responde_e_encerra(): void
     {
-        $id = $this->inbound('preciso pagar o boleto');
+        $id = $this->routed('preciso pagar o boleto');
         $ana = $this->agent(10, 'Financeiro');
         $this->svc->accept($id, $ana);
         $this->assertSame('open', $this->conv($id)['status']);
@@ -110,7 +120,7 @@ final class ConversationFlowTest extends DbTestCase
 
     public function test_dois_atendentes_nao_aceitam_a_mesma_conversa(): void
     {
-        $id = $this->inbound('boleto');
+        $id = $this->routed('preciso do boleto');
         $this->svc->accept($id, $this->agent(10, 'Financeiro'));
         $this->expectException(DomainError::class);
         $this->svc->accept($id, $this->agent(11, 'Financeiro'));
@@ -118,7 +128,7 @@ final class ConversationFlowTest extends DbTestCase
 
     public function test_setor_nao_mexe_em_conversa_de_outro_setor(): void
     {
-        $id = $this->inbound('vazamento no banheiro');
+        $id = $this->routed('vazamento no banheiro');
         $this->expectException(DomainError::class);
         $this->svc->accept($id, $this->agent(10, 'Financeiro'));
     }
@@ -133,8 +143,7 @@ final class ConversationFlowTest extends DbTestCase
         };
         $this->svc = $this->makeService(null, $hd);
 
-        $id = $this->inbound('boleto e também tem vazamento');  // dois setores → menu
-        $this->inbound('1');
+        $id = $this->routed('preciso da segunda via do boleto');
         $ana = $this->agent(10, 'Financeiro');
         $this->svc->accept($id, $ana);
         $this->svc->transfer($id, $ana, $this->sectors['Manutenção'], 'Morador relata vazamento no 101');
@@ -160,7 +169,7 @@ final class ConversationFlowTest extends DbTestCase
 
     public function test_supervisor_e_gerente_podem_agir(): void
     {
-        $id = $this->inbound('elevador parado');
+        $id = $this->routed('elevador parado');
         $this->svc->accept($id, $this->agent(20, 'Manutenção'));
         $gerente = new StaffMember(30, false, [], [$this->sectors['Manutenção']]);
         $this->svc->addNote($id, $gerente, 'Acompanhar com a empresa do elevador');
@@ -171,8 +180,8 @@ final class ConversationFlowTest extends DbTestCase
 
     public function test_ack_nao_regride(): void
     {
-        $id = $this->inbound('boleto');
-        $msg = $this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND direction='out' ORDER BY id DESC LIMIT 1", [$id]);
+        $id = $this->routed('preciso do boleto');
+        $msg = $this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND direction='out' ORDER BY id DESC LIMIT 1", [$id]); // aviso da Jaqueline
         $this->db->run("UPDATE talk_messages SET provider_message_id = 'P1' WHERE id = ?", [$msg['id']]);
         $this->svc->handleStatus(new \ConnectTalk\Domain\StatusUpdate('P1', 'read'));
         $this->svc->handleStatus(new \ConnectTalk\Domain\StatusUpdate('P1', 'delivered'));
@@ -187,7 +196,7 @@ final class ConversationFlowTest extends DbTestCase
             public function close(int $t, int $u, ?string $r): void { throw new \RuntimeException('ERP 503'); }
         };
         $this->svc = $this->makeService(null, $hd);
-        $id = $this->inbound('boleto');
+        $id = $this->routed('preciso do boleto');
         $c = $this->conv($id);
         $this->assertSame('pending', $c['status']);
         $this->assertNull($c['helpdesk_ticket_id']);

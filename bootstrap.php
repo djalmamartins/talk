@@ -76,7 +76,13 @@ if ($env('ERP_API_URL')) {
     $directory = $env('TALK_CONTACT_SQL') ? new SqlContactDirectory($db, (string) $env('TALK_CONTACT_SQL')) : new NullContactDirectory();
     $helpdesk = new NullHelpdesk();
 }
-$jack = new Jack($db, new Classifier(), (string) $env('JACK_MODE', 'shadow'));
+$jack = new Jack(
+    $db,
+    new Classifier(),
+    (string) $env('JACK_MODE', 'auto'),
+    (int) $env('JACK_WAIT_SECONDS', '60'),       // espera a pessoa parar de escrever
+    (int) $env('JACK_MAX_WAIT_SECONDS', '600'),  // depois disso vai para o setor padrão
+);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack);
 $gateways = new GatewayFactory($db, $crypto, $http);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] — 2026-11-14
+### Alterado
+- Sem menu de números: a Jaqueline espera a pessoa terminar de escrever, entende o assunto, abre o
+  chamado no setor certo e avisa com o protocolo. Só "oi" → ela pergunta como pode ajudar. Assunto
+  não reconhecido → Administrativo. Triagem roda no `bin/talk-worker` (a cada 5 s).
+- Novas variáveis: `JACK_WAIT_SECONDS` (60) e `JACK_MAX_WAIT_SECONDS` (600); `JACK_MODE` = auto | off.
+
 ## [0.3.2] — 2026-11-14
 ### Corrigido
 - Compatível com MySQL 8 (o banco do XAMPP do Mac): `last_value` é palavra reservada no MySQL 8 e

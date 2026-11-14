@@ -58,8 +58,24 @@ abstract class DbTestCase extends TestCase
             new EventBus($this->db),
             new AccessPolicy(),
             $dir ?? new \ConnectTalk\Erp\NullContactDirectory(),
-            $hd ?? new NullHelpdesk()
+            $hd ?? new NullHelpdesk(),
+            new \ConnectTalk\Service\Texts(),
+            new \ConnectTalk\Jack\Jack($this->db),
         );
+    }
+
+    /** Roda a triagem da Jack como se a pessoa tivesse parado de escrever há $seconds segundos. */
+    protected function triage(int $seconds = 120): int
+    {
+        return $this->svc->triage($seconds);
+    }
+
+    /** Mensagem do cliente + triagem: a conversa já sai na fila do setor. */
+    protected function routed(string $text, string $phone = '5531999998888'): int
+    {
+        $id = (int) $this->inbound($text, $phone);
+        $this->triage();
+        return $id;
     }
 
     protected function gateways(): GatewayFactory
