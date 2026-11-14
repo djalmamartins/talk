@@ -82,6 +82,7 @@ $jack = new Jack(
     (string) $env('JACK_MODE', 'auto'),
     (int) $env('JACK_WAIT_SECONDS', '60'),       // espera a pessoa parar de escrever
     (int) $env('JACK_MAX_WAIT_SECONDS', '600'),  // depois disso vai para o setor padrão
+    typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
 );
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack);
 $gateways = new GatewayFactory($db, $crypto, $http);

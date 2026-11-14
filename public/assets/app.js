@@ -170,12 +170,16 @@ $('#sector-filter').addEventListener('change', (e) => { state.sector = e.target.
 // ------------------------------------------------------------ simulador
 async function loadSim() {
   if (!isLab) return;
-  const rows = await api(`/lab/customer?phone=${encodeURIComponent($('#sim-phone').value)}`);
+  const { messages: rows, typing } = await api(`/lab/customer?phone=${encodeURIComponent($('#sim-phone').value)}`);
   const box = $('#sim-thread');
-  box.innerHTML = rows.map((m) => `<div class="msg ${m.direction}">${esc(m.body)}</div>`).join('');
+  box.innerHTML = rows.map((m) => `<div class="msg ${m.direction}">${esc(m.body)}</div>`).join('')
+    + (typing ? '<div class="msg out typing">digitando…</div>' : '');
   box.scrollTop = box.scrollHeight;
 }
-if (isLab) $('#sim-phone').addEventListener('change', loadSim);
+if (isLab) {
+  $('#sim-phone').addEventListener('change', loadSim);
+  setInterval(() => loadSim().catch(() => {}), 3000); // no laboratório isso também move a fila de envio
+}
 
 // ------------------------------------------------------------ tempo real (SSE)
 let refreshTimer;

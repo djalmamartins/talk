@@ -13,6 +13,11 @@ final class LabGateway implements WhatsAppGateway
         return new SendResult('LAB-' . bin2hex(random_bytes(8)));
     }
 
+    public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
+    {
+        // laboratório: o simulador mostra "digitando…" lendo a talk_outbox
+    }
+
     public function sendTemplate(string $toPhone, string $template, string $language, array $params, string $fallbackText): SendResult
     {
         return $this->sendText($toPhone, $fallbackText);

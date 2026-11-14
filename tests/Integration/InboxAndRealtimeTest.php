@@ -72,9 +72,26 @@ final class InboxAndRealtimeTest extends DbTestCase
         $this->assertContains('conversation.updated', array_column($sse->fetch($beto, $last), 'type'));
     }
 
+    public function test_jaqueline_mostra_digitando_antes_de_enviar(): void
+    {
+        $this->routed('oi');   // Jaqueline pergunta "como posso te ajudar?"
+        $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));
+
+        $this->http->responses[] = ['status' => 201, 'body' => '{}'];
+        $this->assertSame(0, $w->runOnce(), 'primeiro só o digitando…');
+        $this->assertSame('http://evo:8080/chat/sendPresence/connect', $this->http->calls[0]['url']);
+        $this->assertSame('composing', $this->http->calls[0]['body']['presence']);
+        $job = $this->db->one('SELECT *, next_attempt_at > NOW() AS later FROM talk_outbox');
+        $this->assertSame(0, (int) $job['typing_seconds']);
+        $this->assertSame(1, (int) $job['later'], 'mensagem só sai depois da digitação');
+        $this->assertSame(0, $w->runOnce(), 'ainda digitando');
+        $this->assertSame('pending', $this->db->one("SELECT ack FROM talk_messages WHERE direction='out'")['ack']);
+    }
+
     public function test_worker_envia_e_tenta_de_novo_quando_falha(): void
     {
-        $id = $this->routed('oi');           // Jaqueline pergunta "como posso te ajudar?" (vai para a outbox)
+        $id = $this->routed('oi');
+        $this->db->run('UPDATE talk_outbox SET typing_seconds = 0');  // sem digitando neste teste
         $this->http->responses[] = new \RuntimeException('timeout');
         $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));
 

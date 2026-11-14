@@ -81,11 +81,11 @@ class ConversationService
             if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
                 $talk = $this->jack->converse($conv, (string) $in->body);
                 if ($talk !== null && $talk['kind'] === 'identity') {
-                    $this->queueOutbound($conv, $this->texts->jackIdentity(), null, 'jack_identity');
+                    $this->jackSay($conv, $this->texts->jackIdentity(), 'jack_identity');
                     return (int) $conv['id'];
                 }
                 if ($talk !== null) {
-                    $this->queueOutbound($conv, $this->texts->jackOutOfScope($talk['sector']['name']), null, 'jack_scope');
+                    $this->jackSay($conv, $this->texts->jackOutOfScope($talk['sector']['name']), 'jack_scope');
                     if ($conv['status'] === 'bot') {
                         $this->jack->record($conv, $talk['sector'], 'scope', null);
                         // o texto de "fora do escopo" já avisa a transferência
@@ -208,15 +208,21 @@ class ConversationService
                 $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
                 $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
                 if ($d['action'] === 'ask') {
-                    $this->queueOutbound($conv, $this->texts->jackAsk($first), null, 'jack_ask');
+                    $this->jackSay($conv, $this->texts->jackAsk($first), 'jack_ask');
                     return false;
                 }
                 $this->route($conv, $d['sector'], $contact);
-                $this->queueOutbound($this->get((int) $conv['id']), $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), null, 'jack_routed');
+                $this->jackSay($this->get((int) $conv['id']), $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), 'jack_routed');
                 return true;
             });
         }
         return $routed;
+    }
+
+    /** Mensagem da Jaqueline: entra na fila com "digitando…" antes, como uma pessoa. */
+    private function jackSay(array $conv, string $text, string $type): int
+    {
+        return $this->queueOutbound($conv, $text, null, $type, $this->jack?->typingSeconds($text) ?? 0);
     }
 
     private function fallbackSector(): ?array
@@ -384,7 +390,7 @@ class ConversationService
     }
 
     /** Grava a mensagem de saída e coloca na fila de envio. */
-    public function queueOutbound(array $conv, string $text, ?int $userId, string $type = 'text'): int
+    public function queueOutbound(array $conv, string $text, ?int $userId, string $type = 'text', int $typingSeconds = 0): int
     {
         $msgId = $this->db->insert('talk_messages', [
             'conversation_id' => $conv['id'],
@@ -399,6 +405,7 @@ class ConversationService
             'message_id' => $msgId,
             'channel_id' => $conv['channel_id'],
             'to_phone' => $phone,
+            'typing_seconds' => $typingSeconds,
         ]);
         $this->db->run('UPDATE talk_conversations SET last_message_at = NOW() WHERE id = ?', [$conv['id']]);
         $this->events->publish('message.created', (int) $conv['id'], $this->sector($conv), $userId, [

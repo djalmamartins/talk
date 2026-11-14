@@ -26,6 +26,7 @@ final class Jack
         private int $waitSeconds = 60,
         private int $maxWaitSeconds = 600,
         private string $fallbackKey = 'administrativo',
+        private int $typingBaseSeconds = 20,
     ) {
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
@@ -35,6 +36,12 @@ final class Jack
     public function mode(): string
     {
         return $this->mode;
+    }
+
+    /** Quanto tempo ela "digita" antes de mandar: base + o tamanho do texto, até 90 s. */
+    public function typingSeconds(string $text): int
+    {
+        return $this->typingBaseSeconds <= 0 ? 0 : min(90, $this->typingBaseSeconds + intdiv(mb_strlen($text), 8));
     }
 
     /** A pessoa parou de escrever (ou já esperou demais)? */

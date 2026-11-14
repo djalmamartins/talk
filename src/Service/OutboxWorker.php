@@ -36,6 +36,10 @@ final class OutboxWorker
 
         $sent = 0;
         foreach ($jobs as $job) {
+            if ((int) $job['typing_seconds'] > 0) {
+                $this->startTyping($job);
+                continue;
+            }
             try {
                 $result = $this->gateways->forChannel((int) $job['channel_id'])->sendText($job['to_phone'], (string) $job['body']);
                 $this->db->run("UPDATE talk_outbox SET status = 'sent', last_error = NULL WHERE id = ?", [$job['id']]);
@@ -58,6 +62,28 @@ final class OutboxWorker
             }
         }
         return $sent;
+    }
+
+    /**
+     * Primeiro passo das mensagens da Jaqueline: mostra "digitando…" e reagenda o envio para quando
+     * a "digitação" terminar. Se o indicador falhar, segue igual (é só cosmético).
+     */
+    private function startTyping(array $job): void
+    {
+        $seconds = (int) $job['typing_seconds'];
+        try {
+            $last = $this->db->one(
+                "SELECT provider_message_id FROM talk_messages WHERE conversation_id = ? AND direction = 'in' ORDER BY id DESC LIMIT 1",
+                [$job['conversation_id']]
+            );
+            $this->gateways->forChannel((int) $job['channel_id'])->sendTyping($job['to_phone'], $seconds, $last['provider_message_id'] ?? null);
+        } catch (\Throwable $e) {
+            error_log('[talk] digitando: ' . $e->getMessage());
+        }
+        $this->db->run(
+            "UPDATE talk_outbox SET status = 'queued', attempts = 0, typing_seconds = 0, next_attempt_at = NOW() + INTERVAL ? SECOND WHERE id = ?",
+            [$seconds, $job['id']]
+        );
     }
 
     private function ack(int $convId, int $messageId, string $ack): void

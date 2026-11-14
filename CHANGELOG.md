@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] — 2026-11-14
+### Adicionado
+- "Digitando…" antes de cada mensagem da Jaqueline (`JACK_TYPING_SECONDS`, padrão 20 s + 1 s a cada
+  8 letras, até 90 s): o worker mostra a digitação (Evolution `sendPresence`; API oficial
+  `typing_indicator`) e só depois envia. Migration `004_typing.sql`.
+- Simulador do laboratório mostra "digitando…" e só exibe ao cliente o que já foi enviado.
+
 ## [0.4.0] — 2026-11-14
 ### Alterado
 - Sem menu de números: a Jaqueline espera a pessoa terminar de escrever, entende o assunto, abre o

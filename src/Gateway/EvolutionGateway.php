@@ -34,6 +34,12 @@ final class EvolutionGateway implements WhatsAppGateway
         return new SendResult((string) $id);
     }
 
+    public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
+    {
+        $url = rtrim((string) $this->config['base_url'], '/') . '/chat/sendPresence/' . rawurlencode((string) $this->config['instance']);
+        $this->http->postJson($url, ['number' => $toPhone, 'presence' => 'composing', 'delay' => $seconds * 1000], ['apikey' => (string) $this->config['api_key']]);
+    }
+
     public function sendTemplate(string $toPhone, string $template, string $language, array $params, string $fallbackText): SendResult
     {
         // QR Code não tem modelos: envia o texto já montado

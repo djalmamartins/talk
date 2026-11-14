@@ -34,6 +34,20 @@ final class CloudApiGateway implements WhatsAppGateway
         ]);
     }
 
+    /** Indicador de digitação da API oficial: marca a última mensagem como lida e mostra "digitando…" (até ~25 s). */
+    public function sendTyping(string $toPhone, int $seconds, ?string $replyToProviderId = null): void
+    {
+        if ($replyToProviderId === null) {
+            return;
+        }
+        $this->http->postJson($this->base, [
+            'messaging_product' => 'whatsapp',
+            'status' => 'read',
+            'message_id' => $replyToProviderId,
+            'typing_indicator' => ['type' => 'text'],
+        ], ['Authorization' => 'Bearer ' . $this->config['access_token']]);
+    }
+
     public function sendTemplate(string $toPhone, string $template, string $language, array $params, string $fallbackText): SendResult
     {
         $components = $params === [] ? [] : [[

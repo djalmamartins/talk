@@ -200,12 +200,19 @@ try {
         if ($path === '/lab/customer') {
             $phone = preg_replace('/\D+/', '', (string) ($_GET['phone'] ?? ''));
             $rows = $app['db']->all(
-                "SELECT m.direction, m.body, m.created_at, c.protocol FROM talk_messages m
+                "SELECT m.direction, m.body, m.ack, m.created_at, c.protocol FROM talk_messages m
                  JOIN talk_conversations c ON c.id = m.conversation_id JOIN talk_contacts ct ON ct.id = c.contact_id
                  WHERE ct.phone = ? AND m.direction <> 'internal' ORDER BY m.id DESC LIMIT 40",
                 [\ConnectTalk\Support\Phone::normalize($phone)]
             );
-            $json(array_reverse($rows));
+            // o cliente só vê o que já foi enviado; "digitando…" enquanto houver mensagem na fila
+            $rows = array_values(array_filter(array_reverse($rows), fn ($r) => $r['direction'] !== 'out' || $r['ack'] !== 'pending'));
+            $typing = (bool) $app['db']->one(
+                "SELECT o.id FROM talk_outbox o WHERE o.to_phone = ? AND o.status IN ('queued','sending')
+                   AND (o.typing_seconds = 0 AND o.next_attempt_at > NOW()) LIMIT 1",
+                [\ConnectTalk\Support\Phone::normalize($phone)]
+            );
+            $json(['messages' => $rows, 'typing' => $typing]);
         }
     }
 
