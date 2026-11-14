@@ -178,4 +178,20 @@ final class ConversationFlowTest extends DbTestCase
         $this->svc->handleStatus(new \ConnectTalk\Domain\StatusUpdate('P1', 'delivered'));
         $this->assertSame('read', $this->db->one('SELECT ack FROM talk_messages WHERE id = ?', [$msg['id']])['ack']);
     }
+
+    public function test_erp_fora_do_ar_nao_trava_o_atendimento(): void
+    {
+        $hd = new class implements Helpdesk {
+            public function open(array $c, array $ct, ?string $s): ?int { throw new \RuntimeException('ERP 503'); }
+            public function transfer(int $t, string $s, int $u, ?string $n): void { throw new \RuntimeException('ERP 503'); }
+            public function close(int $t, int $u, ?string $r): void { throw new \RuntimeException('ERP 503'); }
+        };
+        $this->svc = $this->makeService(null, $hd);
+        $id = $this->inbound('boleto');
+        $c = $this->conv($id);
+        $this->assertSame('pending', $c['status']);
+        $this->assertNull($c['helpdesk_ticket_id']);
+        $this->svc->close($id, $this->agent(10, 'Financeiro'));
+        $this->assertSame('closed', $this->conv($id)['status']);
+    }
 }

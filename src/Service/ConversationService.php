@@ -193,7 +193,7 @@ class ConversationService
     {
         $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending' WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
-        $ticketId = $this->helpdesk->open($conv, $contact, $sector['name']);
+        $ticketId = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sector['name']));
         if ($ticketId !== null) {
             $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $conv['id']]);
         }
@@ -270,7 +270,7 @@ class ConversationService
                 [$toSectorId, $convId]
             );
             if ($conv['helpdesk_ticket_id']) {
-                $this->helpdesk->transfer((int) $conv['helpdesk_ticket_id'], $to['name'], $u->userId, $note);
+                $this->safeHelpdesk(fn () => $this->helpdesk->transfer((int) $conv['helpdesk_ticket_id'], $to['name'], $u->userId, $note));
             }
             $conv = $this->get($convId);
             $this->queueOutbound($conv, $this->texts->transferred($to['name']), null);
@@ -300,7 +300,7 @@ class ConversationService
                 [$u->userId, $convId]
             );
             if ($conv['helpdesk_ticket_id']) {
-                $this->helpdesk->close((int) $conv['helpdesk_ticket_id'], $u->userId, $resolution);
+                $this->safeHelpdesk(fn () => $this->helpdesk->close((int) $conv['helpdesk_ticket_id'], $u->userId, $resolution));
             }
             $conv = $this->get($convId);
             if ($notifyCustomer) {
@@ -333,6 +333,17 @@ class ConversationService
     }
 
     // ------------------------------------------------------------------ apoio
+
+    /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
+    private function safeHelpdesk(callable $fn): mixed
+    {
+        try {
+            return $fn();
+        } catch (\Throwable $e) {
+            error_log('[talk] helpdesk do ERP falhou: ' . $e->getMessage());
+            return null;
+        }
+    }
 
     /** Grava a mensagem de saída e coloca na fila de envio. */
     public function queueOutbound(array $conv, string $text, ?int $userId): int

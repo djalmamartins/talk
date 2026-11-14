@@ -24,6 +24,7 @@ class GatewayFactory
         return match ($ch['kind']) {
             'official' => new CloudApiGateway($cfg, $this->http),
             'qrcode' => new EvolutionGateway($cfg, $this->http),
+            'lab' => new LabGateway(),
         };
     }
 

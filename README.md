@@ -1,10 +1,23 @@
 # Connect Talk (PHP + MariaDB)
 
-Núcleo do atendimento via WhatsApp que vai rodar **dentro do ERP da Connect**
-(Organic Code). PHP 8.2 puro, MariaDB, sem framework obrigatório: as classes
-recebem PDO e são ligadas às rotas MovesCode na integração.
+Atendimento via WhatsApp da Connect. Aplicação própria (PHP 8.2 puro + MariaDB + JS,
+sem framework), hospedada **separada do ERP** e integrada a ele por **API REST**.
 
-Decisões de arquitetura: [docs/decisions/0002-connect-talk-module.md](docs/decisions/0002-connect-talk-module.md)
+- Decisões: [0002 módulo Talk](docs/decisions/0002-connect-talk-module.md) ·
+  [0003 hospedagem separada + API REST](docs/decisions/0003-hospedagem-separada-api-rest.md)
+- **API que o ERP precisa expor:** [docs/api-erp.md](docs/api-erp.md)
+
+## Laboratório local (https://talk.connect.lab)
+No Mac com o XAMPP compartilhado (`dev-apache` + `dev-mysql`):
+```bash
+cd "/Volumes/MAC HD/Docker/xampp/www"
+git clone https://github.com/djalmamartins/talk talk
+cd talk && tools/local/install-lab.sh
+echo '127.0.0.1 talk.connect.lab' | sudo tee -a /etc/hosts   # se o script pedir
+```
+Entre com `supervisor@connect.lab` / `connect123` (outros: financeiro@, administrativo@,
+manutencao@, gerente.manutencao@). No painel da direita há um **simulador de cliente**:
+mande mensagens como se fosse um morador e veja chegar em tempo real para cada setor.
 
 ## O que já faz (Fase 1)
 - **Dois tipos de canal atrás de uma interface:** QR Code (Evolution API) e oficial
@@ -28,19 +41,20 @@ docker run -d --name talkdb -e MARIADB_ROOT_PASSWORD=root -e MARIADB_DATABASE=ta
 vendor/bin/phpunit
 ```
 
-## Ligando no ERP (rotas sugeridas)
+## Rotas
 | Rota | Classe |
 |---|---|
-| `POST /talk/webhook/{channel}` | `WebhookHandler::handle()` (sem login, valida assinatura) |
-| `GET /talk/webhook/{channel}` | `CloudApiGateway::verifySubscription()` (verificação da Meta) |
-| `GET /talk/events` | `SseStream::stream()` — chamar `session_write_close()` antes |
-| `GET /talk/conversations?tab=` | `InboxQuery::list()` |
-| `GET /talk/conversations/{id}/messages` | `InboxQuery::messages()` |
-| `GET /talk/search` | `InboxQuery::search()` |
-| `POST /talk/conversations/{id}/accept\|reply\|transfer\|close\|notes` | `ConversationService` |
+| `POST /webhook/{channel}` | `WebhookHandler::handle()` (sem login, valida assinatura) |
+| `GET /webhook/{channel}` | `CloudApiGateway::verifySubscription()` (verificação da Meta) |
+| `GET /events` | `SseStream::stream()` (tempo real) |
+| `GET /api/conversations?tab=` | `InboxQuery::list()` |
+| `GET /api/conversations/{id}` | conversa + contato + mensagens |
+| `GET /api/search` | `InboxQuery::search()` |
+| `POST /api/conversations/{id}/accept\|reply\|transfer\|close\|notes\|read` | `ConversationService` |
+| `POST /lab/simulate` (só `APP_ENV=lab`) | simula mensagem de cliente |
 
-Todas (menos webhook) exigem sessão do ERP + CSRF nos POST. O usuário vira
-`StaffMember` via `StaffRepository::find($userId)`.
+Login por sessão + CSRF em todos os POST. Integração com o ERP ligada por
+`ERP_API_URL` + `ERP_API_TOKEN` no `.env`.
 
 ## Estrutura
 ```
@@ -48,6 +62,7 @@ migrations/   SQL das tabelas talk_*
 src/Gateway   WhatsAppGateway, CloudApiGateway, EvolutionGateway, GatewayFactory
 src/Service   ConversationService (regras), AccessPolicy, InboxQuery, OutboxWorker, WebhookHandler, Texts
 src/Realtime  EventBus, SseStream
-src/Erp       ContactDirectory/Helpdesk do ERP (Null* até ligarmos; SqlContactDirectory configurável)
+src/Erp       ErpApi + HttpContactDirectory + HttpHelpdesk (REST); Null* quando sem ERP
+public/       front controller, assets (JS puro) · views/ telas · tools/local/ instalação do laboratório
 tests/        Unit + Integration (MariaDB real)
 ```

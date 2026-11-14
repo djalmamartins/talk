@@ -15,7 +15,12 @@ final class FakeHttpClient implements HttpClient
 
     public function postJson(string $url, array $body, array $headers = []): array
     {
-        $this->calls[] = compact('url', 'body', 'headers');
+        return $this->request('POST', $url, $body, $headers);
+    }
+
+    public function request(string $method, string $url, ?array $body = null, array $headers = []): array
+    {
+        $this->calls[] = compact('method', 'url', 'body', 'headers');
         $r = array_shift($this->responses);
         if ($r instanceof \Throwable) {
             throw $r;

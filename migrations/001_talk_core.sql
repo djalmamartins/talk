@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS talk_channels (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  kind ENUM('qrcode','official') NOT NULL,              -- qrcode = Evolution API · official = WhatsApp Cloud API
+  kind ENUM('qrcode','official','lab') NOT NULL,        -- qrcode = Evolution API · official = Cloud API · lab = simulado
   purpose ENUM('attendance','bulk','both') NOT NULL DEFAULT 'attendance',
   phone VARCHAR(20) NULL,
   config_encrypted TEXT NOT NULL,                        -- JSON cifrado (tokens, ids, URLs)
