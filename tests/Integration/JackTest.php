@@ -94,4 +94,61 @@ final class JackTest extends DbTestCase
         $this->assertSame([], $this->notes($id));
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) n FROM talk_jack_decisions')['n']);
     }
+
+    private function outs(int $convId): array
+    {
+        return array_column($this->db->all("SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'out' ORDER BY id", [$convId]), 'body');
+    }
+
+    public function test_perguntou_se_e_robo_ela_se_apresenta_e_depois_passa_o_que_nao_sabe(): void
+    {
+        $this->withJack('shadow');
+        $id = $this->inbound('oi');
+        $this->inbound('vc é um robô?');
+        $outs = $this->outs($id);
+        $this->assertStringContainsString('Eu sou a inteligência artificial do time da Connect', end($outs));
+        $this->assertStringStartsWith('*Jaqueline:*', end($outs));
+
+        $this->inbound('e quem é o síndico do meu prédio agora?');
+        $outs = $this->outs($id);
+        $this->assertStringContainsString('fora do meu escopo de treinamento', end($outs));
+        $this->assertStringContainsString('*Administrativo*', end($outs));
+        $c = $this->conv($id);
+        $this->assertSame('pending', $c['status']);
+        $this->assertSame($this->sectors['Administrativo'], (int) $c['sector_id']);
+
+        // não repete
+        $this->inbound('você é robô mesmo?');
+        $this->inbound('outra pergunta qualquer');
+        $this->assertCount(3, $this->outs($id), 'menu, apresentação, fora do escopo e nada mais');
+    }
+
+    public function test_depois_da_apresentacao_assunto_claro_segue_o_fluxo_normal(): void
+    {
+        $this->withJack('shadow');
+        $id = $this->inbound('é uma pessoa de verdade?');
+        $this->assertStringContainsString('Jaqueline', $this->outs($id)[0]);
+        $this->assertStringContainsString('Seu protocolo', $this->outs($id)[1], 'primeira mensagem também recebe protocolo e menu');
+        $this->inbound('preciso da segunda via do boleto');
+        $this->assertSame($this->sectors['Financeiro'], (int) $this->conv($id)['sector_id']);
+        $this->assertStringNotContainsString('escopo', implode(' ', $this->outs($id)));
+    }
+
+    public function test_com_atendente_humano_ela_nao_responde(): void
+    {
+        $this->withJack('shadow');
+        $id = $this->inbound('preciso da segunda via do boleto');
+        $this->svc->accept($id, $this->agent(5, 'Financeiro'));
+        $this->inbound('você é um robô?');
+        $this->assertStringNotContainsString('inteligência artificial', implode(' ', $this->outs($id)));
+    }
+
+    public function test_reconhece_perguntas_sobre_robo(): void
+    {
+        foreach (['Você é um robô?', 'isso é bot?', 'estou falando com uma pessoa?', 'vc é IA?', 'é humano?', 'é inteligência artificial?'] as $t) {
+            $this->assertTrue(Jack::asksIfBot($t), $t);
+        }
+        $this->assertFalse(Jack::asksIfBot('eu ia pagar amanhã'));
+        $this->assertFalse(Jack::asksIfBot('preciso de uma pessoa para consertar o portão'));
+    }
 }

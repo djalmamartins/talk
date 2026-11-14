@@ -78,6 +78,23 @@ class ConversationService
 
             // Jack lê antes do menu; no modo automático, se tiver certeza, direciona em silêncio.
             if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
+                // "você é um robô?" e perguntas fora do escopo depois disso
+                $talk = $this->jack->converse($conv, (string) $in->body);
+                if ($talk !== null) {
+                    if ($talk['kind'] === 'identity') {
+                        $this->queueOutbound($conv, $this->texts->jackIdentity(), null, 'jack_identity');
+                        if ($isNew) {
+                            $this->runMenu($conv, $in, true, $contact); // primeira mensagem: segue com protocolo e menu
+                        }
+                        return (int) $conv['id'];
+                    }
+                    $sector = $talk['sector'];
+                    $this->queueOutbound($conv, $this->texts->jackOutOfScope($sector['name']), null, 'jack_scope');
+                    if ($conv['status'] === 'bot') {
+                        $this->route($conv, $sector, $contact, silent: true);
+                    }
+                    return (int) $conv['id'];
+                }
                 $target = $this->jack->observe($conv, $msgId, (string) $in->body);
                 if ($target !== null) {
                     $this->route($conv, $target, $contact, silent: true);
@@ -360,13 +377,13 @@ class ConversationService
     }
 
     /** Grava a mensagem de saída e coloca na fila de envio. */
-    public function queueOutbound(array $conv, string $text, ?int $userId): int
+    public function queueOutbound(array $conv, string $text, ?int $userId, string $type = 'text'): int
     {
         $msgId = $this->db->insert('talk_messages', [
             'conversation_id' => $conv['id'],
             'direction' => 'out',
             'author_user_id' => $userId,
-            'type' => 'text',
+            'type' => $type,
             'body' => $text,
             'ack' => 'pending',
         ]);

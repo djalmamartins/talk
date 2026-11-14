@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] — 2026-11-14
+### Adicionado
+- Jaqueline se apresenta quando perguntam se é robô/IA e passa adiante o que está fora do escopo
+  (textos aprovados em `Texts`).
+### Alterado
+- Sugestão da Jack aparece como uma linha discreta, sem foto nem selo "automático".
+
 ## [0.3.0] — 2026-11-14
 ### Adicionado
 - Jack, fase J1 (ADR 0004): classificador por regras (Financeiro, boleto, Administrativo, cotação,

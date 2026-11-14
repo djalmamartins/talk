@@ -70,6 +70,50 @@ final class Jack
         return null;
     }
 
+    /**
+     * Respostas da Jaqueline ao cliente antes de um humano assumir:
+     *  - "identity": perguntaram se é robô/IA → ela se apresenta (nunca nega).
+     *  - "scope": depois disso, a pessoa seguiu perguntando algo que ela não sabe → passa para o setor
+     *    (Administrativo se ainda não tem setor). Cada uma no máximo uma vez por conversa.
+     * @return array{kind:string, sector:?array}|null
+     */
+    public function converse(array $conv, string $text): ?array
+    {
+        if ($this->mode === 'off' || !in_array($conv['status'], ['bot', 'pending'], true) || $conv['assigned_user_id'] !== null) {
+            return null;
+        }
+        $sent = array_column($this->db->all(
+            "SELECT DISTINCT type FROM talk_messages WHERE conversation_id = ? AND direction = 'out' AND type IN ('jack_identity','jack_scope')",
+            [$conv['id']]
+        ), 'type');
+        if (self::asksIfBot($text)) {
+            return in_array('jack_identity', $sent, true) ? null : ['kind' => 'identity', 'sector' => null];
+        }
+        if (!in_array('jack_identity', $sent, true) || in_array('jack_scope', $sent, true)) {
+            return null;
+        }
+        $n = Classifier::normalize($text);
+        if (preg_match('/^\d{1,2}$/', $n) || $this->classifier->classify($text)['confident']) {
+            return null; // escolheu opção do menu ou disse claramente o assunto: segue o fluxo normal
+        }
+        $sector = $conv['sector_id'] !== null
+            ? $this->db->one('SELECT id, name FROM talk_sectors WHERE id = ?', [$conv['sector_id']])
+            : $this->sectorByKey('administrativo');
+        return $sector ? ['kind' => 'scope', 'sector' => $sector] : null;
+    }
+
+    public static function asksIfBot(string $text): bool
+    {
+        $t = Classifier::normalize($text);
+        return (bool) preg_match(
+            '/(?<![\p{L}])(robo|robozinho|bot|chatbot|inteligencia artificial)(?![\p{L}])'
+            . '|(?<![\p{L}])(voce|vc|ce|tu|isso|aqui) (e|eh) (um |uma |a |o )?(ia|maquina|automatico|automatica|gravacao)(?![\p{L}])'
+            . '|(pessoa|humano|gente) de verdade|pessoa real|(falando|conversando) com (uma |um )?(pessoa|humano|maquina)'
+            . '|(e|eh) (uma )?pessoa\s*\?|(e|eh) humano/u',
+            $t
+        );
+    }
+
     /** Guarda onde a conversa realmente ficou: é o gabarito dos acertos. */
     public function settle(int $conversationId, int $sectorId): void
     {

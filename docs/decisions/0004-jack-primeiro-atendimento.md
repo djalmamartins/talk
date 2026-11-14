@@ -109,5 +109,12 @@ confiança. Ele não escreve respostas; o texto continua vindo dos modelos aprov
   levaram à sugestão ficam só no registro do supervisor (`talk_jack_decisions`).
 - Para o cliente (a partir da J2): as mensagens saem assinadas como **Jaqueline**, no mesmo formato
   dos atendentes ("*Jaqueline:*"), sem citar robô, automação ou inteligência artificial.
-- Limite de honestidade: se o cliente perguntar diretamente se está falando com um robô, a Jack não
-  responde nem nega; a conversa vai na hora para um atendente humano.
+- Se o cliente perguntar se está falando com um robô ou IA (antes de um atendente assumir), ela
+  responde com o texto aprovado pelo Djalma: "Eu sou a inteligência artificial do time da Connect.
+  Meu nome é Jaqueline, mas por aqui o time de TI me chama de Jack. Estou aqui só para agilizar o
+  seu atendimento." Uma vez por conversa.
+- Se depois disso a pessoa seguir perguntando algo que ela não sabe, ela responde "Isso está fora do
+  meu escopo de treinamento, então vou te transferir para o setor Administrativo. Se tiver mais
+  alguma dúvida, eles podem esclarecer." e passa a conversa (Administrativo quando ainda não tem
+  setor; se já tem, cita o setor atual). Opção do menu ou assunto claro seguem o fluxo normal.
+- Funciona nos modos shadow e auto; com atendente humano na conversa ela não responde.
