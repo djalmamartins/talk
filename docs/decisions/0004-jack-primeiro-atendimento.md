@@ -108,7 +108,7 @@ confiança. Ele não escreve respostas; o texto continua vindo dos modelos aprov
   ("Sugestão: Financeiro (boleto)"), sem foto, sem nome e sem o selo "automático". Os termos que
   levaram à sugestão ficam só no registro do supervisor (`talk_jack_decisions`).
 - Para o cliente (a partir da J2): as mensagens saem assinadas como **Jaqueline**, no mesmo formato
-  dos atendentes ("*Jaqueline:*"), sem citar robô, automação ou inteligência artificial.
+  dos atendentes ("*Jack:*"), sem citar robô, automação ou inteligência artificial.
 - Se o cliente perguntar se está falando com um robô ou IA (antes de um atendente assumir), ela
   responde com o texto aprovado pelo Djalma: "Eu sou a inteligência artificial do time da Connect.
   Meu nome é Jaqueline, mas por aqui o time de TI me chama de Jack. Estou aqui só para agilizar o

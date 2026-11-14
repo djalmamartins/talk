@@ -54,7 +54,7 @@ final class ConversationFlowTest extends DbTestCase
         $id = $this->inbound('oi');
         $this->triage();
         $this->assertSame('bot', $this->conv($id)['status']);
-        $this->assertSame("*Jaqueline:*\nOi, Maria! Como posso te ajudar?", $this->lastOutbound($id));
+        $this->assertSame("*Jack:*\nOi, Maria! Como posso te ajudar?", $this->lastOutbound($id));
         $this->triage();
         $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE type = 'jack_ask'")['n'], 'pergunta uma vez só');
 

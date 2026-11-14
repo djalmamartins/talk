@@ -1,6 +1,9 @@
 # Changelog
 
 ## [0.4.1] — 2026-11-14
+### Alterado
+- Mensagens assinadas como *Jack:* (pedido do Djalma); na apresentação ela continua dizendo que se chama Jaqueline.
+
 ### Adicionado
 - "Digitando…" antes de cada mensagem da Jaqueline (`JACK_TYPING_SECONDS`, padrão 20 s + 1 s a cada
   8 letras, até 90 s): o worker mostra a digitação (Evolution `sendPresence`; API oficial

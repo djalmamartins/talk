@@ -52,7 +52,7 @@ final class JackTest extends DbTestCase
         $this->inbound('vc é um robô?');
         $outs = $this->outs($id);
         $this->assertCount(1, $outs);
-        $this->assertStringStartsWith('*Jaqueline:*', $outs[0]);
+        $this->assertStringStartsWith('*Jack:*', $outs[0]);
         $this->assertStringContainsString('Eu sou a inteligência artificial do time da Connect', $outs[0]);
 
         $this->inbound('e quem é o síndico do meu prédio agora?');
