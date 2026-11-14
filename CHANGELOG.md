@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0] — 2026-11-14
+### Adicionado
+- Tela **Agendamentos** (`/agendamentos`, no menu de todos): mensagens marcadas para um dia e
+  hora, agrupadas por dia (Hoje, Amanhã, …), com abas Próximos, Enviados, Cancelados e Com falha.
+- Novo agendamento: busca o contato (nome, telefone, condomínio) ou aceita um número novo com DDD;
+  setor; dia e hora com atalhos (daqui a 1 hora, amanhã às 9h/14h, segunda às 9h); assinar com o
+  nome de quem agendou.
+- Botão **Agendar** dentro da conversa: já vem com o contato e o setor; fica uma nota interna na
+  conversa dizendo o que foi agendado.
+- Na hora marcada o worker manda: se o contato tem conversa aberta naquele número, a mensagem
+  entra nela; senão abre uma conversa nova (protocolo e chamado) com quem agendou, ou na fila do
+  setor se a pessoa estiver desativada.
+- Regras: só pelos números de QR Code (a API oficial só aceita modelos aprovados fora da janela de
+  24 h; isso fica no envio em massa); contato bloqueado não recebe (o agendamento é cancelado);
+  número desativado marca falha. Cada um vê os agendamentos dos seus setores; editar e cancelar:
+  quem agendou, o gerente do setor ou o supervisor.
+- Migration `013_schedules.sql`.
+
+### Mudou
+- ROADMAP: S6 dividido em S6a (agendamentos, feito) e S6b (envio em massa pela API oficial).
+
 ## [0.11.0] — 2026-11-14
 ### Adicionado
 - Tela **Equipe e setores** (`/equipe`, só supervisor), com três abas:

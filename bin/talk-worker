@@ -11,8 +11,9 @@ $lastTriage = 0;
 fwrite(STDOUT, "[talk-worker] iniciado\n");
 while (true) {
     try {
-        if (time() - $lastTriage >= 5) {      // triagem da Jack a cada 5 s
+        if (time() - $lastTriage >= 5) {      // triagem da Jack e agendamentos a cada 5 s
             $conversations->triage();
+            $app['schedules']->runDue();
             $lastTriage = time();
         }
         $sent = $worker->runOnce() + $worker->fetchMedia();

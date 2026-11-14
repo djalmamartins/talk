@@ -256,6 +256,38 @@ class ConversationService
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
     }
 
+    /**
+     * Conversa iniciada pela Connect (ex.: mensagem agendada): já entra em atendimento com quem
+     * iniciou (ou na fila do setor, se a pessoa não estiver mais ativa) e abre o chamado.
+     */
+    public function startOutbound(int $channelId, array $contact, int $sectorId, ?int $userId, string $note): array
+    {
+        $sector = $this->db->one('SELECT id, name FROM talk_sectors WHERE id = ?', [$sectorId]);
+        $active = $userId !== null && $this->db->one('SELECT id FROM talk_users WHERE id = ? AND active = 1', [$userId]);
+        $id = $this->db->insert('talk_conversations', [
+            'protocol' => $this->nextProtocol(),
+            'channel_id' => $channelId,
+            'contact_id' => $contact['id'],
+            'sector_id' => $sectorId,
+            'status' => $active ? 'open' : 'pending',
+            'assigned_user_id' => $active ? $userId : null,
+            'queued_at' => date('Y-m-d H:i:s'),
+            'accepted_at' => $active ? date('Y-m-d H:i:s') : null,
+            'last_message_at' => date('Y-m-d H:i:s'),
+        ]);
+        $conv = $this->get($id);
+        $ticketId = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sector['name']));
+        if ($ticketId !== null) {
+            $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $id]);
+        }
+        $this->db->insert('talk_messages', [
+            'conversation_id' => $id, 'direction' => 'internal', 'author_user_id' => $userId, 'type' => 'note', 'body' => $note, 'ack' => 'received',
+        ]);
+        $conv = $this->get($id);
+        $this->events->publish('conversation.created', $id, $sectorId, $userId, $this->summary($conv));
+        return $conv;
+    }
+
     // ------------------------------------------------------------------ ações do atendente
 
     public function accept(int $convId, StaffMember $u): array

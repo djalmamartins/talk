@@ -59,6 +59,7 @@ async function openConversation(id) {
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
+  if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
@@ -236,6 +237,7 @@ document.addEventListener('click', async (e) => {
     return loadList();
   }
   const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'schedule') { location.href = `/agendamentos?c=${state.current}&voltar=1`; return; }
   if (!act || !state.current) return;
   try {
     if (act === 'accept') await api(`/api/conversations/${state.current}/accept`, { method: 'POST' });

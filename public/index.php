@@ -89,6 +89,7 @@ if ($isLab) {
     register_shutdown_function(static function () use ($app): void {
         try {
             $app['conversations']->triage();
+            $app['schedules']->runDue();
             $app['worker']->runOnce();
             $app['worker']->fetchMedia();
         } catch (\Throwable $e) {
@@ -157,6 +158,13 @@ try {
             exit;
         }
         $view('contacts', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
+    if ($path === '/agendamentos') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $view('schedules', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
     }
     if ($path === '/equipe') {
         if (!$sessionOk()) {
@@ -238,7 +246,7 @@ try {
             $json([
                 'user' => ['id' => $me->userId, 'name' => $_SESSION['user_name'] ?? '', 'supervisor' => $me->supervisor,
                     'agent_sectors' => $me->agentSectors, 'manager_sectors' => $me->managerSectors],
-                'sectors' => $app['db']->all('SELECT id, name, menu_key FROM talk_sectors WHERE active = 1 ORDER BY menu_key'),
+                'sectors' => $app['db']->all('SELECT id, name, menu_key, color FROM talk_sectors WHERE active = 1 ORDER BY menu_key'),
                 'users' => $names,
                 // para "Trocar atendente": quem atende em cada setor
                 'staff' => $app['db']->all(
@@ -277,6 +285,18 @@ try {
                     default => throw new DomainError('Ação inválida.', 404),
                 });
             }
+        }
+        if ($path === '/api/schedules') {
+            $json($method === 'POST' ? $app['schedules']->save($me, $body())
+                : ['items' => $app['schedules']->list($me, $_GET), 'counts' => $app['schedules']->counts($me)]);
+        }
+        if (preg_match('#^/api/schedules/(\d+)(?:/(cancel))?$#', $path, $m)) {
+            $sid = (int) $m[1];
+            $json(match (true) {
+                $method === 'GET' => $app['schedules']->one($me, $sid),
+                ($m[2] ?? '') === 'cancel' => $app['schedules']->cancel($me, $sid),
+                default => $app['schedules']->save($me, $body(), $sid),
+            });
         }
         if ($path === '/api/me/password' && $method === 'POST') {
             $b = $body();
