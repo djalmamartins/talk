@@ -15,7 +15,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Envio de mídia | Arquivos na conversa: feito (0.6.0), ver linha "Mídia" acima | S1 |
 | Tags / TicketTag | Etiquetas: feito (0.7.0), no contato (não no ticket), para seguir a pessoa em todas as conversas; filtro na lista | S1 |
 | ContactNotes (painel do contato) | Painel com dados do ERP, últimos chamados e notas do contato: feito (0.7.0) | S1 |
-| Contacts | Contatos | S3 |
+| Contacts | Contatos: feito (0.9.0). Lista, busca, filtros, editar nome, histórico e bloquear. Sem importar da agenda do celular nem apagar (LGPD: exclusão vira processo à parte) | S3 |
 | Connections / Whatsapp | Conexões WhatsApp | S4 |
 | Users / UserQueue | Atendentes e setores | S5 |
 | Schedules | Agendamento de mensagens | S6 |

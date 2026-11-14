@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0] — 2026-11-14
+### Adicionado
+- Tela **Contatos** (`/contatos`): lista com busca por nome, telefone (com ou sem máscara),
+  condomínio ou unidade; filtros por etiqueta e por situação (identificados no ERP, não
+  identificados, bloqueados); 25 por página; número de atendimentos e último contato.
+- Detalhe do contato: dados do ERP, etiquetas, atendimentos (só os que o usuário pode ver, com link
+  para abrir a conversa) e notas. Editar o nome.
+- **Bloquear contato** (supervisor e gerentes, com motivo): as mensagens da pessoa deixam de entrar
+  (ficam só contadas) e os atendimentos abertos são encerrados sem aviso a ela. Desbloquear volta ao
+  normal.
+- Escopo (LGPD): supervisor vê todos os contatos; os demais, só quem já falou com os seus setores.
+- Migration `010_contact_block.sql`.
+
 ## [0.8.0] — 2026-11-14
 ### Adicionado
 - Tela **Fila de atendimento** (`/fila`, no menu lateral), no padrão da tela de referência:

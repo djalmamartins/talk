@@ -44,6 +44,9 @@ class ConversationService
             if ($this->db->one('SELECT id FROM talk_messages WHERE provider_message_id = ?', [$in->providerMessageId])) {
                 return null; // webhook repetido
             }
+            if (ContactBook::dropIfBlocked($this->db, $in->fromPhone)) {
+                return null; // contato bloqueado: descarta (fica só a contagem)
+            }
 
             $contact = $this->resolveContact($in);
             $conv = $this->db->one(

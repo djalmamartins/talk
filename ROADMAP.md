@@ -14,7 +14,7 @@ empresa só (`docs/porte-atendechat.md`).
 | S1 | Painel do contato: dados do ERP, etiquetas, últimos chamados, notas, ações rápidas | caixa-de-entrada.png | feito (0.7.0); as ações já ficam no topo da conversa |
 | S1 | Etiquetas nas conversas e contatos | Atendechat Tags | feito (0.7.0): no contato, aparecem na lista e filtram |
 | S2 | Fila de atendimento: em espera, tempo médio, atendimentos do dia, taxa de resolução, prioridade, atendentes online | fila-de-atendimento.png | feito (0.8.0) |
-| S3 | Contatos: lista, busca, edição, bloquear | Atendechat Contacts | a fazer |
+| S3 | Contatos: lista, busca, edição, bloquear | Atendechat Contacts | feito (0.9.0) |
 | S4 | Conexões WhatsApp: vários números, setor de cada número, QR Code, status | conexao-whatsapp.png | a fazer |
 | S5 | Atendentes e setores: cadastro, papéis (atendente, gerente, supervisor), senha | Atendechat Users/Queues | a fazer |
 | S6 | Agendamento de mensagens e envio em massa pela API oficial (boletos) | Atendechat Schedules/Campaigns | a fazer |

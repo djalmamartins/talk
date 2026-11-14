@@ -126,6 +126,13 @@ try {
         }
         $view('inbox', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/contatos') {
+        if (empty($_SESSION['user_id'])) {
+            header('Location: /login');
+            exit;
+        }
+        $view('contacts', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/fila') {
         if (empty($_SESSION['user_id'])) {
             header('Location: /login');
@@ -203,6 +210,26 @@ try {
                 $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
             }
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+        }
+        if ($path === '/api/contacts') {
+            $json($app['contactbook']->list($me, $_GET));
+        }
+        if (preg_match('#^/api/contacts/(\d+)(?:/(rename|block|unblock))?$#', $path, $m)) {
+            $cb = $app['contactbook'];
+            $cid = (int) $m[1];
+            $action = $m[2] ?? null;
+            if ($action === null && $method === 'GET') {
+                $json($cb->show($me, $cid));
+            }
+            if ($method === 'POST') {
+                $b = $body();
+                $json(match ($action) {
+                    'rename' => $cb->rename($me, $cid, (string) ($b['name'] ?? '')),
+                    'block' => $cb->block($me, $cid, isset($b['reason']) ? (string) $b['reason'] : null),
+                    'unblock' => $cb->unblock($me, $cid),
+                    default => throw new DomainError('Ação inválida.', 404),
+                });
+            }
         }
         if ($path === '/api/queue') {
             $json($app['queue']->overview($me));

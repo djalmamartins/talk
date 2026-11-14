@@ -104,6 +104,7 @@ return [
     'gateways' => $gateways,
     'jack' => $jack,
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30')),
+    'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
 ];
