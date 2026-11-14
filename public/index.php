@@ -78,7 +78,9 @@ $upload = static function () use ($json): array {
 $view = static function (string $name, array $vars = []) use ($app): never {
     $vars['csrf'] ??= $_SESSION['csrf'];
     // o menu lateral mostra "Conexão WhatsApp" só para o supervisor
-    $vars['isSupervisor'] = !empty($_SESSION['user_id']) && $app['staff']->find((int) $_SESSION['user_id'])->supervisor;
+    $sm = !empty($_SESSION['user_id']) ? $app['staff']->find((int) $_SESSION['user_id']) : null;
+    $vars['isSupervisor'] = $sm !== null && $sm->supervisor;
+    $vars['canBulk'] = $sm !== null && ($sm->supervisor || $sm->managerSectors);
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
     require __DIR__ . "/../views/$name.php";
@@ -90,6 +92,7 @@ if ($isLab) {
         try {
             $app['conversations']->triage();
             $app['schedules']->runDue();
+            $app['campaigns']->runDue();
             $app['worker']->runOnce();
             $app['worker']->fetchMedia();
         } catch (\Throwable $e) {
@@ -165,6 +168,18 @@ try {
             exit;
         }
         $view('schedules', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
+    }
+    if ($path === '/envios') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $me = $app['staff']->find((int) $_SESSION['user_id']);
+        if (!$me->supervisor && !$me->managerSectors) {
+            header('Location: /');
+            exit;
+        }
+        $view('campaigns', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
     }
     if ($path === '/equipe') {
         if (!$sessionOk()) {
@@ -285,6 +300,38 @@ try {
                     default => throw new DomainError('Ação inválida.', 404),
                 });
             }
+        }
+        if ($path === '/api/templates') {
+            $json($method === 'POST' ? $app['campaigns']->saveTemplate($me, $body()) : $app['campaigns']->templates($me));
+        }
+        if ($path === '/api/templates/sync' && $method === 'POST') {
+            $json($app['campaigns']->syncTemplates($me, (int) ($body()['channel_id'] ?? 0)));
+        }
+        if (preg_match('#^/api/templates/(\d+)(/delete)?$#', $path, $m) && $method === 'POST') {
+            if (!empty($m[2])) {
+                $app['campaigns']->deleteTemplate($me, (int) $m[1]);
+                $json(['ok' => true]);
+            }
+            $json($app['campaigns']->saveTemplate($me, $body(), (int) $m[1]));
+        }
+        if ($path === '/api/campaigns') {
+            $json($method === 'POST' ? $app['campaigns']->save($me, $body()) : $app['campaigns']->list($me));
+        }
+        if ($path === '/api/campaigns/preview' && $method === 'POST') {
+            $json($app['campaigns']->preview($me, $body()));
+        }
+        if (preg_match('#^/api/campaigns/(\d+)(?:/(start|pause|resume|cancel|recipients))?$#', $path, $m)) {
+            $cid = (int) $m[1];
+            $cs = $app['campaigns'];
+            $json(match (true) {
+                ($m[2] ?? '') === 'recipients' => $cs->recipients($me, $cid, (string) ($_GET['status'] ?? '')),
+                $method === 'GET' => $cs->one($me, $cid),
+                ($m[2] ?? '') === 'start' => $cs->start($me, $cid),
+                ($m[2] ?? '') === 'pause' => $cs->pause($me, $cid),
+                ($m[2] ?? '') === 'resume' => $cs->resume($me, $cid),
+                ($m[2] ?? '') === 'cancel' => $cs->cancel($me, $cid),
+                default => $cs->save($me, $body(), $cid),
+            });
         }
         if ($path === '/api/schedules') {
             $json($method === 'POST' ? $app['schedules']->save($me, $body())

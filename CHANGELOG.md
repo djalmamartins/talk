@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.13.0] — 2026-11-14
+### Adicionado
+- Tela **Envio em massa** (`/envios`, para supervisor e gerentes de setor), com duas abas:
+  - **Envios:** cada envio com situação (rascunho, agendado, enviando, pausado, concluído,
+    cancelado), barra de progresso e números de pessoas, na fila, enviadas, entregues, lidas,
+    responderam, falhas e fora; clicar num número abre a lista de destinatários filtrada.
+  - **Modelos da Meta:** modelos aprovados por número oficial, com botão para sincronizar com a
+    Meta (supervisor) ou cadastrar à mão.
+- Novo envio: número oficial, setor que recebe as respostas, modelo, de onde vem cada variável
+  (primeiro nome, nome, telefone, coluna da lista ou texto fixo), público (contatos com uma
+  etiqueta ou lista colada do Excel), quando (agora ou dia e hora) e ritmo por minuto. Prévia ao
+  vivo com quantos recebem, quem fica de fora e por quê (telefone inválido, repetido, bloqueado,
+  pediu para sair, variável vazia) e como a mensagem chega para os três primeiros.
+- O worker envia no ritmo escolhido; pausar, retomar e cancelar a qualquer momento; falha da Meta
+  fica registrada no destinatário; confirmações de entrega e leitura atualizam os números.
+- Resposta de quem recebeu o envio (até 3 dias) vai direto para o setor da campanha, com nota
+  interna mostrando a mensagem enviada. "SAIR", "PARAR", "STOP"... tiram o contato dos próximos
+  envios em massa (LGPD).
+- Migration `014_campaigns.sql`.
+
 ## [0.12.0] — 2026-11-14
 ### Adicionado
 - Tela **Agendamentos** (`/agendamentos`, no menu de todos): mensagens marcadas para um dia e

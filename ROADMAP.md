@@ -18,7 +18,7 @@ empresa só (`docs/porte-atendechat.md`).
 | S4 | Conexões WhatsApp: vários números, setor de cada número, QR Code, status | conexao-whatsapp.png | feito (0.10.0) |
 | S5 | Atendentes e setores: cadastro, papéis (atendente, gerente, supervisor), senha | Atendechat Users/Queues | feito (0.11.0) |
 | S6a | Agendamento de mensagens | Atendechat Schedules | feito (0.12.0) |
-| S6b | Envio em massa pela API oficial (modelos aprovados, lista por etiqueta ou planilha; boletos quando a API do ERP sair) | Atendechat Campaigns/ContactLists | a fazer |
+| S6b | Envio em massa pela API oficial (modelos aprovados, lista por etiqueta ou planilha; boletos quando a API do ERP sair) | Atendechat Campaigns/ContactLists | feito (0.13.0) |
 | S7 | Painel e relatórios (tempo de espera e de atendimento por setor e atendente) e avaliação pós-atendimento | Atendechat Dashboard/UserRating | a fazer |
 | S8 | Horário de atendimento e mensagem fora do horário; produção (Docker, worker, backup) | Atendechat Settings | a fazer |
 | J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |

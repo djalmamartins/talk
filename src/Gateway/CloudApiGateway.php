@@ -100,6 +100,35 @@ final class CloudApiGateway implements WhatsAppGateway
         return ['state' => 'connected', 'phone' => $phone, 'detail' => isset($data['quality_rating']) ? 'Qualidade: ' . $data['quality_rating'] : null];
     }
 
+    /**
+     * Modelos aprovados na conta (WABA). Precisa do business_account_id na configuração do número.
+     * @return list<array{name:string, language:string, category:?string, status:string, body:string}>
+     */
+    public function listTemplates(): array
+    {
+        if (empty($this->config['business_account_id'])) {
+            throw new GatewayException('Informe o WhatsApp Business Account ID na conexão para buscar os modelos.');
+        }
+        $url = $this->graph(rawurlencode((string) $this->config['business_account_id']) . '/message_templates?fields=name,language,status,category,components&limit=200');
+        $r = $this->http->request('GET', $url, null, ['Authorization' => 'Bearer ' . $this->config['access_token']]);
+        $data = json_decode($r['body'], true) ?: [];
+        if ($r['status'] >= 300) {
+            throw new GatewayException('Cloud API: ' . ($data['error']['message'] ?? "HTTP {$r['status']}"));
+        }
+        $out = [];
+        foreach ($data['data'] ?? [] as $t) {
+            $body = '';
+            foreach ($t['components'] ?? [] as $c) {
+                if (($c['type'] ?? '') === 'BODY') {
+                    $body = (string) ($c['text'] ?? '');
+                }
+            }
+            $out[] = ['name' => (string) $t['name'], 'language' => (string) ($t['language'] ?? 'pt_BR'), 'category' => $t['category'] ?? null,
+                'status' => (string) ($t['status'] ?? 'APPROVED'), 'body' => $body];
+        }
+        return $out;
+    }
+
     public function logout(): void
     {
         // a API oficial não "desloga": para parar, desative o canal no Talk ou o número na Meta

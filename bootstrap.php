@@ -110,5 +110,6 @@ return [
     'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
     'login' => new \ConnectTalk\Service\LoginGuard($db),
     'schedules' => new \ConnectTalk\Service\ScheduleService($db, $policy, $conversations),
+    'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),
     'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $env('APP_ENV') === 'lab'),
 ];

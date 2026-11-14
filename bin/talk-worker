@@ -16,7 +16,7 @@ while (true) {
             $app['schedules']->runDue();
             $lastTriage = time();
         }
-        $sent = $worker->runOnce() + $worker->fetchMedia();
+        $sent = $worker->runOnce() + $worker->fetchMedia() + $app['campaigns']->runDue(); // envio em massa no ritmo de cada campanha
         if ($sent === 0) {
             usleep(500_000);
         }

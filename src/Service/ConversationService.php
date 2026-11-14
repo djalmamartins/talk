@@ -114,6 +114,7 @@ class ConversationService
     {
         $msg = $this->db->one('SELECT m.id, m.conversation_id, c.sector_id FROM talk_messages m JOIN talk_conversations c ON c.id = m.conversation_id WHERE m.provider_message_id = ?', [$s->providerMessageId]);
         if (!$msg) {
+            CampaignReplies::status($this->db, $s->providerMessageId, $s->ack); // pode ser um envio em massa
             return;
         }
         // não regride (read não volta para delivered)
@@ -212,6 +213,19 @@ class ConversationService
                     'SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?',
                     [$conv['channel_id']]
                 );
+                // resposta a um envio em massa recente: vai para o setor da campanha, com a mensagem enviada como nota
+                $contactRow = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+                foreach ($texts as $t) {
+                    CampaignReplies::checkOptOut($this->db, (int) $contactRow['id'], (string) $t);
+                }
+                $campaign = $fixed ? null : CampaignReplies::replyTo($this->db, $contactRow);
+                if ($campaign) {
+                    $fixed = $campaign['sector'];
+                    $this->db->insert('talk_messages', [
+                        'conversation_id' => $conv['id'], 'direction' => 'internal', 'type' => 'note', 'ack' => 'received',
+                        'body' => "Resposta ao envio em massa \"{$campaign['campaign']}\". Mensagem enviada:\n{$campaign['text']}",
+                    ]);
+                }
                 $d = $fixed ? ['action' => 'route', 'sector' => $fixed]
                     : $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
                 if ($d === null) {
