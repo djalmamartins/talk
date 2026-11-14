@@ -51,4 +51,13 @@ $quick = [
 foreach ($quick as [$sc, $bodyText, $sector]) {
     $db->run('INSERT IGNORE INTO talk_quick_messages (shortcut, body, sector_id, created_by) VALUES (?, ?, ?, 1)', [$sc, $bodyText, $sector ? $ids[$sector] : null]);
 }
+// etiquetas e um morador "identificado no ERP" (dados fictícios) para ver o painel do contato
+foreach ([['Síndico', '#C9A227'], ['Inadimplente', '#B42318'], ['2ª via', '#2F6FDE'], ['Obra', '#C2410C'], ['Conselho', '#7A3EC8']] as [$tn, $tc]) {
+    $db->run('INSERT IGNORE INTO talk_tags (name, color, created_by) VALUES (?, ?, 1)', [$tn, $tc]);
+}
+$db->run(
+    'INSERT INTO talk_contacts (phone, name, erp_person_id, erp_snapshot) VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE name = VALUES(name), erp_person_id = VALUES(erp_person_id), erp_snapshot = VALUES(erp_snapshot)',
+    ['5531988887654', 'Mariana Souza', 9077, json_encode(['vinculo' => 'owner', 'condominio' => 'Residencial Jardins', 'unidade' => 'Bloco A 101', 'email' => 'mariana@exemplo.com'], JSON_UNESCAPED_UNICODE)]
+);
 echo "seed de laboratório ok (senha: $pass)\n";

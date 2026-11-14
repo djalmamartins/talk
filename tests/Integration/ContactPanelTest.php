@@ -1,0 +1,109 @@
+<?php
+declare(strict_types=1);
+
+namespace ConnectTalk\Tests\Integration;
+
+use ConnectTalk\Domain\StaffMember;
+use ConnectTalk\Realtime\EventBus;
+use ConnectTalk\Service\AccessPolicy;
+use ConnectTalk\Service\ContactPanel;
+use ConnectTalk\Service\DomainError;
+use ConnectTalk\Service\InboxQuery;
+
+final class ContactPanelTest extends DbTestCase
+{
+    private ContactPanel $p;
+    private StaffMember $sup;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->p = new ContactPanel($this->db, new AccessPolicy(), new EventBus($this->db));
+        $this->sup = new StaffMember(1, true);
+    }
+
+    public function test_so_supervisor_e_gerente_cadastram_etiqueta_e_nome_e_unico(): void
+    {
+        $t = $this->p->saveTag($this->sup, ['name' => '  Síndico ', 'color' => '#c9a227']);
+        $this->assertSame(['Síndico', '#C9A227'], [$t['name'], $t['color']]);
+        $this->p->saveTag(new StaffMember(5, false, [], [$this->sectors['Manutenção']]), ['name' => 'Obra']);
+        foreach ([[$this->agent(2, 'Financeiro'), ['name' => 'X'], 403], [$this->sup, ['name' => 'síndico'], 422], [$this->sup, ['name' => 'Y', 'color' => 'red'], 422]] as [$who, $in, $code]) {
+            try {
+                $this->p->saveTag($who, $in);
+                $this->fail('deveria recusar ' . json_encode($in));
+            } catch (DomainError $e) {
+                $this->assertSame($code, $e->getCode());
+            }
+        }
+        $this->assertSame(['Obra', 'Síndico'], array_column($this->p->tags(), 'name'));
+    }
+
+    public function test_etiqueta_fica_no_contato_aparece_na_lista_e_filtra(): void
+    {
+        $sind = $this->p->saveTag($this->sup, ['name' => 'Síndico'])['id'];
+        $inad = $this->p->saveTag($this->sup, ['name' => 'Inadimplente'])['id'];
+        $a = $this->routed('preciso da segunda via do boleto', '5531911110001');
+        $b = $this->routed('quero a segunda via do boleto', '5531911110002');
+        $ana = $this->agent(2, 'Financeiro');
+
+        $tags = $this->p->setContactTags($ana, $a, [$sind, $inad, $sind]);
+        $this->assertSame(['Inadimplente', 'Síndico'], array_column($tags, 'name'));
+        $this->assertSame([], array_column($this->p->setContactTags($ana, $b, []), 'name'));
+
+        $q = new InboxQuery($this->db, new AccessPolicy());
+        $rows = $q->list($ana, 'pending');
+        $byId = array_column($rows, 'tag_ids', 'id');
+        $this->assertSame(min($sind, $inad) . ',' . max($sind, $inad), $byId[$a]);
+        $this->assertNull($byId[$b]);
+        $this->assertSame([$a], array_map('intval', array_column($q->list($ana, 'pending', tagId: $inad), 'id')));
+
+        // nova conversa da mesma pessoa já vem com as etiquetas
+        $this->svc->close($a, new StaffMember(1, true), 'ok');
+        $a2 = $this->routed('outra coisa: segunda via do boleto de dezembro', '5531911110001');
+        $this->assertSame(['Inadimplente', 'Síndico'], array_column($this->p->panel($ana, $a2)['tags'], 'name'));
+
+        $this->expectExceptionCode(403);
+        $this->p->setContactTags($this->agent(4, 'Manutenção'), $b, [$sind]);
+    }
+
+    public function test_ultimos_chamados_so_mostram_o_que_o_setor_pode_ver(): void
+    {
+        $sup = $this->sup;
+        $fin = $this->routed('preciso da segunda via do boleto');
+        $this->svc->close($fin, $sup, 'enviado');
+        $man = $this->routed('o portão da garagem quebrou');
+        $this->svc->close($man, $sup, 'consertado');
+        $now = $this->routed('segunda via do boleto de novo');
+
+        $doSup = $this->p->panel($sup, $now);
+        $this->assertSame([$man, $fin], array_map('intval', array_column($doSup['history'], 'id')));
+        $this->assertSame('o portão da garagem quebrou', $doSup['history'][0]['subject']);
+
+        $daAna = $this->p->panel($this->agent(2, 'Financeiro'), $now);
+        $this->assertSame([$fin], array_map('intval', array_column($daAna['history'], 'id')), 'Financeiro não vê o chamado da Manutenção');
+        $this->assertSame(2, $daAna['history_total']);
+    }
+
+    public function test_notas_do_contato_valem_para_todas_as_conversas_e_so_o_autor_apaga(): void
+    {
+        $a = $this->routed('preciso da segunda via do boleto');
+        $ana = $this->agent(2, 'Financeiro');
+        $n = $this->p->addNote($ana, $a, "  prefere contato depois das 18h \r\n");
+        $this->assertSame('prefere contato depois das 18h', $n['body']);
+        $this->svc->close($a, $this->sup, 'ok');
+        $b = $this->routed('o portão da garagem quebrou');
+        $notes = $this->p->panel($this->agent(4, 'Manutenção'), $b)['notes'];
+        $this->assertSame(['prefere contato depois das 18h'], array_column($notes, 'body'));
+
+        try {
+            $this->p->deleteNote($this->agent(4, 'Manutenção'), $b, $n['id']);
+            $this->fail('outro atendente não apaga');
+        } catch (DomainError $e) {
+            $this->assertSame(403, $e->getCode());
+        }
+        $this->p->deleteNote(new StaffMember(5, false, [], [$this->sectors['Manutenção']]), $b, $n['id']);
+        $this->assertSame([], $this->p->panel($this->sup, $b)['notes']);
+        $this->expectExceptionMessage('1000');
+        $this->p->addNote($this->sup, $b, str_repeat('x', 1001));
+    }
+}

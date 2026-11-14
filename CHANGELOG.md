@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0] — 2026-11-14
+### Adicionado
+- Etiquetas (ex.: Síndico, Inadimplente, 2ª via, Obra), com cor. Ficam no **contato**: seguem a pessoa
+  em todas as conversas, aparecem na lista e têm filtro próprio. Supervisor e gerentes cadastram (menu
+  "Etiquetas"); quem vê a conversa aplica ou tira pelo "+" do painel. Até 10 por contato.
+- Painel do contato no padrão da tela de referência: iniciais, vínculo no ERP, telefone, condomínio,
+  unidade, e-mail, protocolo, etiquetas, **últimos chamados** da pessoa (só os que o setor pode ver,
+  clicáveis; avisa quantos há em outros setores) e **notas do contato** (valem para todas as conversas;
+  só o autor, o supervisor ou um gerente apagam).
+- API: `GET/POST /api/tags`, `POST /api/tags/{id}` e `/{id}/delete`, `GET /api/conversations/{id}/panel`,
+  `POST /api/conversations/{id}/tags`, `POST /api/conversations/{id}/contactnotes` e
+  `/contact-notes/{nota}/delete`; `tag` no filtro de `/api/conversations`.
+- Migration `008_tags_contact_notes.sql`; seed do laboratório com etiquetas e uma moradora fictícia
+  "identificada no ERP".
+
 ## [0.6.0] — 2026-11-14
 ### Adicionado
 - Arquivos nas conversas. O atendente envia imagem, áudio, vídeo, PDF, Word, Excel ou texto pelo clipe,

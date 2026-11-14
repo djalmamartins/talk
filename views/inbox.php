@@ -17,6 +17,7 @@
   <a class="nav active" href="/"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H8l-4 4z"/></svg>Atendimentos <b id="badge-nav"></b></a>
   <a class="nav" href="#" id="nav-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar conversas</a>
   <a class="nav" href="#" id="nav-quick"><svg viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>Mensagens rápidas</a>
+  <a class="nav" href="#" id="nav-tags"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>Etiquetas</a>
   <form class="logout" method="post" action="/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button class="nav"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>Sair</button></form>
 </nav>
 <div class="page">
@@ -32,7 +33,8 @@
       <button data-tab="closed">Encerrados</button>
     </nav>
     <div class="filters">
-      <select id="sector-filter"><option value="">Todos os setores</option></select>
+      <div class="filter-row"><select id="sector-filter"><option value="">Todos os setores</option></select>
+      <select id="tag-filter"><option value="">Todas as etiquetas</option></select></div>
       <form id="search-form"><input id="search" placeholder="Buscar mensagens, nome, telefone, protocolo"></form>
     </div>
     <ul id="conversations" class="items"></ul>
@@ -92,6 +94,18 @@
       <menu><button type="button" id="quick-cancel">Cancelar</button><button class="primary">Salvar</button></menu>
     </form>
     <menu id="quick-actions"><button type="button" id="quick-new" class="primary">Nova mensagem</button><button type="button" id="quick-close">Fechar</button></menu>
+  </div>
+</dialog>
+<dialog id="tags-dialog">
+  <div class="quick">
+    <header><h3>Etiquetas</h3><p>Marque os contatos para achar e organizar depois (ex.: Síndico, Inadimplente, Obra). A etiqueta fica no contato e aparece em todas as conversas dele.</p></header>
+    <ul id="tags-list" class="quick-list tags-list"></ul>
+    <form id="tag-form" class="quick-form">
+      <input type="hidden" id="tag-id">
+      <div class="quick-row"><label>Nome<input id="tag-name" required maxlength="40" placeholder="Síndico"></label>
+        <div><span class="lbl">Cor</span><div id="tag-colors" class="tag-colors"></div></div></div>
+      <menu><button type="button" id="tags-close">Fechar</button><button class="primary" id="tag-save">Criar etiqueta</button></menu>
+    </form>
   </div>
 </dialog>
 <dialog id="close-dialog">

@@ -16,7 +16,7 @@ final class InboxQuery
     /**
      * @param string $tab pending | open | closed | mine
      */
-    public function list(StaffMember $u, string $tab, ?int $sectorId = null, int $limit = 50, int $offset = 0): array
+    public function list(StaffMember $u, string $tab, ?int $sectorId = null, int $limit = 50, int $offset = 0, ?int $tagId = null): array
     {
         [$where, $params] = $this->policy->sqlFilter($u, 'c');
         $conds = [$where];
@@ -38,8 +38,13 @@ final class InboxQuery
             $conds[] = 'c.sector_id = :sector';
             $params['sector'] = $sectorId;
         }
+        if ($tagId !== null) {
+            $conds[] = 'EXISTS (SELECT 1 FROM talk_contact_tags ft WHERE ft.contact_id = c.contact_id AND ft.tag_id = :tag)';
+            $params['tag'] = $tagId;
+        }
         $sql = 'SELECT c.id, c.protocol, c.status, c.sector_id, s.name AS sector_name, c.assigned_user_id, c.unread,
                        c.last_message_at, ct.name AS contact_name, ct.phone, ct.erp_person_id, ct.erp_snapshot,
+                       (SELECT GROUP_CONCAT(tg.tag_id ORDER BY tg.tag_id) FROM talk_contact_tags tg WHERE tg.contact_id = c.contact_id) AS tag_ids,
                        (SELECT COALESCE(NULLIF(m.body, \'\'), CASE m.type WHEN \'image\' THEN \'📷 Foto\' WHEN \'audio\' THEN \'🎤 Áudio\' WHEN \'video\' THEN \'🎬 Vídeo\' WHEN \'document\' THEN \'📄 Documento\' END)
                           FROM talk_messages m WHERE m.conversation_id = c.id AND m.direction <> \'internal\' ORDER BY m.id DESC LIMIT 1) AS last_body
                 FROM talk_conversations c

@@ -25,13 +25,14 @@ const sectorName = (id) => state.sectors.find((s) => s.id == id)?.name || '—';
 // ------------------------------------------------------------ lista
 async function loadList() {
   if (state.search) return runSearch();
-  const rows = await api(`/api/conversations?tab=${state.tab}&sector=${state.sector}`);
+  const rows = await api(`/api/conversations?tab=${state.tab}&sector=${state.sector}&tag=${state.tagFilter || ''}`);
   $('#conversations').innerHTML = rows.map((c) => `
     <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}">
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
       <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
       <span class="last">${esc(c.last_body || '')}</span>
+      ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
   if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; }
 }
@@ -106,17 +107,123 @@ function renderMedia(m) {
   return `<a class="media-doc" href="${url}" target="_blank" rel="noopener"><span>${esc(ext)}</span><b>${esc(m.media_name || 'arquivo')}</b><small>${m.media_size ? kb(m.media_size) : ''}</small></a>`;
 }
 
-function renderContact(contact, c) {
-  let erp = '';
-  try {
-    const d = JSON.parse(contact.erp_snapshot || 'null');
-    if (d) erp = Object.entries(d).map(([k, v]) => `<div><span class="meta">${esc(k)}</span><br>${esc(v)}</div>`).join('');
-  } catch {}
-  $('#contact-panel').innerHTML = `<h3>Contato</h3>
-    <div><b>${esc(contact.name || 'Sem nome')}</b></div><div class="meta">${esc(contact.phone)}</div>
-    ${contact.erp_person_id ? `<p class="tag">Identificado no ERP #${contact.erp_person_id}</p>${erp}` : '<p class="meta">Não identificado no cadastro do ERP.</p>'}
-    <p class="meta">Chamado: <b>${esc(c.protocol)}</b></p>`;
+// ------------------------------------------------------------ painel do contato
+const tagById = (id) => (state.tags || []).find((t) => t.id == id);
+const tagChip = (t, extra = '') => `<span class="chip" style="--c:${esc(t.color)}"${extra}>${esc(t.name)}</span>`;
+const tagChips = (ids) => ids.map(tagById).filter(Boolean).map((t) => tagChip(t)).join('');
+const fmtPhone = (p) => { const m = String(p).match(/^55(\d{2})(\d{4,5})(\d{4})$/); return m ? `(${m[1]}) ${m[2]}-${m[3]}` : p; };
+const relLabel = { owner: 'Proprietário', tenant: 'Inquilino', resident: 'Morador', financial: 'Responsável financeiro' };
+const convStatus = { bot: 'Triagem', pending: 'Na fila', open: 'Em atendimento', closed: 'Encerrado' };
+const initials = (n) => (n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+async function renderContact(contact, c) {
+  let d = {};
+  try { d = JSON.parse(contact.erp_snapshot || 'null') || {}; } catch {}
+  const panel = await api(`/api/conversations/${c.id}/panel`).catch(() => null);
+  if (state.current != c.id) return; // trocou de conversa enquanto carregava
+  state.panel = { contact, conv: c, ...(panel || {}) };
+  const info = [
+    ['Telefone', fmtPhone(contact.phone)],
+    ['Condomínio', d.condominio], ['Unidade', d.unidade], ['Vínculo', relLabel[d.vinculo] || d.vinculo], ['E-mail', d.email],
+  ].filter(([, v]) => v);
+  const tags = (panel?.tags || []).map((t) => tagChip(t)).join('');
+  const hist = (panel?.history || []).map((h) => `
+    <li data-open="${h.id}"><b>${esc(h.protocol)}</b><span>${esc(h.subject || '—')}</span>
+      <small class="st st-${h.status}">${convStatus[h.status]}</small><time>${hhmm(h.created_at).split(',')[0]}</time></li>`).join('');
+  const hidden = panel ? panel.history_total - panel.history.length : 0;
+  const notes = (panel?.notes || []).map((n) => `
+    <li><p>${esc(n.body)}</p><small>${esc((n.user_name || '').split(' (')[0])} · ${hhmm(n.created_at)}
+      ${n.user_id == state.me.id || canManageQuick() ? `<button type="button" class="link" data-delnote="${n.id}">apagar</button>` : ''}</small></li>`).join('');
+  $('#contact-panel').innerHTML = `
+    <div class="cp-head"><span class="avatar">${esc(initials(contact.name))}</span>
+      <div><b>${esc(contact.name || 'Sem nome')}</b>
+      ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
+    <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
+      <dt>Protocolo</dt><dd><b>${esc(c.protocol)}</b></dd></dl>
+      <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
+      <div id="tag-picker" class="tag-picker" hidden></div></section>
+    <section><h4>Últimos chamados</h4>${hist ? `<ul class="cp-hist">${hist}</ul>` : '<p class="meta">Primeiro atendimento desta pessoa.</p>'}
+      ${hidden > 0 ? `<p class="meta">+${hidden} em outros setores</p>` : ''}</section>
+    <section><h4>Notas do contato</h4>
+      <form id="cnote-form" class="cnote-form"><textarea id="cnote" rows="2" maxlength="1000" placeholder="Ex.: prefere contato depois das 18h"></textarea><button>Salvar</button></form>
+      <ul class="cp-notes">${notes}</ul></section>`;
+  if (state.pickerOpen === c.id) { $('#tag-picker').hidden = false; renderTagPicker(); }
 }
+function renderTagPicker() {
+  const mine = (state.panel.tags || []).map((t) => t.id);
+  const all = state.tags || [];
+  $('#tag-picker').innerHTML = (all.length ? all.map((t) => `<label><input type="checkbox" value="${t.id}" ${mine.includes(t.id) ? 'checked' : ''}> ${tagChip(t)}</label>`).join('')
+    : '<p class="meta">Nenhuma etiqueta cadastrada.</p>')
+    + (canManageQuick() ? '<button type="button" class="link" id="tags-manage">Gerenciar etiquetas</button>' : '');
+}
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'tag-edit') {
+    const p = $('#tag-picker'); p.hidden = !p.hidden;
+    state.pickerOpen = p.hidden ? null : state.panel.conv.id;
+    if (!p.hidden) renderTagPicker();
+    return;
+  }
+  if (e.target.id === 'tags-manage') { openTagsDialog(); return; }
+  const open = e.target.closest('[data-open]');
+  if (open) { openConversation(open.dataset.open).catch((err) => toast(err.message)); return; }
+  const del = e.target.dataset.delnote;
+  if (del && confirm('Apagar esta nota?')) {
+    try { await api(`/api/conversations/${state.current}/contact-notes/${del}/delete`, { method: 'POST' }); renderContact(state.panel.contact, state.panel.conv); } catch (err) { toast(err.message); }
+  }
+});
+document.addEventListener('change', async (e) => {
+  if (!e.target.closest('#tag-picker')) return;
+  const ids = [...document.querySelectorAll('#tag-picker input:checked')].map((i) => Number(i.value));
+  try {
+    state.panel.tags = await api(`/api/conversations/${state.current}/tags`, { method: 'POST', body: { tag_ids: ids } });
+    const { contact, conv } = state.panel; await renderContact(contact, conv); loadList();
+  } catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
+});
+document.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'cnote-form') return;
+  e.preventDefault();
+  const body = $('#cnote').value.trim(); if (!body) return;
+  try { await api(`/api/conversations/${state.current}/contactnotes`, { method: 'POST', body: { body } }); renderContact(state.panel.contact, state.panel.conv); }
+  catch (err) { toast(err.message); }
+});
+
+// cadastro de etiquetas (supervisor e gerentes)
+async function loadTags() {
+  state.tags = (await api('/api/tags')).map((t) => ({ ...t, id: Number(t.id) }));
+  const sel = $('#tag-filter');
+  if (sel) sel.innerHTML = '<option value="">Todas as etiquetas</option>' + state.tags.map((t) => `<option value="${t.id}" ${state.tagFilter == t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+}
+const TAG_COLORS = ['#12804A', '#C9A227', '#2F6FDE', '#C2410C', '#B42318', '#7A3EC8', '#0E7490', '#5F6B66'];
+function renderTagsDialog() {
+  $('#tags-list').innerHTML = (state.tags || []).map((t) => `<li>${tagChip(t)} <small>${t.contacts} contato(s)</small>
+    <span><button type="button" data-tedit="${t.id}">Editar</button><button type="button" data-tdel="${t.id}">Excluir</button></span></li>`).join('')
+    || '<li class="empty">Nenhuma etiqueta ainda.</li>';
+}
+async function openTagsDialog() { await loadTags(); renderTagsDialog(); tagForm(null); $('#tags-dialog').showModal(); }
+function tagForm(t) {
+  $('#tag-id').value = t?.id || ''; $('#tag-name').value = t?.name || '';
+  $('#tag-colors').innerHTML = TAG_COLORS.map((c, i) => `<label style="--c:${c}"><input type="radio" name="tag-color" value="${c}" ${(t ? t.color === c : i === 0) ? 'checked' : ''}><span></span></label>`).join('');
+  $('#tag-save').textContent = t ? 'Salvar' : 'Criar etiqueta';
+}
+$('#nav-tags')?.addEventListener('click', (e) => { e.preventDefault(); openTagsDialog(); });
+$('#tags-close').addEventListener('click', () => $('#tags-dialog').close());
+$('#tags-dialog').addEventListener('close', () => { if (state.panel) renderContact(state.panel.contact, state.panel.conv); loadList(); });
+$('#tags-list').addEventListener('click', async (e) => {
+  const ed = e.target.dataset.tedit; const del = e.target.dataset.tdel;
+  if (ed) tagForm(state.tags.find((t) => t.id == ed));
+  if (del && confirm('Excluir esta etiqueta? Ela sai de todos os contatos.')) {
+    try { await api(`/api/tags/${del}/delete`, { method: 'POST' }); await loadTags(); renderTagsDialog(); } catch (err) { toast(err.message); }
+  }
+});
+$('#tag-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#tag-id').value;
+  try {
+    await api(id ? `/api/tags/${id}` : '/api/tags', { method: 'POST', body: { name: $('#tag-name').value, color: document.querySelector('input[name=tag-color]:checked')?.value } });
+    await loadTags(); renderTagsDialog(); tagForm(null);
+  } catch (err) { toast(err.message); }
+});
+$('#tag-filter')?.addEventListener('change', (e) => { state.tagFilter = e.target.value; loadList(); });
 
 // ------------------------------------------------------------ ações
 document.addEventListener('click', async (e) => {
@@ -407,6 +514,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   const me = await api('/api/me');
   Object.assign(state, { me: me.user, sectors: me.sectors, users: me.users, staff: me.staff || [] });
   $('#sector-filter').innerHTML += me.sectors.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  await loadTags().catch(() => {});
+  if (!(me.user.supervisor || (me.user.manager_sectors || []).length)) $('#nav-tags')?.remove();
   await loadList();
   loadQuick().catch(() => {});
   loadSim();

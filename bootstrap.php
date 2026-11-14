@@ -103,5 +103,6 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
 ];

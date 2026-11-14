@@ -187,13 +187,28 @@ try {
         }
         if ($path === '/api/conversations') {
             $sector = isset($_GET['sector']) && $_GET['sector'] !== '' ? (int) $_GET['sector'] : null;
-            $json($app['inbox']->list($me, (string) ($_GET['tab'] ?? 'pending'), $sector));
+            $tag = isset($_GET['tag']) && $_GET['tag'] !== '' ? (int) $_GET['tag'] : null;
+            $json($app['inbox']->list($me, (string) ($_GET['tab'] ?? 'pending'), $sector, tagId: $tag));
         }
         if ($path === '/api/jack/stats') {
             if (!$me->supervisor && $me->managerSectors === []) {
                 $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
             }
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+        }
+        if ($path === '/api/tags') {
+            $json($method === 'POST' ? $app['contacts']->saveTag($me, $body()) : $app['contacts']->tags());
+        }
+        if (preg_match('#^/api/tags/(\d+)(/delete)?$#', $path, $m) && $method === 'POST') {
+            if (!empty($m[2])) {
+                $app['contacts']->deleteTag($me, (int) $m[1]);
+                $json(['ok' => true]);
+            }
+            $json($app['contacts']->saveTag($me, $body(), (int) $m[1]));
+        }
+        if (preg_match('#^/api/conversations/(\d+)/contact-notes/(\d+)/delete$#', $path, $m) && $method === 'POST') {
+            $app['contacts']->deleteNote($me, (int) $m[1], (int) $m[2]);
+            $json(['ok' => true]);
         }
         if ($path === '/api/quick-messages') {
             $json($method === 'POST' ? $app['quick']->save($me, $body()) : $app['quick']->available($me));
@@ -221,6 +236,12 @@ try {
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
                     $json($svc->accept($id, $me));
+                case 'panel':
+                    $json($app['contacts']->panel($me, $id));
+                case 'tags':
+                    $json($app['contacts']->setContactTags($me, $id, (array) ($b['tag_ids'] ?? [])));
+                case 'contactnotes':
+                    $json($app['contacts']->addNote($me, $id, (string) ($b['body'] ?? '')));
                 case 'attach':
                     [$bytes, $mime, $fname] = $upload();
                     $json(['message_id' => $svc->sendFile($id, $me, $bytes, $mime, $fname, isset($_POST['caption']) ? (string) $_POST['caption'] : null,
