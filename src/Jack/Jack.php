@@ -58,15 +58,13 @@ final class Jack
 
         if ($suggest) {
             $this->note((int) $conv['id'], 'jack', sprintf(
-                "%s sugere: %s%s.\nPor causa de: %s.",
-                self::NAME,
+                'Sugestão: %s%s',
                 $sector['name'],
-                $r['intent'] === 'boleto' ? ' (pedido de boleto)' : ($r['intent'] === 'cotacao' ? ' (cotação)' : ''),
-                implode(', ', $r['matched'])
+                $r['intent'] === 'boleto' ? ' (boleto)' : ($r['intent'] === 'cotacao' ? ' (cotação)' : '')
             ));
         }
         if ($route) {
-            $this->note((int) $conv['id'], 'jack', sprintf("%s direcionou para %s.\nPor causa de: %s.", self::NAME, $sector['name'], implode(', ', $r['matched'])));
+            $this->note((int) $conv['id'], 'jack', 'Direcionado para ' . $sector['name']);
             return $sector;
         }
         return null;

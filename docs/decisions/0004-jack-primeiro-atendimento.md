@@ -101,3 +101,13 @@ confiança. Ele não escreve respostas; o texto continua vindo dos modelos aprov
 - Direcionamento funciona mesmo com o ERP fora do ar; o boleto não (vai para o Financeiro).
 - Começa conservadora: no início mais conversas vão para humano, de propósito.
 - Precisa de uma revisão semanal das decisões no modo sombra antes de ligar cada intenção.
+
+## Atualização 14/11/2026 — presença discreta (pedido do Djalma)
+
+- Para a equipe: a sugestão aparece como uma linha cinza pequena no meio da conversa
+  ("Sugestão: Financeiro (boleto)"), sem foto, sem nome e sem o selo "automático". Os termos que
+  levaram à sugestão ficam só no registro do supervisor (`talk_jack_decisions`).
+- Para o cliente (a partir da J2): as mensagens saem assinadas como **Jaqueline**, no mesmo formato
+  dos atendentes ("*Jaqueline:*"), sem citar robô, automação ou inteligência artificial.
+- Limite de honestidade: se o cliente perguntar diretamente se está falando com um robô, a Jack não
+  responde nem nega; a conversa vai na hora para um atendente humano.

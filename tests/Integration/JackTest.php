@@ -34,7 +34,7 @@ final class JackTest extends DbTestCase
         $this->assertSame('bot', $c['status'], 'no modo sombra quem decide é o menu');
         $this->assertNull($c['sector_id']);
         $this->assertCount(1, $this->notes($id));
-        $this->assertStringContainsString('Jack sugere: Manutenção', $this->notes($id)[0]);
+        $this->assertStringContainsString('Sugestão: Manutenção', $this->notes($id)[0]);
         $this->assertStringContainsString('Seu protocolo', $this->lastOutbound($id), 'cliente só recebe o menu de sempre');
         $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE conversation_id = ? AND direction = 'out' AND body LIKE '%Jack%'", [$id])['n']);
     }
@@ -54,7 +54,7 @@ final class JackTest extends DbTestCase
         $c = $this->conv($id);
         $this->assertSame('pending', $c['status']);
         $this->assertSame($this->sectors['Financeiro'], (int) $c['sector_id']);
-        $this->assertStringContainsString('Jack direcionou para Financeiro', $this->notes($id)[0]);
+        $this->assertStringContainsString('Direcionado para Financeiro', $this->notes($id)[0]);
         $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) n FROM talk_outbox o JOIN talk_messages m ON m.id = o.message_id WHERE m.conversation_id = ?", [$id])['n'], 'nada enviado ao cliente');
     }
 

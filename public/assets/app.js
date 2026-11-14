@@ -76,7 +76,7 @@ function renderMsg(m) {
   const who = m.author_user_id ? `<b>${esc(state.users[m.author_user_id] || '')}</b><br>` : '';
   const ack = m.direction === 'out' ? { pending: '🕓', sent: '✓', delivered: '✓✓', read: '✓✓ lido', failed: '⚠ falhou' }[m.ack] || '' : '';
   if (m.type === 'jack') {
-    return `<div class="msg internal jack"><img src="/assets/jack/avatar-64.jpg" alt=""><div><b>Jack</b> <small>automático</small><br>${esc(m.body)}<time>${hhmm(m.created_at)}</time></div></div>`;
+    return `<div class="sys-hint" title="Os termos que levaram à sugestão ficam no registro do supervisor">${esc(m.body)} · ${hhmm(m.created_at)}</div>`;
   }
   const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : '';
   return `<div class="msg ${m.direction}">${m.direction === 'internal' ? who : ''}${label}${esc(m.body)}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
