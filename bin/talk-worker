@@ -1,27 +1,79 @@
 #!/usr/bin/env php
 <?php
-// Worker de envio e da triagem da Jack. Uso: php bin/talk-worker  (rodar sob supervisor/Docker com restart)
+// Worker de envio, triagem da Jack, agendamentos e envio em massa.
+// Uso: php bin/talk-worker           roda (no Docker: serviço "worker", com restart automático)
+//      php bin/talk-worker --check   sai com 0 se o worker deu sinal de vida no último minuto e meio
+//
+// Para não acumular memória nem conexão velha com o banco, encerra sozinho depois de
+// WORKER_MAX_MINUTES (padrão 60) ou de 20 erros seguidos; o Docker sobe outro na hora.
 declare(strict_types=1);
 
 $app = require __DIR__ . '/../bootstrap.php';
+$db = $app['db'];
+
+if (in_array('--check', $argv, true)) {
+    $hb = $db->one("SELECT TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM talk_settings WHERE name = 'worker_heartbeat'");
+    $age = $hb ? (int) $hb['age'] : null;
+    fwrite(STDOUT, $age === null ? "worker nunca rodou\n" : "último sinal há {$age}s\n");
+    exit($age !== null && $age <= 90 ? 0 : 1);
+}
+
+// primeira subida: espera o site aplicar as migrations
+for ($i = 0; !$db->one("SELECT 1 AS ok FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'talk_settings'"); $i++) {
+    if ($i % 6 === 0) {
+        fwrite(STDOUT, "[talk-worker] aguardando as tabelas do banco (migrations)\n");
+    }
+    sleep(5);
+}
+
+$beat = static function () use ($db): void {
+    $db->run(
+        "INSERT INTO talk_settings (name, value) VALUES ('worker_heartbeat', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+        [json_encode(['at' => date('c'), 'pid' => getmypid(), 'host' => gethostname()])]
+    );
+};
 
 $worker = $app['worker'];
 $conversations = $app['conversations'];
+$started = time();
+$maxSeconds = 60 * max(1, (int) $app['env']('WORKER_MAX_MINUTES', '60'));
 $lastTriage = 0;
-fwrite(STDOUT, "[talk-worker] iniciado\n");
-while (true) {
+$lastBeat = 0;
+$errors = 0;
+$stop = false;
+if (function_exists('pcntl_async_signals')) {
+    pcntl_async_signals(true);
+    pcntl_signal(SIGTERM, function () use (&$stop) { $stop = true; });
+    pcntl_signal(SIGINT, function () use (&$stop) { $stop = true; });
+}
+fwrite(STDOUT, '[talk-worker] iniciado (pid ' . getmypid() . ")\n");
+while (!$stop) {
     try {
+        if (time() - $lastBeat >= 15) {
+            $beat();
+            $lastBeat = time();
+        }
         if (time() - $lastTriage >= 5) {      // triagem da Jack e agendamentos a cada 5 s
             $conversations->triage();
             $app['schedules']->runDue();
             $lastTriage = time();
         }
         $sent = $worker->runOnce() + $worker->fetchMedia() + $app['campaigns']->runDue(); // envio em massa no ritmo de cada campanha
+        $errors = 0;
         if ($sent === 0) {
             usleep(500_000);
         }
     } catch (\Throwable $e) {
         fwrite(STDERR, '[talk-worker] erro: ' . $e->getMessage() . "\n");
+        if (++$errors >= 20) {
+            fwrite(STDERR, "[talk-worker] 20 erros seguidos; encerrando para recomeçar do zero\n");
+            exit(1);
+        }
         sleep(2);
     }
+    if (time() - $started >= $maxSeconds) {
+        fwrite(STDOUT, "[talk-worker] tempo máximo atingido; encerrando para recomeçar do zero\n");
+        break;
+    }
 }
+fwrite(STDOUT, "[talk-worker] encerrado\n");

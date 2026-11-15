@@ -1,0 +1,10 @@
+# HTTPS automático para o domínio do Talk (ex.: talk.connect.com.br)
+{$TALK_DOMAIN} {
+	# compressão em tudo, menos no tempo real (SSE)
+	@compress not path /events
+	encode @compress gzip
+	reverse_proxy app:80 {
+		# tempo real (SSE): repassa cada evento na hora
+		flush_interval -1
+	}
+}

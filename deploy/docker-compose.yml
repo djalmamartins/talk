@@ -1,0 +1,88 @@
+# Connect Talk — produção (PC do escritório). Guia: docs/producao.md
+# Tudo a partir da pasta deploy/:
+#   cp .env.example .env   (e preencha)
+#   docker compose up -d --build          (o site aplica as migrations sozinho ao subir)
+#   docker compose run --rm app php bin/setup.php --email=voce@connect.com.br --name="Seu nome"
+name: talk-php   # não confundir com o Talk antigo em Node ("connect-talk")
+
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: America/Sao_Paulo
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=-03:00"]
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    image: connect-talk-php:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: { DB_HOST: db, DB_PORT: "3306", TRUST_PROXY: "1", APP_ENV: production }
+    volumes:
+      - storage:/var/talk/storage
+    depends_on: { db: { condition: service_healthy } }
+
+  worker:
+    image: connect-talk-php:latest
+    restart: unless-stopped
+    env_file: .env
+    environment: { DB_HOST: db, DB_PORT: "3306", APP_ENV: production, RUN_MIGRATIONS: "0" }
+    command: ["php", "bin/talk-worker"]
+    user: www-data
+    volumes:
+      - storage:/var/talk/storage
+    depends_on: { db: { condition: service_healthy }, app: { condition: service_started } }
+    healthcheck:
+      test: ["CMD", "php", "bin/talk-worker", "--check"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # HTTPS automático (Let's Encrypt) para o domínio; a Meta exige HTTPS no webhook
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment: { TALK_DOMAIN: "${TALK_DOMAIN}" }
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+
+  # cópia de segurança diária do banco e dos arquivos (pasta deploy/backups no PC)
+  backup:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_DATABASE: ${DB_DATABASE}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: America/Sao_Paulo
+    entrypoint: ["bash", "/scripts/backup.sh", "--loop"]
+    volumes:
+      - ./backup.sh:/scripts/backup.sh:ro
+      - ./backups:/backups
+      - storage:/storage:ro
+    depends_on: { db: { condition: service_healthy } }
+
+volumes:
+  db:
+  storage:
+  caddy_data:
+  caddy_config:

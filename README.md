@@ -7,6 +7,10 @@ sem framework), hospedada **separada do ERP** e integrada a ele por **API REST**
   [0003 hospedagem separada + API REST](docs/decisions/0003-hospedagem-separada-api-rest.md)
 - **API que o ERP precisa expor:** [docs/api-erp.md](docs/api-erp.md)
 
+## Produção
+Docker no PC do escritório, com HTTPS automático, worker, backup diário e restauração:
+**[docs/producao.md](docs/producao.md)**.
+
 ## Laboratório local (https://talk.connect.lab)
 No Mac com o XAMPP compartilhado (`dev-apache` + `dev-mysql`):
 ```bash

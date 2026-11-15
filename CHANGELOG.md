@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.16.0] — 2026-11-14
+### Adicionado
+- **Pacote de produção** em `deploy/` (guia: `docs/producao.md`):
+  - `Dockerfile`: PHP 8.2 + Apache, opcache, sem pacotes extras do sistema.
+  - `docker-compose.yml` com cinco serviços:
+    - `caddy`: HTTPS automático, sem compressão nem buffer no tempo real;
+    - `app`: aplica as migrations sozinho ao subir;
+    - `worker`;
+    - `db`: MariaDB 11.4, sem porta exposta;
+    - `backup`.
+  - O projeto se chama `talk-php`, para não misturar com o Talk antigo em Node.
+- **Worker como serviço:**
+  - dá sinal de vida a cada 15 s;
+  - `php bin/talk-worker --check` serve de verificação de saúde do Docker;
+  - encerra de forma limpa com SIGTERM;
+  - se reinicia sozinho a cada hora (`WORKER_MAX_MINUTES`) ou depois de 20 erros seguidos;
+  - na primeira subida, espera as tabelas.
+- **`/health`** (sem login): banco respondendo e há quantos segundos o worker deu sinal.
+- **Backup diário:**
+  - banco com `mariadb-dump --single-transaction` e arquivos das conversas, com `SHA256SUMS`;
+  - só vira cópia quando termina inteira;
+  - apaga as mais velhas que `BACKUP_KEEP_DAYS`.
+- **`deploy/restore.sh`:** confere a cópia, pede confirmação e restaura banco e arquivos.
+- **`bin/setup.php`:** primeira instalação. Cria os setores da Jack e o primeiro supervisor com
+  senha gerada (mostrada uma vez).
+- **`TRUST_PROXY=1`:** atrás do Caddy, o site reconhece o HTTPS (cookie `Secure`) e o IP real do
+  cliente (limite de tentativas de login).
+
+### Testado
+- Subida do zero com o docker-compose (todos os serviços saudáveis).
+- `setup`, login por HTTPS com cookie `Secure`.
+- Tempo real "Online" passando pelo Caddy.
+- IP forjado em `X-Forwarded-For` ignorado.
+- Worker reiniciado pelo Docker depois de parar.
+- Backup e restauração: dados e arquivos voltaram como no momento da cópia.
+
 ## [0.15.0] — 2026-11-14
 ### Adicionado
 - Tela **Horário de atendimento** (`/configuracoes`, só supervisor):

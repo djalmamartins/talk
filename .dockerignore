@@ -1,0 +1,10 @@
+.git
+.env
+deploy/.env
+deploy/backups
+vendor
+storage
+tests
+docs
+tools
+*.md

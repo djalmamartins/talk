@@ -14,6 +14,33 @@ $app = require __DIR__ . '/../bootstrap.php';
 $env = $app['env'];
 $isLab = $env('APP_ENV') === 'lab';
 
+// Atrás do proxy de produção (Caddy no docker-compose): HTTPS e IP do cliente vêm dos cabeçalhos.
+// Só vale com TRUST_PROXY=1 (senão qualquer um forjaria o IP e driblaria o limite de tentativas de login).
+if ($env('TRUST_PROXY') === '1') {
+    if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+        $_SERVER['HTTPS'] = 'on';
+    }
+    $fwd = trim(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))[0]);
+    if (filter_var($fwd, FILTER_VALIDATE_IP)) {
+        $_SERVER['REMOTE_ADDR'] = $fwd;
+    }
+}
+
+// verificação de saúde (Docker e monitoramento): banco respondendo e worker vivo; sem sessão
+if (rtrim((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/') === '/health') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    try {
+        $hb = $app['db']->one("SELECT TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM talk_settings WHERE name = 'worker_heartbeat'");
+        $age = $hb ? (int) $hb['age'] : null;
+        echo json_encode(['ok' => true, 'db' => 'ok', 'worker' => ['ok' => $age !== null && $age <= 90, 'seconds_since' => $age]]);
+    } catch (\Throwable) {
+        http_response_code(503);
+        echo json_encode(['ok' => false, 'db' => 'erro']);
+    }
+    exit;
+}
+
 session_name('talk_session');
 session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Lax']);
 session_start();
