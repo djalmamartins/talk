@@ -30,7 +30,7 @@ $channelSeeds = [
     ['Laboratório (simulado)', 'lab', 'both', '5531900000000', null, [], 'connected', 'active', 1],
     ['Plantão Manutenção (simulado)', 'lab', 'attendance', '5531900000003', 'Manutenção', [], 'disconnected', 'active', 0],
     ['Financeiro — QR Code', 'qrcode', 'attendance', '5531900000001', 'Financeiro',
-        ['base_url' => 'http://evolution.lab:8080', 'instance' => 'financeiro', 'api_key' => 'lab-nao-real', 'webhook_secret' => bin2hex(random_bytes(16))], 'disconnected', 'active', 0],
+        ['instance' => 'financeiro', 'webhook_secret' => bin2hex(random_bytes(16))], 'disconnected', 'active', 0],
     ['Avisos em massa — API oficial', 'official', 'bulk', '5531900000009', null,
         ['phone_number_id' => '000000000000000', 'access_token' => 'lab-nao-real', 'app_secret' => 'lab-nao-real', 'verify_token' => bin2hex(random_bytes(12))], 'unknown', 'disabled', 0],
 ];

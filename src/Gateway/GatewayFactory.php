@@ -43,7 +43,9 @@ class GatewayFactory
         }
         return match ($ch['kind']) {
             'official' => new CloudApiGateway($cfg, $this->http),
-            'qrcode' => new EvolutionGateway($cfg + $this->evolution, $this->http), // o do número vale mais que o do servidor
+            // com o motor do servidor configurado, todos os números usam ele (um endereço antigo salvo no
+            // número, como o do laboratório, não vale mais); sem ele, vale o que o número tiver
+            'qrcode' => new EvolutionGateway($this->evolutionReady() ? array_merge($cfg, $this->evolution) : $cfg + $this->evolution, $this->http),
             'lab' => new LabGateway(),
         };
     }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2] — 2026-11-15
+### Corrigido
+- **Número de QR Code antigo tentava um endereço que não existe** ("Could not resolve host:
+  evolution.lab"). Com o motor do WhatsApp configurado no servidor, todos os números de QR Code
+  passam a usar ele, mesmo os cadastrados antes com endereço próprio. Os dados de teste do
+  laboratório também deixam de trazer esse endereço.
+
 ## [0.17.1] — 2026-11-15
 ### Adicionado
 - **QR Code funcionando como no Atendechat**, sem nenhum dado técnico na tela: o motor do WhatsApp

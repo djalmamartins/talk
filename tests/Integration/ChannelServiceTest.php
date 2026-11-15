@@ -239,6 +239,13 @@ final class ChannelServiceTest extends DbTestCase
         $this->assertSame('global-key', $this->http->calls[1]['headers']['apikey']);
         $this->assertSame('http://evolution:8080/webhook/set/talk-5531977776666', $this->http->calls[2]['url']);
 
+        // número antigo com endereço próprio salvo (ex.: o do laboratório): passa a usar o motor do servidor
+        $this->http->calls = [];
+        $this->http->responses = [['status' => 200, 'body' => '{"instance":{"state":"open"}}']];
+        $this->assertSame('connected', $svc->refresh($this->sup(), $this->channelId)['state']);
+        $this->assertSame('http://evolution:8080/instance/connectionState/connect', $this->http->calls[0]['url']);
+        $this->assertSame('global-key', $this->http->calls[0]['headers']['apikey']);
+
         try {
             $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'De novo', 'phone' => '5531977776666']);
             $this->fail('número repetido');
