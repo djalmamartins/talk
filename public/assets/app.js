@@ -65,6 +65,7 @@ async function openConversation(id) {
   const actions = [];
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
+  if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no Help Desk do Connect ERP">Abrir chamado</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
   if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
   $('#chat').innerHTML = `
@@ -306,10 +307,26 @@ document.addEventListener('click', async (e) => {
       return;
     }
     if (act === 'close') { $('#close-resolution').value = ''; $('#close-dialog').showModal(); return; }
+    if (act === 'ticket') {
+      // começa com o que o cliente escreveu: a primeira linha vira o assunto, as últimas mensagens a descrição
+      const said = [...document.querySelectorAll('#msgs .msg.in')].map((m) => m.childNodes[0]?.textContent?.trim() || '').filter(Boolean);
+      $('#ticket-subject').value = (said[0] || '').split('\n')[0].slice(0, 120);
+      $('#ticket-desc').value = said.slice(-5).join('\n');
+      $('#ticket-dialog').showModal(); $('#ticket-subject').focus();
+      return;
+    }
     await openConversation(state.current); loadList();
   } catch (err) { toast(err.message); }
 });
 
+$('#ticket-dialog').addEventListener('close', async () => {
+  if ($('#ticket-dialog').returnValue !== 'ok') return;
+  try {
+    const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value } });
+    toast(`Chamado ${c.helpdesk_protocol || c.protocol} aberto no Help Desk.`);
+    await openConversation(state.current); loadList();
+  } catch (err) { toast(err.message); }
+});
 $('#transfer-dialog').addEventListener('close', async () => {
   if ($('#transfer-dialog').returnValue !== 'ok') return;
   try {
@@ -529,7 +546,11 @@ function connect() {
   ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created', 'message.ack', 'message.media'].forEach((t) =>
     es.addEventListener(t, (ev) => {
       const d = JSON.parse(ev.data);
-      if (t === 'message.created' && d.direction === 'in' && document.hidden) document.title = '(nova) Connect Talk';
+      if (t === 'message.created' && d.direction === 'in') {
+        window.talkAlert?.();
+        if (document.hidden) document.title = '(nova) Connect Talk';
+      }
+      if (t === 'conversation.created') window.talkAlert?.();
       scheduleRefresh(d.conversation_id);
     }));
 }

@@ -595,6 +595,49 @@ class ConversationService
         });
     }
 
+    /**
+     * Botão "Abrir chamado": abre na hora o chamado no Help Desk do ERP com o assunto e a descrição
+     * escritos pelo atendente. Diferente da abertura automática, aqui o erro aparece para a pessoa.
+     */
+    public function openTicketNow(int $convId, StaffMember $u, string $subject, string $description): array
+    {
+        $subject = trim($subject);
+        $description = trim($description);
+        if ($subject === '' || mb_strlen($subject) > 200) {
+            throw new DomainError('Informe o assunto do chamado (até 200 caracteres).');
+        }
+        if (mb_strlen($description) > 5000) {
+            throw new DomainError('A descrição passou de 5.000 caracteres.');
+        }
+        $conv = $this->get($convId);
+        $this->authorize($u, $conv);
+        if ($conv['helpdesk_ticket_id']) {
+            throw new DomainError('Esta conversa já tem o chamado ' . self::ticketNumber($conv) . '.');
+        }
+        if ($conv['status'] === 'bot') {
+            throw new DomainError('Espere a conversa chegar à fila de um setor para abrir o chamado.');
+        }
+        $contact = $this->ticketContact($this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]));
+        $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
+        try {
+            $t = $this->helpdesk->open($conv + ['subject' => $subject, 'ticket_message' => $description], $contact, $sector['name'] ?? null);
+        } catch (\Throwable $e) {
+            error_log('[talk] abrir chamado: ' . $e->getMessage());
+            throw new DomainError('O Help Desk do ERP não respondeu. Tente de novo em instantes.', 502);
+        }
+        if (!is_array($t) || !isset($t['id'])) {
+            throw new DomainError('O Help Desk do ERP ainda não está ligado ao Talk (falta ERP_API_URL no .env).', 409);
+        }
+        $this->db->run(
+            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, subject = ? WHERE id = ?',
+            [(int) $t['id'], $t['protocol'] ?? null, $subject, $convId]
+        );
+        $conv = $this->get($convId);
+        $this->addNote($convId, $u, 'Chamado ' . self::ticketNumber($conv) . ' aberto no Help Desk: ' . $subject);
+        $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
+        return $conv;
+    }
+
     public function addNote(int $convId, StaffMember $u, string $note): int
     {
         $conv = $this->get($convId);
@@ -622,6 +665,7 @@ class ConversationService
     /** Abre o chamado no Help Desk e guarda o id e o número dele (o número que o cliente vê). */
     private function openTicket(array $conv, array $contact, ?string $sectorName): void
     {
+        $contact = $this->ticketContact($contact);
         $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sectorName));
         if (is_array($t) && isset($t['id'])) {
             $this->db->run(
@@ -629,6 +673,15 @@ class ConversationService
                 [(int) $t['id'], $t['protocol'] ?? null, $conv['id']]
             );
         }
+    }
+
+    /** Contato com o que veio do cadastro do ERP (condomínio, unidade) em "details", para o chamado. */
+    private function ticketContact(array $contact): array
+    {
+        if (!is_array($contact['details'] ?? null)) {
+            $contact['details'] = json_decode((string) ($contact['erp_snapshot'] ?? ''), true) ?: [];
+        }
+        return $contact;
     }
 
     /** Número do chamado para o cliente: o do Help Desk, quando houver; senão, o protocolo do Talk. */

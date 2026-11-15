@@ -18,7 +18,7 @@ input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:8p
 .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:#e8f4ed;color:var(--primary-dark)}
 .chat{display:flex;flex-direction:column;min-height:0;background:#eef2ef}.chat .empty{margin:auto;color:var(--muted)}
 .chat-head{background:var(--panel);padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.chat-head .who{font-weight:600}.chat-head .actions{margin-left:auto;display:flex;gap:6px}
+.chat-head .who{font-weight:600}.chat-head .actions{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}.chat-head .actions button{white-space:nowrap}
 .msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:6px}
 .msg{max-width:70%;padding:8px 10px;border-radius:10px;white-space:pre-wrap;box-shadow:0 1px 1px rgba(0,0,0,.06)}
 .msg.in{background:var(--in);align-self:flex-start}.msg.out{background:var(--out);align-self:flex-end}
@@ -414,7 +414,12 @@ button.x{border:0;background:none;color:var(--muted);font-size:18px;line-height:
 .tb-icon{position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:10px;color:var(--text)}
 .tb-icon:hover,.tb-drop[open]>.tb-icon{background:#eef1ef}
 .tb-icon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.tb-count{position:absolute;top:1px;left:21px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border:2px solid #fff;box-sizing:content-box}
+.tb-icon.has{width:auto;padding:0 10px 0 9px;gap:6px;grid-auto-flow:column;background:#fdf1ef;color:#B42318}
+.tb-icon.has:hover,.tb-drop[open]>.tb-icon.has{background:#fbe3df}
+.tb-count{font-size:13px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.tb-icon.ring svg{animation:tb-ring .9s ease-in-out;transform-origin:50% 8%}
+@keyframes tb-ring{0%,100%{transform:rotate(0)}15%{transform:rotate(14deg)}30%{transform:rotate(-12deg)}45%{transform:rotate(9deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+@media (prefers-reduced-motion:reduce){.tb-icon.ring svg{animation:none}}
 .tb-user{display:flex;align-items:center;gap:9px;padding:4px 8px 4px 4px;border-radius:24px;border:1px solid var(--line)}
 .tb-user:hover,.tb-drop[open]>.tb-user{background:#f3f5f4}
 .tb-user .avatar.xs{width:32px;height:32px;min-width:32px;font-size:12px;margin:0;border:0}

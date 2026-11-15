@@ -32,7 +32,9 @@ final class HttpHelpdesk implements Helpdesk
         $r = $this->api->call('POST', '/talk/tickets', [
             'talk_protocol' => $conversation['protocol'],
             'subject' => $conversation['subject'] ?? ('WhatsApp ' . $conversation['protocol']),
-            'message' => 'Conversa de WhatsApp no Connect Talk, protocolo ' . $conversation['protocol'] . '.',
+            'message' => trim((string) ($conversation['ticket_message'] ?? '')) !== ''
+                ? $conversation['ticket_message'] . "\n\n(Conversa de WhatsApp no Connect Talk, protocolo " . $conversation['protocol'] . '.)'
+                : 'Conversa de WhatsApp no Connect Talk, protocolo ' . $conversation['protocol'] . '.',
             'area' => self::area($sectorName),
             'resident_id' => $contact['erp_person_id'] !== null ? (int) $contact['erp_person_id'] : null,
             'condominium_id' => isset($details['condominio_id']) ? (int) $details['condominio_id'] : null,

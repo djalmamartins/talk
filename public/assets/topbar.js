@@ -19,7 +19,53 @@ document.addEventListener('keydown', (e) => {
 if (/Mac|iPhone|iPad/.test(navigator.platform)) $('.tb-search kbd').textContent = '⌘ K';
 document.getElementById('my-password')?.addEventListener('click', () => drops.forEach((d) => { d.open = false; }));
 
+// ------------------------------------------------------------ som de alerta
+// Um toque curto e suave (gerado pelo navegador, sem arquivo). Liga/desliga no menu do usuário;
+// a escolha fica neste navegador. O navegador só deixa tocar depois do primeiro clique na página.
+const SOUND_KEY = 'talk.sound';
+let audio = null;
+let lastAlert = 0;
+const soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; } };
+function unlockAudio() {
+  if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; } }
+  if (audio.state === 'suspended') audio.resume().catch(() => {});
+}
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
+function chime() {
+  if (!audio || audio.state !== 'running') return;
+  const t = audio.currentTime;
+  [[880, 0], [1318.5, 0.13]].forEach(([f, d]) => { // duas notas (lá e mi), como um "plim"
+    const o = audio.createOscillator(); const g = audio.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + d);
+    g.gain.exponentialRampToValueAtTime(0.22, t + d + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.55);
+    o.connect(g).connect(audio.destination); o.start(t + d); o.stop(t + d + 0.6);
+  });
+}
+/** Avisa que chegou mensagem: toca o som (se ligado) e balança o sino. No máximo uma vez a cada 3 s. */
+window.talkAlert = function talkAlert() {
+  const now = Date.now();
+  if (now - lastAlert < 3000) return;
+  lastAlert = now;
+  if (soundOn()) chime();
+  const bell = $('#tb-notif summary');
+  bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
+};
+function renderSound() {
+  const on = soundOn();
+  $('#sound-toggle').setAttribute('aria-pressed', String(on));
+  $('#sound-state').textContent = on ? 'Ligado: toca quando chega mensagem' : 'Desligado';
+}
+$('#sound-toggle').addEventListener('click', () => {
+  try { localStorage.setItem(SOUND_KEY, soundOn() ? 'off' : 'on'); } catch { /* sem armazenamento: fica ligado */ }
+  renderSound(); unlockAudio();
+  if (soundOn()) setTimeout(chime, 50); // toca uma vez para a pessoa ouvir como fica
+});
+renderSound();
+
 let failures = 0;
+let lastAttention = null; // fila + clientes que responderam, para tocar quando aumenta (telas sem tempo real)
 async function loadNotifications() {
   try {
     const res = await fetch('/api/notifications', { headers: { Accept: 'application/json' } });
@@ -28,6 +74,10 @@ async function loadNotifications() {
     failures = 0;
     const n = $('#tb-notif-n');
     n.hidden = !d.count; n.textContent = d.count > 99 ? '99+' : d.count;
+    $('#tb-notif summary').classList.toggle('has', !!d.count);
+    const attention = d.items.filter((it) => it.kind === 'queue' || it.kind === 'unread').reduce((a, it) => a + it.count, 0);
+    if (lastAttention !== null && attention > lastAttention && Date.now() - lastAlert > 25000) window.talkAlert();
+    lastAttention = attention;
     $('#tb-notif summary').setAttribute('aria-label', d.count ? `Notificações (${d.count})` : 'Notificações');
     $('#tb-notif-list').innerHTML = d.items.map((it) => `<a class="tb-item" href="${esc(it.href)}">
         <span class="tb-ico k-${esc(it.kind)}"><svg viewBox="0 0 24 24">${ICON[it.kind] || ''}</svg></span>

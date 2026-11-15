@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.19.0] — 2026-11-15
+### Adicionado
+- **Som de alerta** quando chega mensagem de cliente ou conversa nova na fila: um "plim" curto,
+  gerado pelo navegador (sem arquivo), com o sino balançando. Toca em qualquer tela: na de
+  atendimentos na hora, nas outras quando a fila ou as respostas aumentam. No máximo um a cada
+  3 s. Liga/desliga no menu do usuário ("Som de alerta"), guardado no navegador. O navegador só
+  libera som depois do primeiro clique na página.
+- **Botão "Abrir chamado"** na conversa (quando ainda não há chamado): assunto e descrição já vêm
+  preenchidos com o que o cliente escreveu; abre no Help Desk do ERP na área do setor, com nome,
+  telefone, condomínio e unidade do cadastro do ERP, e deixa uma nota interna com o número.
+  Sem o Help Desk ligado (`ERP_API_URL`), explica o que falta.
+### Alterado
+- O contador do sino deixa de ser uma bolinha vermelha por cima do ícone: o sino vira um botão
+  com o número ao lado, em tom suave.
+- Os botões do topo da conversa quebram de linha inteiros, sem partir o texto.
+### Corrigido
+- A abertura automática do chamado passa a mandar condomínio e unidade do cadastro do ERP
+  (antes ia só o nome e o telefone).
+
 ## [0.18.1] — 2026-11-15
 ### Adicionado
 - `tools/local/whatsapp-check.sh`: confere, só lendo, por que o WhatsApp por QR Code não recebe
