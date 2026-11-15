@@ -29,7 +29,8 @@ services:
     image: connect-talk-php:latest
     restart: unless-stopped
     env_file: .env
-    environment: { DB_HOST: db, DB_PORT: "3306", TRUST_PROXY: "1", APP_ENV: production }
+    environment: { DB_HOST: db, DB_PORT: "3306", TRUST_PROXY: "1", APP_ENV: production,
+                   EVOLUTION_URL: "http://whatsapp:8080", EVOLUTION_WEBHOOK_URL: "http://app" }
     volumes:
       - storage:/var/talk/storage
     depends_on: { db: { condition: service_healthy } }
@@ -38,7 +39,8 @@ services:
     image: connect-talk-php:latest
     restart: unless-stopped
     env_file: .env
-    environment: { DB_HOST: db, DB_PORT: "3306", APP_ENV: production, RUN_MIGRATIONS: "0" }
+    environment: { DB_HOST: db, DB_PORT: "3306", APP_ENV: production, RUN_MIGRATIONS: "0",
+                   EVOLUTION_URL: "http://whatsapp:8080", EVOLUTION_WEBHOOK_URL: "http://app" }
     command: ["php", "bin/talk-worker"]
     user: www-data
     volumes:
@@ -50,6 +52,48 @@ services:
       timeout: 10s
       start_period: 30s
       retries: 3
+
+  # motor do WhatsApp por QR Code (Evolution API, que usa o Baileys como o Atendechat).
+  # Fica só na rede interna: o Talk cria a sessão de cada número e recebe as mensagens por webhook.
+  whatsapp:
+    image: evoapicloud/evolution-api:v2.3.6
+    restart: unless-stopped
+    environment:
+      SERVER_URL: http://whatsapp:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?preencha EVOLUTION_API_KEY no .env}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${DB_PASSWORD}@whatsapp-db:5432/evolution?schema=public
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      DEL_INSTANCE: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Connect Talk
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      LOG_LEVEL: ERROR,WARN
+      TZ: America/Sao_Paulo
+    volumes:
+      - whatsapp_instances:/evolution/instances
+    depends_on: { whatsapp-db: { condition: service_healthy } }
+
+  # banco do motor do WhatsApp (sessões dos números); separado do banco do Talk
+  whatsapp-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - whatsapp_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "evolution"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # HTTPS automático (Let's Encrypt) para o domínio; a Meta exige HTTPS no webhook
   caddy:
@@ -84,5 +128,7 @@ services:
 volumes:
   db:
   storage:
+  whatsapp_db:
+  whatsapp_instances:
   caddy_data:
   caddy_config:

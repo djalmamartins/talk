@@ -17,11 +17,12 @@ No Mac com o XAMPP compartilhado (`dev-apache` + `dev-mysql`):
 cd "/Volumes/MAC HD/Docker/xampp/www"
 git clone https://github.com/djalmamartins/talk talk
 cd talk && tools/local/install-lab.sh
+tools/local/whatsapp-lab.sh        # WhatsApp por QR Code de verdade (motor ao lado do dev-apache)
 echo '127.0.0.1 talk.connect.lab' | sudo tee -a /etc/hosts   # se o script pedir
 ```
 Entre com `supervisor@connect.lab` / `connect123` (outros: financeiro@, administrativo@,
-manutencao@, gerente.manutencao@). No painel da direita há um **simulador de cliente**:
-mande mensagens como se fosse um morador e veja chegar em tempo real para cada setor.
+manutencao@, gerente.manutencao@). Em **Conexão WhatsApp**, conecte um número de teste por QR Code
+(nome e número) e mande mensagens para ele de outro celular.
 
 ## O que já faz (Fase 1)
 - **Dois tipos de canal atrás de uma interface:** QR Code (Evolution API) e oficial

@@ -94,4 +94,31 @@ final class GatewayParsingTest extends TestCase
         $this->assertTrue($gw->verifyWebhook('{}', ['X-Talk-Secret' => 's3']));
         $this->assertFalse($gw->verifyWebhook('{}', ['X-Talk-Secret' => 'nao']));
     }
+
+    public function test_evolution_espera_o_qr_que_o_whatsapp_manda_depois(): void
+    {
+        $http = new FakeHttpClient();
+        $http->responses = [
+            ['status' => 404, 'body' => '{}'],                                                  // número novo
+            ['status' => 201, 'body' => '{"instance":{"status":"close"},"qrcode":{"count":0}}'], // criou, ainda sem QR
+            ['status' => 201, 'body' => '{}'],                                                  // webhook/set
+            ['status' => 200, 'body' => '{"instance":{"state":"connecting"}}'],                 // connectionState
+            ['status' => 200, 'body' => '{"count":0}'],                                         // ainda gerando
+            ['status' => 200, 'body' => '{"pairingCode":null,"code":"2@x","base64":"data:image/png;base64,QUJD","count":1}'],
+        ];
+        $naps = 0;
+        $gw = new EvolutionGateway(['base_url' => 'http://evo', 'instance' => 'talk-1', 'api_key' => 'k', 'webhook_secret' => 's'], $http, 10, function () use (&$naps) { $naps++; });
+        $r = $gw->connect('http://app/webhook/1', 's');
+        $this->assertSame('data:image/png;base64,QUJD', $r['qr']);
+        $this->assertSame(1, $naps);
+        $this->assertSame('http://app/webhook/1', $http->calls[2]['body']['webhook']['url']);
+
+        // sem resposta do WhatsApp: desiste depois do tempo e diz o que fazer
+        $http->responses = array_merge([['status' => 200, 'body' => '{"instance":{"state":"connecting"}}'], ['status' => 200, 'body' => '{"instance":{"state":"connecting"}}']],
+            array_fill(0, 4, ['status' => 200, 'body' => '{"count":0}']));
+        $gw = new EvolutionGateway(['base_url' => 'http://evo', 'instance' => 'talk-1', 'api_key' => 'k'], $http, 3, fn () => null);
+        $this->expectException(GatewayException::class);
+        $this->expectExceptionMessage('não mandou o QR Code a tempo');
+        $gw->connect();
+    }
 }

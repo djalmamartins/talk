@@ -479,4 +479,9 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 @media (max-width:900px){.tb-user-txt,.tb-search kbd{display:none}.envswitch-panel{left:0;top:calc(100% + 6px)}}
 #contact-panel:empty{border:0;padding:0}
 #contact-panel:empty::before{content:'Abra uma conversa para ver aqui os dados do cliente, os últimos chamados e as notas.';display:block;margin:40% 24px 0;text-align:center;color:var(--muted);font-size:13px}
+/* QR Code sendo gerado */
+.qr-wrap figure.loading img{visibility:hidden}
+.qr-wrap figure.loading{position:relative}
+.qr-wrap figure.loading::before{content:'';position:absolute;left:50%;top:40%;width:36px;height:36px;margin:-18px;border-radius:50%;border:3px solid #dfe7e2;border-top-color:var(--primary);animation:qrspin .8s linear infinite}
+@keyframes qrspin{to{transform:rotate(360deg)}}
 [hidden]{display:none!important}

@@ -1,6 +1,6 @@
 # Connect Talk em produção (PC do escritório)
 
-Tudo roda em Docker, num PC ligado o tempo todo. São cinco serviços (`deploy/docker-compose.yml`):
+Tudo roda em Docker, num PC ligado o tempo todo. São sete serviços (`deploy/docker-compose.yml`):
 
 | Serviço | O que faz |
 |---|---|
@@ -8,6 +8,8 @@ Tudo roda em Docker, num PC ligado o tempo todo. São cinco serviços (`deploy/d
 | `app` | o site (PHP 8.2 + Apache). Ao subir, aplica as migrations sozinho |
 | `worker` | envia as mensagens, faz a triagem da Jack, agendamentos e envio em massa |
 | `db` | MariaDB 11.4 (dados no volume `db`) |
+| `whatsapp` | motor do WhatsApp por QR Code (Evolution API, que usa o Baileys como o Atendechat); só na rede interna |
+| `whatsapp-db` | banco das sessões dos números de QR Code (Postgres) |
 | `backup` | cópia diária do banco e dos arquivos em `deploy/backups/` |
 
 O projeto do docker-compose se chama `talk-php`. Isso evita misturar com o Talk antigo em Node,
@@ -33,10 +35,9 @@ Preencha o `.env`:
   senhas). É ela que abre os tokens do WhatsApp guardados no banco; sem ela, um backup restaurado
   não reconecta os números.
 - `ERP_API_URL` e `ERP_API_TOKEN`: quando a API do ERP existir. Vazio, o Talk funciona sozinho.
-- `EVOLUTION_URL` e `EVOLUTION_API_KEY`: o servidor da Evolution API que liga os números por QR Code
-  (a chave é a `AUTHENTICATION_API_KEY` dele). Fica configurado uma vez só; depois, para conectar um
-  número, a tela pede só o nome e o número e já mostra o QR Code. O Talk cria a instância
-  `talk-<número>` na Evolution sozinho.
+- `EVOLUTION_API_KEY`: gere com `openssl rand -hex 24`. É a chave interna entre o Talk e o motor do
+  WhatsApp; o endereço já vem pronto. Depois, para conectar um número, a tela pede só o nome e o
+  número e mostra o QR Code, como no Atendechat.
 
 Depois:
 ```bash
@@ -80,6 +81,8 @@ As migrations rodam sozinhas ao subir o `app`. Antes de atualizar, faça um back
 - **Na hora:** `docker compose exec backup bash /scripts/backup.sh`.
 - **Copie a pasta `deploy/backups` para fora do PC** (HD externo, Google Drive, outro computador).
   Backup que fica só no mesmo PC não protege contra defeito no disco.
+- As sessões dos números de QR Code ficam no volume `whatsapp_db` e não entram no backup. Se ele se
+  perder, basta ler o QR Code de novo em "Conexão WhatsApp".
 - O `.env` **não** entra no backup, porque tem as senhas e a `TALK_KEY`. Guarde-o à parte.
 
 ## Restaurar um backup

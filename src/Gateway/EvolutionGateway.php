@@ -14,7 +14,8 @@ use ConnectTalk\Http\HttpClient;
  */
 final class EvolutionGateway implements WhatsAppGateway
 {
-    public function __construct(private array $config, private HttpClient $http)
+    /** @param ?\Closure $sleep pausa entre as tentativas de pegar o QR (nos testes, nenhuma) */
+    public function __construct(private array $config, private HttpClient $http, private int $qrWaitSeconds = 10, private ?\Closure $sleep = null)
     {
     }
 
@@ -100,22 +101,38 @@ final class EvolutionGateway implements WhatsAppGateway
             }
         }
         if ($createdQr !== null) {
-            return ['state' => 'connecting', 'qr' => str_starts_with((string) $createdQr, 'data:image/') ? $createdQr : 'data:image/png;base64,' . $createdQr, 'detail' => $warn];
+            return ['state' => 'connecting', 'qr' => $this->dataUrl($createdQr), 'detail' => $warn];
         }
         $state = $this->connectionState();
         if ($state['state'] === 'connected') {
             return $state + ['detail' => $warn];
         }
-        $r = $this->http->request('GET', $this->instanceUrl('instance/connect'), null, $key);
-        $data = json_decode($r['body'], true) ?: [];
-        if ($r['status'] >= 300) {
-            throw new GatewayException('Evolution: ' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$r['status']}"));
+        // a Evolution gera o QR alguns segundos depois de abrir a sessão com o WhatsApp:
+        // enquanto responde {"count":0}, espera e pergunta de novo (como o Atendechat, que aguarda o evento do QR)
+        for ($try = 0; ; $try++) {
+            $r = $this->http->request('GET', $this->instanceUrl('instance/connect'), null, $key);
+            $data = json_decode($r['body'], true) ?: [];
+            if ($r['status'] >= 300) {
+                throw new GatewayException('Evolution: ' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$r['status']}"));
+            }
+            $qr = $data['base64'] ?? null;
+            if ($qr || ($data['instance']['state'] ?? null) === 'open' || $try >= $this->qrWaitSeconds) {
+                break;
+            }
+            ($this->sleep ?? static fn () => sleep(1))();
         }
-        $qr = $data['base64'] ?? null;
-        if ($qr !== null && !str_starts_with((string) $qr, 'data:image/')) {
-            $qr = 'data:image/png;base64,' . $qr;
+        if (!$qr && ($data['instance']['state'] ?? null) === 'open') {
+            return ['state' => 'connected', 'qr' => null, 'detail' => $warn];
         }
-        return ['state' => $qr ? 'connecting' : $state['state'], 'qr' => $qr, 'detail' => $warn];
+        if (!$qr) {
+            throw new GatewayException('o WhatsApp não mandou o QR Code a tempo. Confira se o servidor tem internet e clique em "Gerar novo QR Code".');
+        }
+        return ['state' => 'connecting', 'qr' => $this->dataUrl($qr), 'detail' => $warn];
+    }
+
+    private function dataUrl(string $b64): string
+    {
+        return str_starts_with($b64, 'data:image/') ? $b64 : 'data:image/png;base64,' . $b64;
     }
 
     public function connectionState(): array

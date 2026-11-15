@@ -105,10 +105,16 @@ function showQr(r) {
   $('#qr-state').textContent = 'Aguardando a leitura…';
   $('#qr-error').hidden = !r.detail; $('#qr-error').textContent = r.detail || '';
   stopPoll();
+  let ticks = 0;
   state.poll = setInterval(async () => {
     try {
       const s = await api(`/api/channels/${state.qrFor}/state`, { method: 'POST' });
-      if (s.state === 'connected') done();
+      if (s.state === 'connected') return done();
+      // o QR do WhatsApp vale uns 20 segundos: troca a imagem sozinho, como no WhatsApp Web
+      if (++ticks % 7 === 0) {
+        const n = await api(`/api/channels/${state.qrFor}/connect`, { method: 'POST' });
+        if (n.qr) $('#qr-img').src = n.qr; else if (n.state === 'connected') done();
+      }
     } catch (e) { $('#qr-error').textContent = e.message; $('#qr-error').hidden = false; }
   }, 3000);
 }
@@ -122,19 +128,35 @@ async function done() {
 
 async function connect(id) {
   const c = state.channels.find((x) => x.id == id);
+  // QR Code: abre a janela na hora e mostra "Gerando…" enquanto o WhatsApp prepara o código
+  const qrKind = c && c.kind !== 'official';
+  if (qrKind) {
+    stopPoll();
+    state.qrFor = id;
+    $('#qr-title').textContent = `Ler o QR Code · ${c.name}`;
+    $('#qr-sim').hidden = !c.simulated;
+    $('#qr-img').removeAttribute('src');
+    $('#qr-img').closest('figure').classList.add('loading');
+    $('#qr-state').textContent = 'Gerando o QR Code…';
+    $('#qr-error').hidden = true;
+    $('#qr-dialog').showModal();
+  }
   try {
     const r = await api(`/api/channels/${id}/connect`, { method: 'POST' });
+    $('#qr-img').closest('figure').classList.remove('loading');
     if (!r.qr) {
       await load();
-      if (r.state !== 'connected') alertRow(id, r.detail || 'Não conectou. Confira os dados da conexão.');
+      if (r.state === 'connected') { if (qrKind) done(); return; }
+      if (qrKind) { $('#qr-state').textContent = ''; $('#qr-error').textContent = r.detail || 'Não conectou.'; $('#qr-error').hidden = false; return; }
+      alertRow(id, r.detail || 'Não conectou. Confira os dados da conexão.');
       return;
     }
-    state.qrFor = id;
-    $('#qr-title').textContent = `Ler o QR Code · ${c ? c.name : ''}`;
-    $('#qr-sim').hidden = !c?.simulated;
-    $('#qr-dialog').showModal();
     showQr(r);
-  } catch (e) { await load(); alertRow(id, e.message); }
+  } catch (e) {
+    $('#qr-img').closest('figure').classList.remove('loading');
+    await load();
+    if (qrKind) { $('#qr-state').textContent = ''; $('#qr-error').textContent = e.message; $('#qr-error').hidden = false; } else alertRow(id, e.message);
+  }
 }
 
 function alertRow(id, msg) {
@@ -166,9 +188,7 @@ $('#ch-form').addEventListener('change', (ev) => { if (ev.target.name === 'kind'
 $('#ch-form').querySelector('button[value=cancel]').addEventListener('click', (ev) => { ev.preventDefault(); $('#ch-dialog').close(); });
 $('#qr-close').addEventListener('click', () => { stopPoll(); $('#qr-dialog').close(); load(); });
 $('#qr-dialog').addEventListener('close', stopPoll);
-$('#qr-renew').addEventListener('click', async () => {
-  try { const r = await api(`/api/channels/${state.qrFor}/connect`, { method: 'POST' }); if (r.qr) showQr(r); else done(); } catch (e) { $('#qr-error').textContent = e.message; $('#qr-error').hidden = false; }
-});
+$('#qr-renew').addEventListener('click', () => connect(state.qrFor));
 $('#qr-sim')?.addEventListener('click', async () => { await api(`/api/channels/${state.qrFor}/simulate-scan`, { method: 'POST' }); });
 
 (async () => {

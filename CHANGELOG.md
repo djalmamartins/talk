@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.1] — 2026-11-15
+### Adicionado
+- **QR Code funcionando como no Atendechat**, sem nenhum dado técnico na tela: o motor do WhatsApp
+  (Evolution API, que usa o Baileys, a mesma biblioteca do Atendechat) passa a vir junto com o Talk.
+  - Produção: serviços `whatsapp` e `whatsapp-db` no `docker-compose`; basta a `EVOLUTION_API_KEY` no `.env`.
+  - Laboratório: `tools/local/whatsapp-lab.sh` sobe os dois containers ao lado do dev-apache, gera
+    a chave e completa o `.env`. Não apaga nada; rodar de novo só confere.
+  - O motor avisa o Talk das mensagens pela rede interna (`EVOLUTION_WEBHOOK_URL`).
+- A janela do QR Code abre na hora, com "Gerando o QR Code…", espera o WhatsApp mandar o código
+  (até ~10 s) e troca a imagem sozinha a cada ~20 s, como no WhatsApp Web.
+
 ## [0.17.0] — 2026-11-15
 ### Adicionado
 - **Topo em todas as telas**, no padrão do Connect ERP:

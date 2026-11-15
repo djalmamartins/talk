@@ -30,7 +30,7 @@ final class ChannelService
         'lab' => [],
     ];
 
-    public function __construct(private Db $db, private Crypto $crypto, private GatewayFactory $gateways, private string $appUrl, private bool $lab = false)
+    public function __construct(private Db $db, private Crypto $crypto, private GatewayFactory $gateways, private string $appUrl, private bool $lab = false, private string $qrWebhookBase = '')
     {
     }
 
@@ -162,7 +162,7 @@ final class ChannelService
         }
         $cfg = $this->crypto->decrypt($ch['config_encrypted']);
         try {
-            $r = $this->gateways->forChannel($id)->connect($this->webhookUrl($id), $cfg['webhook_secret'] ?? null);
+            $r = $this->gateways->forChannel($id)->connect($this->webhookUrl($id, $ch['kind'] === 'qrcode'), $cfg['webhook_secret'] ?? null);
         } catch (GatewayException | \RuntimeException $e) {
             $this->store($id, 'disconnected', null, $e->getMessage());
             throw new DomainError('Não foi possível conectar: ' . $e->getMessage(), 502);
@@ -298,9 +298,14 @@ final class ChannelService
         }
     }
 
-    private function webhookUrl(int $id): string
+    /**
+     * Endereço do webhook. O motor do QR Code roda no mesmo servidor: em produção ele chama o Talk
+     * pela rede interna (EVOLUTION_WEBHOOK_URL=http://app), sem sair para a internet e voltar.
+     */
+    private function webhookUrl(int $id, bool $internal = false): string
     {
-        return rtrim($this->appUrl, '/') . "/webhook/$id";
+        $base = $internal && $this->qrWebhookBase !== '' ? $this->qrWebhookBase : $this->appUrl;
+        return rtrim($base, '/') . "/webhook/$id";
     }
 
     private function label(string $field): string
