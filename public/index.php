@@ -553,6 +553,8 @@ try {
                     ));
                 case 'close':
                     $json($svc->close($id, $me, $b['resolution'] ?? null));
+                case 'ticket':
+                    $json($svc->openHelpdeskTicket($id, $me));
                 case 'notes':
                     $json(['message_id' => $svc->addNote($id, $me, (string) ($b['note'] ?? ''))]);
                 case 'read':

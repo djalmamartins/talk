@@ -215,6 +215,48 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertSame('closed', $this->conv($id)['status']);
     }
 
+    public function test_botao_abrir_chamado_quando_o_erp_estava_fora_do_ar(): void
+    {
+        $erp = new \stdClass();
+        $erp->falhou = true;
+        $erp->abertos = [];
+        $hd = new class ($erp) implements Helpdesk {
+            public function __construct(private \stdClass $erp) {}
+            public function open(array $c, array $ct, ?string $s): ?array
+            {
+                if ($this->erp->falhou) { throw new \RuntimeException('ERP 503'); }
+                $this->erp->abertos[] = [$c['protocol'], $ct['details']['condominio_id'] ?? null, $s];
+                return ['id' => 900, 'protocol' => 'CH261115BEEF'];
+            }
+            public function transfer(int $t, string $s, int $u, ?string $n): void {}
+            public function close(int $t, int $u, ?string $r): void {}
+        };
+        $this->svc = $this->makeService(null, $hd);
+        $id = $this->routed('preciso do boleto');
+        $this->db->run("UPDATE talk_contacts SET erp_person_id = 77, erp_snapshot = '{\"condominio_id\":3}' WHERE id = ?", [$this->conv($id)['contact_id']]);
+        $this->assertNull($this->conv($id)['helpdesk_ticket_id']);
+        $ana = $this->agent(10, 'Financeiro');
+        try {
+            $this->svc->openHelpdeskTicket($id, $ana);
+            $this->fail('ERP fora do ar: avisa o atendente.');
+        } catch (\ConnectTalk\Service\DomainError $e) {
+            $this->assertSame(502, $e->getCode());
+        }
+        $erp->falhou = false;
+        $c = $this->svc->openHelpdeskTicket($id, $ana);
+        $this->assertSame('CH261115BEEF', $c['helpdesk_protocol']);
+        $this->assertSame([[$c['protocol'], 3, 'Financeiro']], $erp->abertos, 'Leva o condomínio do cadastro do ERP.');
+        $this->svc->openHelpdeskTicket($id, $ana);
+        $this->assertCount(1, $erp->abertos, 'Já tem chamado: não abre outro.');
+    }
+
+    public function test_botao_abrir_chamado_sem_erp_ligado(): void
+    {
+        $id = $this->routed('preciso do boleto');
+        $this->expectExceptionCode(409);
+        $this->svc->openHelpdeskTicket($id, $this->agent(10, 'Financeiro'));
+    }
+
     private function staffUser(string $name, string $sector, string $role = 'agent'): int
     {
         $id = $this->db->insert('talk_users', ['name' => $name, 'email' => strtolower(strtok($name, ' ')) . '@t.lab', 'password_hash' => 'x']);

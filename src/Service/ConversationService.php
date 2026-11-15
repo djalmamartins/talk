@@ -618,10 +618,39 @@ class ConversationService
 
     // ------------------------------------------------------------------ apoio
 
-    /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
+    /**
+     * Botão "Abrir chamado": abre agora o chamado no Help Desk do ERP para uma conversa que ficou sem chamado
+     * (ERP fora do ar na hora, ou conversa que ainda não foi para a fila). Já tem chamado: devolve a conversa.
+     * O ERP não duplica: repetir com o mesmo protocolo devolve o mesmo chamado.
+     */
+    public function openHelpdeskTicket(int $convId, StaffMember $u): array
+    {
+        $conv = $this->get($convId);
+        $this->authorize($u, $conv);
+        if ($conv['helpdesk_ticket_id']) {
+            return $conv;
+        }
+        if ($this->helpdesk instanceof \ConnectTalk\Erp\NullHelpdesk) {
+            throw new DomainError('O Talk ainda não está ligado ao ERP (ERP_API_URL e ERP_API_TOKEN).', 409);
+        }
+        $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+        $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
+        $this->openTicket($conv, $contact ?: [], $sector['name'] ?? null);
+        $conv = $this->get($convId);
+        if (!$conv['helpdesk_ticket_id']) {
+            throw new DomainError('Não foi possível abrir o chamado no ERP agora. Tente de novo em instantes.', 502);
+        }
+        $this->events->publish('conversation.updated', $convId, $conv['sector_id'] !== null ? (int) $conv['sector_id'] : null, $u->userId, $this->summary($conv));
+        return $conv;
+    }
+
     /** Abre o chamado no Help Desk e guarda o id e o número dele (o número que o cliente vê). */
     private function openTicket(array $conv, array $contact, ?string $sectorName): void
     {
+        // O contato do banco guarda o que o ERP devolveu em erp_snapshot: vai junto (condomínio e unidade).
+        if (!isset($contact['details']) && !empty($contact['erp_snapshot'])) {
+            $contact['details'] = json_decode((string) $contact['erp_snapshot'], true) ?: [];
+        }
         $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sectorName));
         if (is_array($t) && isset($t['id'])) {
             $this->db->run(
@@ -637,6 +666,7 @@ class ConversationService
         return (string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']);
     }
 
+    /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
     private function safeHelpdesk(callable $fn): mixed
     {
         try {

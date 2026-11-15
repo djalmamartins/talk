@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.2] — 2026-11-15
+### Adicionado
+- **Botão "Abrir chamado"** no topo da conversa, para quem pode atender, quando ela ainda não tem
+  chamado no Help Desk do ERP (por exemplo, o ERP estava fora do ar na hora): abre na hora e mostra
+  o número `CH...`. O ERP não duplica, porque o protocolo do Talk é a chave. Sem o ERP ligado, avisa
+  que faltam `ERP_API_URL` e `ERP_API_TOKEN` (`POST /api/conversations/{id}/ticket`).
+### Corrigido
+- O chamado aberto no ERP passa a levar o condomínio e a unidade do cadastro (guardados em
+  `erp_snapshot`), e não só o id do morador.
+### Documentação
+- `docs/api-erp.md`: situação do lado do ERP (connect-erp#538, ADR 0308) e como gerar o token.
+
 ## [0.18.1] — 2026-11-15
 ### Adicionado
 - `tools/local/whatsapp-check.sh`: confere, só lendo, por que o WhatsApp por QR Code não recebe

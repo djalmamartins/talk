@@ -7,6 +7,14 @@ separada (ADR 0003) e fala com o ERP **somente** por esta API. Baseada no códig
 Legenda: **CONFIRMADO** = existe no repositório do ERP; **PROPOSTO** = precisa ser criado;
 **PENDENTE** = decisão da equipe do ERP.
 
+## Situação (15/11/2026)
+
+As seções 1 a 5 estão implementadas no ERP no PR djalmamartins/connect-erp#538 (ADR 0308 do ERP), ainda
+**não mesclado**: token `ctk_...` gerado por `php tools/talk-token.php criar --usuario=...`, origem `talk`,
+idempotência por `external_ref`. A seção 6 (boletos) continua **PENDENTE**. Diferenças em relação ao texto abaixo:
+o token pertence a um usuário comum com `support.manage` (sem perfil novo), o limite é por falhas de token
+(20 em 15 minutos por IP) e o chamado devolvido traz `{id, protocol, status, area, talk_protocol, condominium_id, unit_id}`.
+
 ## 0. O que já existe no ERP e será reaproveitado (CONFIRMADO)
 
 | Necessidade do Talk | Onde está no ERP |

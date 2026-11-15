@@ -65,6 +65,7 @@ async function openConversation(id) {
   const actions = [];
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
+  if (can_act && c.status !== 'closed' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir agora o chamado desta conversa no Help Desk do ERP">Abrir chamado</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
   if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
   $('#chat').innerHTML = `
@@ -292,6 +293,10 @@ document.addEventListener('click', async (e) => {
   if (!act || !state.current) return;
   try {
     if (act === 'accept') await api(`/api/conversations/${state.current}/accept`, { method: 'POST' });
+    if (act === 'ticket') {
+      const t = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST' });
+      toast(`Chamado ${t.helpdesk_protocol || ''} aberto no Help Desk.`);
+    }
     if (act === 'note') {
       const note = prompt('Nota interna (o cliente não vê):');
       if (note) await api(`/api/conversations/${state.current}/notes`, { method: 'POST', body: { note } });
