@@ -181,6 +181,17 @@ try {
         }
         $view('campaigns', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/configuracoes') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
+            header('Location: /');
+            exit;
+        }
+        $view('settings', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/equipe') {
         if (!$sessionOk()) {
             header('Location: /login');
@@ -351,6 +362,18 @@ try {
                 ($m[2] ?? '') === 'cancel' => $app['schedules']->cancel($me, $sid),
                 default => $app['schedules']->save($me, $body(), $sid),
             });
+        }
+        if ($path === '/api/settings/hours') {
+            $json($method === 'POST' ? $app['hours']->save($me, $body()) : $app['hours']->overview($me));
+        }
+        if ($path === '/api/settings/holidays' && $method === 'POST') {
+            $json($app['hours']->addHoliday($me, $body()));
+        }
+        if ($path === '/api/settings/holidays/import' && $method === 'POST') {
+            $json($app['hours']->importNational($me, (int) ($body()['year'] ?? 0)));
+        }
+        if (preg_match('#^/api/settings/holidays/(\d+)/delete$#', $path, $m) && $method === 'POST') {
+            $json($app['hours']->deleteHoliday($me, (int) $m[1]));
         }
         if ($path === '/api/me/password' && $method === 'POST') {
             $b = $body();

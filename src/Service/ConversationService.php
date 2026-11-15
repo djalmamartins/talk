@@ -33,6 +33,7 @@ class ConversationService
         private ?Jack $jack = null,
         private ?MediaStore $media = null,
         private bool $askRating = true,
+        private ?BusinessHours $hours = null,
     ) {
     }
 
@@ -100,6 +101,7 @@ class ConversationService
                         $this->jack->record($conv, $talk['sector'], 'scope', null);
                         // o texto de "fora do escopo" já avisa a transferência
                         $this->route($conv, $talk['sector'], $contact);
+                        $this->sayOffHours($conv, $talk['sector'], $contact);
                     }
                     return (int) $conv['id'];
                 }
@@ -108,6 +110,7 @@ class ConversationService
                 $fallback = $this->fallbackSector();
                 if ($fallback !== null) {
                     $this->route($conv, $fallback, $contact);
+                    $this->sayOffHours($conv, $fallback, $contact);
                 }
             }
             return (int) $conv['id'];
@@ -305,7 +308,9 @@ class ConversationService
                     return false;
                 }
                 $this->route($conv, $d['sector'], $contact);
-                $this->jackSay($this->get((int) $conv['id']), $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), 'jack_routed');
+                // fora do horário: em vez de "já vamos te atender", diz quando a equipe volta
+                $off = $this->offHours($conv, $d['sector'], $first);
+                $this->jackSay($this->get((int) $conv['id']), $off ?? $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), $off ? 'off_hours' : 'jack_routed');
                 return true;
             });
         }
@@ -316,6 +321,29 @@ class ConversationService
     private function jackSay(array $conv, string $text, string $type): int
     {
         return $this->queueOutbound($conv, $text, null, $type, $this->jack?->typingSeconds($text) ?? 0);
+    }
+
+    /** Texto de fora do horário (uma vez por conversa), ou null se o setor está atendendo. */
+    private function offHours(array $conv, array $sector, ?string $first): ?string
+    {
+        if ($this->hours === null || !$this->hours->enabled()) {
+            return null;
+        }
+        $text = $this->hours->offHoursMessage((int) $sector['id'], (string) $sector['name'], $first, (string) $conv['protocol']);
+        if ($text === null) {
+            return null;
+        }
+        $n = $this->db->run('UPDATE talk_conversations SET off_hours_at = NOW() WHERE id = ? AND off_hours_at IS NULL', [$conv['id']])->rowCount();
+        return $n > 0 ? $text : null;
+    }
+
+    private function sayOffHours(array $conv, array $sector, array $contact): void
+    {
+        $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
+        $off = $this->offHours($conv, $sector, $first);
+        if ($off !== null) {
+            $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
+        }
     }
 
     private function fallbackSector(): ?array

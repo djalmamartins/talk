@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.15.0] — 2026-11-14
+### Adicionado
+- Tela **Horário de atendimento** (`/configuracoes`, só supervisor):
+  - **Agora:** cada setor aberto ou fechado, e quando volta.
+  - **Horário geral:** até 3 faixas por dia (ex.: 8h às 12h e 13h às 18h), botão para copiar a
+    segunda para os dias úteis.
+  - **Setores:** segue o horário geral, horário próprio ou atende 24 horas (ex.: plantão da
+    Manutenção).
+  - **Feriados:** cadastro avulso e "incluir feriados nacionais" do ano (fixos, Carnaval, Sexta-feira
+    Santa e Corpus Christi calculados pela Páscoa). No feriado só os setores de 24 h atendem.
+  - **Mensagem fora do horário** com variáveis `{nome}`, `{protocolo}`, `{setor}`, `{horario}` e
+    `{volta}` e prévia de como o cliente recebe.
+- Fora do horário, quando a Jack encaminha, o cliente recebe essa mensagem no lugar do "já vamos te
+  atender" (ex.: "A equipe responde segunda-feira às 8h"). Vai uma vez por atendimento; a conversa
+  fica na fila do setor normalmente. Vale também para número fixo de setor e resposta a envio em
+  massa.
+- Fica **desligado** até o supervisor ligar; alterações e feriados vão para o registro de auditoria.
+- Migration `016_hours.sql`.
+
+### Mudou
+- ROADMAP: S8 dividido em S8a (horário, feito) e S8b (produção).
+
 ## [0.14.0] — 2026-11-14
 ### Adicionado
 - **Avaliação pós-atendimento:** ao encerrar um atendimento que teve atendente, o cliente recebe

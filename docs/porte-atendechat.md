@@ -23,7 +23,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Tickets (aba "pendentes") + tela de referência | Fila de atendimento com indicadores, prioridade e atendentes online: feito (0.8.0). No Atendechat não existe tela própria; seguimos a tela de referência | S2 |
 | Dashboard | Painel: feito (0.14.0). Período (hoje, 7 e 30 dias, mês, datas livres), setor e atendente; atendimentos, encerrados, espera e atendimento médios, nota; por dia, por hora, por setor, por atendente; exporta planilha (CSV). Atendente vê só os próprios; gerente, os setores dele | S7 |
 | UserRating | Avaliação: feito (0.14.0). Ao encerrar um atendimento com atendente, pergunta a nota de 1 a 5 (aceita "5", "4 - comentário", estrelas, "ótimo"); vale por 24 h; desliga com TALK_RATING=off | S7 |
-| Settings (horário) | Horário de atendimento | S8 |
+| Settings (horário) | Horário de atendimento: feito (0.15.0). Até 3 faixas por dia; cada setor segue o geral, tem horário próprio ou atende 24 h; feriados (com os nacionais do ano num clique); mensagem fora do horário com variáveis, uma vez por atendimento, no lugar do "já vamos te atender" da Jack. Desligado até o supervisor ligar | S8a |
 
 ## Fica de fora (e por quê)
 | Atendechat | Motivo |

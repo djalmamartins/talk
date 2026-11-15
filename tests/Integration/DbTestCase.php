@@ -67,6 +67,7 @@ abstract class DbTestCase extends TestCase
             new \ConnectTalk\Service\Texts(),
             new \ConnectTalk\Jack\Jack($this->db),
             $this->media,
+            hours: new \ConnectTalk\Service\BusinessHours($this->db),
         );
     }
 

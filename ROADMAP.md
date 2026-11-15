@@ -20,5 +20,6 @@ empresa só (`docs/porte-atendechat.md`).
 | S6a | Agendamento de mensagens | Atendechat Schedules | feito (0.12.0) |
 | S6b | Envio em massa pela API oficial (modelos aprovados, lista por etiqueta ou planilha; boletos quando a API do ERP sair) | Atendechat Campaigns/ContactLists | feito (0.13.0) |
 | S7 | Painel e relatórios (tempo de espera e de atendimento por setor e atendente) e avaliação pós-atendimento | Atendechat Dashboard/UserRating | feito (0.14.0) |
-| S8 | Horário de atendimento e mensagem fora do horário; produção (Docker, worker, backup) | Atendechat Settings | a fazer |
+| S8a | Horário de atendimento (geral, por setor, 24 h, feriados) e mensagem fora do horário | Atendechat Settings | feito (0.15.0) |
+| S8b | Produção: Docker, worker como serviço, backup do banco e dos arquivos, guia de instalação | — | a fazer |
 | J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |

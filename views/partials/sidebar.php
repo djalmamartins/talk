@@ -1,5 +1,5 @@
 <?php
-/** Menu lateral comum. $active: 'inbox' | 'queue' | 'contacts' | 'channels' | 'team' | 'schedules' | 'campaigns' | 'reports'. Fora da caixa de entrada, os diálogos abrem nela. */
+/** Menu lateral comum. $active: 'inbox' | 'queue' | 'contacts' | 'channels' | 'team' | 'schedules' | 'campaigns' | 'reports' | 'settings'. Fora da caixa de entrada, os diálogos abrem nela. */
 $active ??= 'inbox';
 $onInbox = $active === 'inbox';
 $initials = mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice(preg_split('/\s+/', trim(preg_replace('/\(.*\)/', '', $userName))), 0, 2))));
@@ -21,6 +21,7 @@ $initials = mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), 
 <?php if (!empty($isSupervisor)): ?>
   <a class="nav<?= $active === 'team' ? ' active' : '' ?>" href="/equipe"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 15.5c.9-.6 1.9-1 3-1 2.8 0 5 2.2 5 5"/></svg>Equipe e setores</a>
   <a class="nav<?= $active === 'channels' ? ' active' : '' ?>" href="/conexoes"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Conexão WhatsApp</a>
+  <a class="nav<?= $active === 'settings' ? ' active' : '' ?>" href="/configuracoes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>Horário de atendimento</a>
 <?php endif; ?>
   <a class="nav" href="<?= $onInbox ? '#' : '/?abrir=busca' ?>" id="nav-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar conversas</a>
   <a class="nav" href="<?= $onInbox ? '#' : '/?abrir=mensagens' ?>" id="nav-quick"><svg viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>Mensagens rápidas</a>
