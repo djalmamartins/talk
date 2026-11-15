@@ -142,10 +142,10 @@ final class InboxQuery
             $params['fuser'] = (int) $f['user_id'];
         }
         if (!empty($f['contact'])) {
-            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto)';
+            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto OR c.helpdesk_protocol = :hproto)';
             $params['cname'] = '%' . $f['contact'] . '%';
             $params['cphone'] = '%' . preg_replace('/\D+/', '', (string) $f['contact']) . '%';
-            $params['proto'] = $f['contact'];
+            $params['proto'] = $params['hproto'] = $f['contact'];
         }
         return $this->db->all(
             'SELECT m.id, m.conversation_id, m.direction, m.body, m.created_at, m.author_user_id,

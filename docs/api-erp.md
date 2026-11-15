@@ -98,6 +98,10 @@ Toda conversa do Talk vira um chamado no Help Desk. Usa `TicketService::open()` 
 201 {"data": {"id": 500, "protocol": "TK2611140001", "status": "open"}}
 ```
 
+O `protocol` devolvido é o número do chamado no Help Desk (no ERP, `CH` + data + 4 caracteres). O Talk o guarda em
+`talk_conversations.helpdesk_protocol` e é ele que o cliente vê nas mensagens (fora do horário, encerramento).
+Sem `protocol` na resposta, o cliente vê o protocolo do Talk.
+
 ## 4. Transferir — `POST /api/v1/talk/tickets/{id}/transfer`
 
 ```json

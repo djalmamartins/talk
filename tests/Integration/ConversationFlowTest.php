@@ -45,18 +45,23 @@ final class ConversationFlowTest extends DbTestCase
         $c = $this->conv($id);
         $this->assertSame('pending', $c['status']);
         $this->assertSame($this->sectors['Manutenção'], (int) $c['sector_id']);
-        $this->assertStringContainsString("Abri o chamado *{$c['protocol']}*", $this->lastOutbound($id));
-        $this->assertStringContainsString('*Manutenção*', $this->lastOutbound($id));
+        // ADR 0004: encaminha em silêncio; quem fala com a pessoa é a equipe do setor
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE conversation_id = ? AND direction = 'out'", [$id])['n']);
     }
 
-    public function test_so_um_oi_ela_pergunta_como_ajudar_e_depois_encaminha(): void
+    public function test_falta_de_agua_vai_para_a_manutencao(): void
     {
-        $id = $this->inbound('oi');
+        $id = $this->routed('Bom dia, estamos com problema de falta de água');
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($id)['sector_id']);
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($this->routed('o prédio está sem luz desde cedo', '5531911112222'))['sector_id']);
+    }
+
+    public function test_so_um_bom_dia_ela_espera_calada_o_assunto(): void
+    {
+        $id = $this->inbound('bom dia');
         $this->triage();
         $this->assertSame('bot', $this->conv($id)['status']);
-        $this->assertSame("*Jack:*\nOi, Maria! Como posso te ajudar?", $this->lastOutbound($id));
-        $this->triage();
-        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE type = 'jack_ask'")['n'], 'pergunta uma vez só');
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) n FROM talk_messages WHERE direction = 'out'")['n'], 'não puxa conversa');
 
         $this->inbound('o portão da garagem quebrou');
         $this->triage();
@@ -67,7 +72,6 @@ final class ConversationFlowTest extends DbTestCase
     {
         $id = $this->routed('queria falar com alguém sobre uma situação aqui do prédio');
         $this->assertSame($this->sectors['Administrativo'], (int) $this->conv($id)['sector_id']);
-        $this->assertStringContainsString('*Administrativo*', $this->lastOutbound($id));
     }
 
     public function test_dois_assuntos_empatados_vao_para_o_administrativo(): void
@@ -94,8 +98,6 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertSame(77, (int) $contact['erp_person_id']);
         $this->assertSame('João Morador', $contact['name']);
         $this->assertStringContainsString('Jardins', $contact['erp_snapshot']);
-        $this->triage();
-        $this->assertStringContainsString('Oi, João!', $this->lastOutbound($id));
     }
 
     public function test_atendente_aceita_responde_e_encerra(): void
@@ -139,7 +141,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $hd = new class implements Helpdesk {
             public array $log = [];
-            public function open(array $c, array $ct, ?string $s): ?int { $this->log[] = "open:$s"; return 500; }
+            public function open(array $c, array $ct, ?string $s): ?array { $this->log[] = "open:$s"; return ['id' => 500, 'protocol' => 'CH261115A1B2']; }
             public function transfer(int $t, string $s, int $u, ?string $n): void { $this->log[] = "transfer:$t:$s:$n"; }
             public function close(int $t, int $u, ?string $r): void { $this->log[] = "close:$t"; }
         };
@@ -158,6 +160,7 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertStringContainsString('Financeiro para Manutenção', $note['body']);
         $this->assertStringContainsString('vazamento no 101', $note['body']);
         $this->assertSame(['open:Financeiro', 'transfer:500:Manutenção:Morador relata vazamento no 101'], $hd->log);
+        $this->assertSame('CH261115A1B2', $c['helpdesk_protocol']);
 
         // Ana (financeiro) não age mais; manutenção aceita
         try {
@@ -167,6 +170,12 @@ final class ConversationFlowTest extends DbTestCase
         }
         $this->svc->accept($id, $this->agent(20, 'Manutenção'));
         $this->assertSame(20, (int) $this->conv($id)['assigned_user_id']);
+
+        // ao encerrar, o cliente recebe o número do chamado do Help Desk, não o do Talk
+        $this->svc->close($id, $this->agent(20, 'Manutenção'));
+        $last = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'out' AND body LIKE '%encerrado%'", [$id])['body'];
+        $this->assertStringContainsString('CH261115A1B2', $last);
+        $this->assertStringNotContainsString((string) $c['protocol'], $last);
     }
 
     public function test_supervisor_e_gerente_podem_agir(): void
@@ -183,7 +192,7 @@ final class ConversationFlowTest extends DbTestCase
     public function test_ack_nao_regride(): void
     {
         $id = $this->routed('preciso do boleto');
-        $msg = $this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND direction='out' ORDER BY id DESC LIMIT 1", [$id]); // aviso da Jaqueline
+        $msg = ['id' => $this->db->insert('talk_messages', ['conversation_id' => $id, 'direction' => 'out', 'type' => 'text', 'body' => 'Bom dia!', 'ack' => 'sent'])];
         $this->db->run("UPDATE talk_messages SET provider_message_id = 'P1' WHERE id = ?", [$msg['id']]);
         $this->svc->handleStatus(new \ConnectTalk\Domain\StatusUpdate('P1', 'read'));
         $this->svc->handleStatus(new \ConnectTalk\Domain\StatusUpdate('P1', 'delivered'));
@@ -193,7 +202,7 @@ final class ConversationFlowTest extends DbTestCase
     public function test_erp_fora_do_ar_nao_trava_o_atendimento(): void
     {
         $hd = new class implements Helpdesk {
-            public function open(array $c, array $ct, ?string $s): ?int { throw new \RuntimeException('ERP 503'); }
+            public function open(array $c, array $ct, ?string $s): ?array { throw new \RuntimeException('ERP 503'); }
             public function transfer(int $t, string $s, int $u, ?string $n): void { throw new \RuntimeException('ERP 503'); }
             public function close(int $t, int $u, ?string $r): void { throw new \RuntimeException('ERP 503'); }
         };

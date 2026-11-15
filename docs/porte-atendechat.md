@@ -6,7 +6,7 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 ## Vem para o Talk
 | Atendechat | No Talk | Situação |
 |---|---|---|
-| Tickets / Chat | Caixa de entrada, conversa, aceitar, responder, encerrar | feito (0.2.0) |
+| Tickets / Chat | Caixa de entrada, conversa, aceitar, responder, encerrar | feito (0.2.0); seletor de emojis e formatação do WhatsApp (*negrito*, _itálico_, ~riscado~) na conversa desde 0.18.0, como o EmojiPicker e o MarkdownWrapper do Atendechat |
 | Mídia (SendWhatsAppMedia, downloadMedia) | Enviar e receber arquivos: imagem, áudio, vídeo, PDF, documento; download com conferência de acesso | feito (0.6.0) |
 | Queues (filas) | Setores Financeiro, Administrativo, Manutenção | feito (0.1.0); cadastro na tela Equipe e setores (0.11.0), com cor e descrição. Sem mensagem de saudação por fila: quem cumprimenta é a Jack |
 | TicketNote | Notas internas | feito |

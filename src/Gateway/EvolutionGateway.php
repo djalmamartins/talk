@@ -187,6 +187,16 @@ final class EvolutionGateway implements WhatsAppGateway
                 if (($key['fromMe'] ?? false) || str_ends_with($jid, '@g.us') || $jid === 'status@broadcast') {
                     continue; // ignora enviadas por nós, grupos e status
                 }
+                // WhatsApp novo: o remetente pode vir como "LID" (um código interno, não o telefone).
+                // O telefone de verdade vem ao lado, em remoteJidAlt (Evolution 2.3) ou senderPn (versões anteriores).
+                if (str_ends_with($jid, '@lid')) {
+                    foreach (['remoteJidAlt', 'senderPn', 'participantAlt', 'participantPn'] as $alt) {
+                        if (!empty($key[$alt]) && str_contains((string) $key[$alt], '@s.whatsapp.net')) {
+                            $jid = (string) $key[$alt];
+                            break;
+                        }
+                    }
+                }
                 $msg = $d['message'] ?? [];
                 [$type, $body, $mime] = match (true) {
                     isset($msg['conversation']) => ['text', $msg['conversation'], null],

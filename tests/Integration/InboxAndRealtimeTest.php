@@ -74,7 +74,8 @@ final class InboxAndRealtimeTest extends DbTestCase
 
     public function test_jaqueline_mostra_digitando_antes_de_enviar(): void
     {
-        $this->routed('oi');   // Jaqueline pergunta "como posso te ajudar?"
+        $this->routed('quero a segunda via do boleto');
+        $this->inbound('você é um robô?');   // Jaqueline se apresenta (texto aprovado)
         $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));
 
         $this->http->responses[] = ['status' => 201, 'body' => '{}'];
@@ -90,7 +91,8 @@ final class InboxAndRealtimeTest extends DbTestCase
 
     public function test_worker_envia_e_tenta_de_novo_quando_falha(): void
     {
-        $id = $this->routed('oi');
+        $id = $this->routed('quero a segunda via do boleto');
+        $this->inbound('você é um robô?');
         $this->db->run('UPDATE talk_outbox SET typing_seconds = 0');  // sem digitando neste teste
         $this->http->responses[] = new \RuntimeException('timeout');
         $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));

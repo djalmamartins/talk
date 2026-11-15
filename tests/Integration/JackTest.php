@@ -76,7 +76,6 @@ final class JackTest extends DbTestCase
         $this->triage();
         $this->assertSame($this->sectors['Financeiro'], (int) $this->conv($id)['sector_id']);
         $this->assertStringNotContainsString('escopo', implode(' ', $this->outs($id)));
-        $this->assertStringContainsString('*Financeiro*', implode(' ', $this->outs($id)));
     }
 
     public function test_com_atendente_humano_ela_nao_responde(): void

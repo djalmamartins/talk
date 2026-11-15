@@ -49,7 +49,7 @@ final class BusinessHoursTest extends DbTestCase
         $this->assertMatchesRegularExpression('/^(amanhã|hoje|segunda|terça|quarta|quinta|sexta).* às 8h$/', $this->hours()->overview(new StaffMember(1, true))['sample']['{volta}']);
         $c = $this->routed('quero a segunda via do boleto');
         $this->assertCount(0, $this->outbound($c, 'off_hours'));
-        $this->assertCount(1, $this->outbound($c, 'jack_routed'));
+        $this->assertCount(0, $this->outbound($c, 'jack_routed')); // dentro do horário, encaminha em silêncio
     }
 
     public function test_fora_do_horario_a_jack_diz_quando_volta_uma_vez_so(): void
@@ -77,7 +77,7 @@ final class BusinessHoursTest extends DbTestCase
         $this->hours()->save($this->sup(), ['enabled' => true, 'week' => $this->week([0 => [['00:00', '24:00']], 1 => [['09:00', '17:00']]])]);
         $c = $this->routed('quero a segunda via do boleto');
         $this->assertCount(0, $this->outbound($c, 'off_hours'));
-        $this->assertStringContainsString('Já vamos te atender', $this->outbound($c, 'jack_routed')[0]);
+        $this->assertCount(0, $this->outbound($c, 'jack_routed'));
 
         // hoje vira feriado: fecha, e a volta é amanhã às 9h; a Manutenção (24 h) continua atendendo
         $this->hours()->addHoliday($this->sup(), ['day' => $this->now->format('Y-m-d'), 'name' => 'Feriado municipal']);

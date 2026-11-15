@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.18.0] — 2026-11-15
+Correções do primeiro teste real com WhatsApp por QR Code.
+### Corrigido
+- **Número do cliente chegava errado.** O WhatsApp passou a mandar um código interno (LID,
+  terminado em `@lid`) no lugar do telefone; o Talk agora usa o telefone de verdade que vem junto
+  (`remoteJidAlt`/`senderPn`).
+- **A Jack falava com o cliente ao encaminhar.** Como combinado (ADR 0004), ela lê, entende e
+  coloca a conversa na fila do setor certo **sem mandar mensagem**. Só um "bom dia" sozinho não
+  gera resposta: ela espera o assunto. Fora do horário, o aviso configurado continua indo.
+- **"Falta de água" ia para o Administrativo.** A Jack reconhece falta de água/luz/energia,
+  cano, torneira, descarga, ralo e pressão da água como Manutenção.
+- **`*` e `_` aparecendo nas mensagens.** A conversa mostra a formatação do WhatsApp como o
+  celular mostra (*negrito*, _itálico_, ~riscado~, ```monoespaçado```); a lista de conversas
+  mostra o texto limpo.
+### Adicionado
+- **Número do chamado do Help Desk.** Quando o ERP devolve o número do chamado (ex.:
+  `CH2611153FA2`), ele fica guardado na conversa (`helpdesk_protocol`, migração 017) e é o que o
+  cliente vê no aviso de fora do horário e no encerramento, no topo da conversa e na busca. Sem o
+  Help Desk ligado continua valendo o protocolo do Talk.
+- **Emojis no campo de resposta**: botão ao lado do clipe, com os mais usados, rostos, gestos,
+  condomínio e atendimento; dá para escolher vários seguidos e Esc fecha.
+- **Ícone do Connect Talk** na aba do navegador, nos favoritos e na tela inicial do celular
+  (favicon, PNGs, apple-touch-icon e manifest).
+
 ## [0.17.2] — 2026-11-15
 ### Corrigido
 - **Número de QR Code antigo tentava um endereço que não existe** ("Could not resolve host:

@@ -32,7 +32,7 @@ async function loadList() {
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
       <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
-      <span class="last">${esc(c.last_body || '')}</span>
+      <span class="last">${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
   if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; if ($('#badge-queue')) $('#badge-queue').textContent = rows.length || ''; }
@@ -70,13 +70,13 @@ async function openConversation(id) {
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
-      <div class="meta">${esc(contact.phone)} · protocolo <b>${esc(c.protocol)}</b> · ${esc(sectorName(c.sector_id))} · ${statusLabel[c.status]}
+      <div class="meta">${esc(contact.phone)} · ${c.helpdesk_protocol ? `chamado <b>${esc(c.helpdesk_protocol)}</b>` : `protocolo <b>${esc(c.protocol)}</b>`} · ${esc(sectorName(c.sector_id))} · ${statusLabel[c.status]}
       ${c.assigned_user_id ? ' · ' + esc(state.users[c.assigned_user_id] || '#' + c.assigned_user_id) : ''}</div></div>
       <div class="actions">${actions.join('')}</div>
     </div>
     <div class="msgs" id="msgs">${messages.map(renderMsg).join('')}</div>
     ${can_act && (c.status === 'open' || c.status === 'pending')
-      ? `<form class="composer" id="composer"><label class="attach" title="Enviar arquivo (imagem, áudio, vídeo, PDF, documento)"><input type="file" id="attach-input" hidden accept="image/jpeg,image/png,image/webp,audio/*,video/mp4,video/3gpp,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"><svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"/></svg></label><div class="reply-wrap"><div id="attach-chip" class="attach-chip" hidden></div><ul id="quick-pick" class="quick-pick" hidden></ul><textarea id="reply" placeholder="Escreva a resposta… (/ para mensagens rápidas, Enter envia)"></textarea></div><button class="primary">Enviar</button></form>`
+      ? `<form class="composer" id="composer"><label class="attach" title="Enviar arquivo (imagem, áudio, vídeo, PDF, documento)"><input type="file" id="attach-input" hidden accept="image/jpeg,image/png,image/webp,audio/*,video/mp4,video/3gpp,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"><svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"/></svg></label><button type="button" class="attach" id="emoji-btn" title="Emojis" aria-label="Emojis" aria-expanded="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg></button><div class="reply-wrap"><div id="emoji-pick" class="emoji-pick" role="dialog" aria-label="Emojis" hidden></div><div id="attach-chip" class="attach-chip" hidden></div><ul id="quick-pick" class="quick-pick" hidden></ul><textarea id="reply" placeholder="Escreva a resposta… (/ para mensagens rápidas, Enter envia)"></textarea></div><button class="primary">Enviar</button></form>`
       : `<div class="banner">${c.status === 'closed' ? 'Atendimento encerrado.' : c.status === 'bot' ? 'O cliente ainda está escolhendo o setor.' : 'Somente leitura.'}</div>`}`;
   const box = $('#msgs');
   box.scrollTop = box.scrollHeight;
@@ -86,10 +86,22 @@ async function openConversation(id) {
   }
   if (state.attach && $('#reply')) { const f = state.attach; pickAttach(f, draft ? !draft.focus : true); }
   renderContact(contact, c);
-  state.ctx = { nome: contact.name || '', protocolo: c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
+  state.ctx = { nome: contact.name || '', protocolo: c.helpdesk_protocol || c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
   if (c.unread > 0 && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
   document.querySelectorAll('#conversations li').forEach((li) => li.classList.toggle('active', li.dataset.id == id));
 }
+
+// formatação do WhatsApp (*negrito*, _itálico_, ~riscado~, ```monoespaçado```): mostra como o celular mostra
+const WA_FMT = [['```', 'code'], ['*', 'b'], ['_', 'i'], ['~', 's']];
+const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function waFormat(html) {
+  return WA_FMT.reduce((out, [mk, tag]) => {
+    const m = reEsc(mk);
+    const re = new RegExp(`(^|[\\s(>"'])${m}(?=\\S)([^\\n]*?\\S)${m}(?=$|[\\s.,!?;:)<"'])`, 'g');
+    return out.replace(re, `$1<${tag}>$2</${tag}>`);
+  }, html);
+}
+const waPlain = (t) => String(t || '').replace(/(^|[\s(])(```|[*_~])(?=\S)([^\n]*?\S)\2(?=$|[\s.,!?;:)])/g, '$1$3');
 
 function renderMsg(m) {
   const who = m.author_user_id ? `<b>${esc(state.users[m.author_user_id] || '')}</b><br>` : '';
@@ -99,7 +111,7 @@ function renderMsg(m) {
   }
   const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : m.type === 'rating' ? '<span class="rating-tag">⭐ Avaliação</span> ' : '';
   const media = renderMedia(m);
-  const text = media && m.type === 'document' && m.direction === 'in' ? '' : esc(m.body); // documento recebido: o corpo é o nome
+  const text = media && m.type === 'document' && m.direction === 'in' ? '' : waFormat(esc(m.body)); // documento recebido: o corpo é o nome
   return `<div class="msg ${m.direction}${media ? ' has-media' : ''}">${m.direction === 'internal' ? who : ''}${label}${media}${text}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
 }
 const kb = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -147,7 +159,7 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      <dt>Protocolo</dt><dd><b>${esc(c.protocol)}</b></dd></dl>
+      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b></dd>` : ''}<dt>Protocolo do Talk</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
     <section><h4>Últimos chamados</h4>${hist ? `<ul class="cp-hist">${hist}</ul>` : '<p class="meta">Primeiro atendimento desta pessoa.</p>'}
@@ -549,3 +561,34 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   connect();
 })();
 
+
+// ------------------------------------------------------------ emojis no campo de resposta
+const EMOJIS = {
+  'Mais usados': '😊 🙂 😉 😄 😁 😅 😂 🥰 😍 🙏 👍 👏 🙌 💪 👋 🤝 ✅ ✔️ ❤️ 💚 💙 ⭐ 🎉 ✨',
+  'Rostos': '😀 😃 😆 🤗 🤩 😎 🤔 🫡 😌 😇 🥲 😢 😭 😔 😕 🙁 😮 😯 😬 😴 🤒 🤧 😷 🙃',
+  'Gestos': '👌 ✌️ 🤞 👊 ✋ 🖐️ 👆 👇 👉 👈 🫶 🙋 🤷 🙆 🙅 💁',
+  'Condomínio': '🏢 🏠 🔑 🚪 🛗 🚗 🅿️ 📦 📬 🔧 🔨 🧰 🪛 💡 🔌 💧 🚿 🚰 🔥 🧯 🧹 🗑️ 🌳 🐶',
+  'Atendimento': '📞 📱 💬 📧 📄 📋 📎 🧾 💰 💳 🏦 📅 ⏰ ⏳ 📍 ⚠️ ❗ ❓ 🚫 ⛔ 🆗 🆕 ☑️ ➡️',
+};
+function emojiPick(open) {
+  const pick = $('#emoji-pick'); const btn = $('#emoji-btn');
+  if (!pick) return;
+  if (open && !pick.innerHTML) {
+    pick.innerHTML = Object.entries(EMOJIS).map(([k, v]) => `<h5>${esc(k)}</h5><div>${v.split(' ').map((e) => `<button type="button" data-emoji="${e}" title="${e}">${e}</button>`).join('')}</div>`).join('');
+  }
+  pick.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  if (open) $('#quick-pick').hidden = true;
+}
+function insertAtCursor(ta, text) {
+  const a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
+  ta.value = ta.value.slice(0, a) + text + ta.value.slice(b);
+  ta.selectionStart = ta.selectionEnd = a + text.length;
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+document.addEventListener('mousedown', (e) => {
+  const em = e.target.closest('#emoji-pick [data-emoji]');
+  if (em) { e.preventDefault(); insertAtCursor($('#reply'), em.dataset.emoji); $('#reply').focus(); return; } // continua aberto para escolher mais de um
+  if (e.target.closest('#emoji-btn')) { e.preventDefault(); emojiPick($('#emoji-pick').hidden); $('#reply').focus(); return; }
+  if ($('#emoji-pick') && !$('#emoji-pick').hidden && !e.target.closest('#emoji-pick')) emojiPick(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#emoji-pick') && !$('#emoji-pick').hidden) emojiPick(false); });

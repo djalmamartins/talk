@@ -303,14 +303,12 @@ class ConversationService
                 }
                 $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
                 $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
-                if ($d['action'] === 'ask') {
-                    $this->jackSay($conv, $this->texts->jackAsk($first), 'jack_ask');
-                    return false;
-                }
                 $this->route($conv, $d['sector'], $contact);
-                // fora do horário: em vez de "já vamos te atender", diz quando a equipe volta
+                // ADR 0004: encaminhar é em silêncio. Só fora do horário a Jack avisa quando a equipe volta.
                 $off = $this->offHours($conv, $d['sector'], $first);
-                $this->jackSay($this->get((int) $conv['id']), $off ?? $this->texts->jackRouted($first, $conv['protocol'], $d['sector']['name']), $off ? 'off_hours' : 'jack_routed');
+                if ($off !== null) {
+                    $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
+                }
                 return true;
             });
         }
@@ -329,7 +327,8 @@ class ConversationService
         if ($this->hours === null || !$this->hours->enabled()) {
             return null;
         }
-        $text = $this->hours->offHoursMessage((int) $sector['id'], (string) $sector['name'], $first, (string) $conv['protocol']);
+        $conv = $this->get((int) $conv['id']); // já com o número do chamado do Help Desk
+        $text = $this->hours->offHoursMessage((int) $sector['id'], (string) $sector['name'], $first, self::ticketNumber($conv));
         if ($text === null) {
             return null;
         }
@@ -357,10 +356,7 @@ class ConversationService
     {
         $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending', queued_at = NOW() WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
-        $ticketId = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sector['name']));
-        if ($ticketId !== null) {
-            $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $conv['id']]);
-        }
+        $this->openTicket($conv, $contact, $sector['name']);
         $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
     }
@@ -385,10 +381,7 @@ class ConversationService
             'last_message_at' => date('Y-m-d H:i:s'),
         ]);
         $conv = $this->get($id);
-        $ticketId = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sector['name']));
-        if ($ticketId !== null) {
-            $this->db->run('UPDATE talk_conversations SET helpdesk_ticket_id = ? WHERE id = ?', [$ticketId, $id]);
-        }
+        $this->openTicket($conv, $contact, $sector['name']);
         $this->db->insert('talk_messages', [
             'conversation_id' => $id, 'direction' => 'internal', 'author_user_id' => $userId, 'type' => 'note', 'body' => $note, 'ack' => 'received',
         ]);
@@ -585,7 +578,7 @@ class ConversationService
             }
             $conv = $this->get($convId);
             if ($notifyCustomer) {
-                $this->queueOutbound($conv, $this->texts->closed($conv['protocol']), $u->userId);
+                $this->queueOutbound($conv, $this->texts->closed(self::ticketNumber($conv)), $u->userId);
                 // avaliação: só quando alguém da equipe atendeu
                 if ($this->askRating && $conv['accepted_at'] !== null && $conv['assigned_user_id'] !== null) {
                     $who = $this->db->one('SELECT name FROM talk_users WHERE id = ?', [$conv['assigned_user_id']]);
@@ -626,6 +619,24 @@ class ConversationService
     // ------------------------------------------------------------------ apoio
 
     /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
+    /** Abre o chamado no Help Desk e guarda o id e o número dele (o número que o cliente vê). */
+    private function openTicket(array $conv, array $contact, ?string $sectorName): void
+    {
+        $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sectorName));
+        if (is_array($t) && isset($t['id'])) {
+            $this->db->run(
+                'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ? WHERE id = ?',
+                [(int) $t['id'], $t['protocol'] ?? null, $conv['id']]
+            );
+        }
+    }
+
+    /** Número do chamado para o cliente: o do Help Desk, quando houver; senão, o protocolo do Talk. */
+    public static function ticketNumber(array $conv): string
+    {
+        return (string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']);
+    }
+
     private function safeHelpdesk(callable $fn): mixed
     {
         try {
@@ -701,6 +712,7 @@ class ConversationService
         return [
             'id' => (int) $conv['id'],
             'protocol' => $conv['protocol'],
+            'ticket' => self::ticketNumber($conv),
             'status' => $conv['status'],
             'sector_id' => $this->sector($conv),
             'assigned_user_id' => $conv['assigned_user_id'] !== null ? (int) $conv['assigned_user_id'] : null,

@@ -57,7 +57,7 @@ final class ErpApiTest extends TestCase
         $hd->transfer(500, 'Financeiro', 2, 'cobrança do reparo');
         $hd->close(500, 2, 'resolvido');
 
-        $this->assertSame(500, $id);
+        $this->assertSame(['id' => 500, 'protocol' => 'TK2611140001'], $id);
         [$open, $tr, $cl] = $this->http->calls;
         $this->assertSame('https://erp.connect.lab/api/talk/tickets', $open['url']);
         $this->assertSame('20261114-00001', $open['body']['talk_protocol']);

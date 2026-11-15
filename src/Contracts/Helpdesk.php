@@ -9,8 +9,12 @@ namespace ConnectTalk\Contracts;
  */
 interface Helpdesk
 {
-    /** Abre o chamado da conversa e devolve o id no helpdesk. */
-    public function open(array $conversation, array $contact, ?string $sectorName): ?int;
+    /**
+     * Abre o chamado da conversa. Devolve o id e o número do chamado no helpdesk
+     * (é esse número que o cliente vê), ou null quando não há helpdesk ligado.
+     * @return array{id:int, protocol:?string}|null
+     */
+    public function open(array $conversation, array $contact, ?string $sectorName): ?array;
 
     public function transfer(int $ticketId, string $toSectorName, int $byUserId, ?string $note): void;
 

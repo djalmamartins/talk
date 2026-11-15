@@ -5,6 +5,7 @@
 <meta name="csrf" content="<?= htmlspecialchars($csrf) ?>">
 <title>Agendamentos · Connect Talk</title>
 <link rel="stylesheet" href="/assets/app.css">
+<?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
 <body data-lab="<?= $isLab ? '1' : '0' ?>">
 <div class="shell">

@@ -41,6 +41,9 @@ final class Classifier
             'vizinho' => 1, 'autorizacao' => 1, 'tag' => 1, 'controle remoto' => 1, 'certidao' => 2,
         ],
         'manutencao' => [
+            'falta (de )?agua' => 3, 'faltando agua' => 3, 'sem agua' => 3, 'acabou a agua' => 3, 'agua (acabou|cortada|parou)' => 3,
+            'falta (de )?(luz|energia)' => 3, 'sem (luz|energia)' => 3, 'queda de (luz|energia)' => 3, 'acabou a (luz|energia)' => 3,
+            'cano' => 2, 'torneira' => 2, 'descarga' => 2, 'ralo' => 2, 'pressao da agua' => 3, 'agua fraca' => 3,
             'vazamento' => 3, 'vazando' => 3, 'infiltracao' => 3, 'goteira' => 3, 'agua( \w+){0,2} no chao' => 3,
             'agua' => 1, 'molhad\w*' => 1, 'entupi\w*' => 3, 'esgoto' => 3, 'elevador' => 3, 'portao' => 3,
             'interfone' => 3, 'lampada' => 3, 'luz' => 1, 'queimad\w*' => 2, 'quebrad\w*' => 2, 'quebrou' => 2,

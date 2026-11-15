@@ -121,4 +121,14 @@ final class GatewayParsingTest extends TestCase
         $this->expectExceptionMessage('não mandou o QR Code a tempo');
         $gw->connect();
     }
+
+    public function test_evolution_troca_o_codigo_lid_pelo_telefone(): void
+    {
+        $gw = new EvolutionGateway(['base_url' => 'http://evo', 'instance' => 'i', 'api_key' => 'k', 'webhook_secret' => 's'], new FakeHttpClient());
+        $body = fn (array $key) => json_encode(['event' => 'messages.upsert', 'data' => ['key' => $key + ['fromMe' => false, 'id' => 'L1'],
+            'pushName' => 'Djalma', 'message' => ['conversation' => 'bom dia, estamos sem água']]]);
+        $this->assertSame('5531987235451', $gw->parseWebhook($body(['remoteJid' => '187743727853723@lid', 'remoteJidAlt' => '5531987235451@s.whatsapp.net', 'addressingMode' => 'lid']))[0]->fromPhone);
+        $this->assertSame('5531987235451', $gw->parseWebhook($body(['remoteJid' => '187743727853723@lid', 'senderPn' => '5531987235451@s.whatsapp.net']))[0]->fromPhone);
+        $this->assertSame('5531987235451', $gw->parseWebhook($body(['remoteJid' => '5531987235451@s.whatsapp.net']))[0]->fromPhone);
+    }
 }

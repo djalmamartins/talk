@@ -26,7 +26,7 @@ final class HttpHelpdesk implements Helpdesk
         return self::AREA_BY_SECTOR[$key] ?? 'general';
     }
 
-    public function open(array $conversation, array $contact, ?string $sectorName): ?int
+    public function open(array $conversation, array $contact, ?string $sectorName): ?array
     {
         $details = is_array($contact['details'] ?? null) ? $contact['details'] : [];
         $r = $this->api->call('POST', '/talk/tickets', [
@@ -41,8 +41,12 @@ final class HttpHelpdesk implements Helpdesk
             'requester_phone' => $contact['phone'],
             'conversation_url' => rtrim($this->talkUrl, '/') . '/?c=' . $conversation['id'],
         ]);
-        $id = $r['data']['data']['id'] ?? null;
-        return $id !== null ? (int) $id : null;
+        $t = $r['data']['data'] ?? [];
+        if (!isset($t['id'])) {
+            return null;
+        }
+        $protocol = trim((string) ($t['protocol'] ?? ''));
+        return ['id' => (int) $t['id'], 'protocol' => $protocol !== '' ? mb_substr($protocol, 0, 40) : null];
     }
 
     public function transfer(int $ticketId, string $toSectorName, int $byUserId, ?string $note): void

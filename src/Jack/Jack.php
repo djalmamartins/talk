@@ -8,8 +8,9 @@ use ConnectTalk\Support\Db;
 /**
  * Jack (Jaqueline): faz a triagem de toda conversa nova, sem menu de números.
  *  - Espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
- *  - Assunto claro → abre o chamado no setor certo e avisa a pessoa com o protocolo.
- *  - Só cumprimentou ("oi") → pergunta "como posso te ajudar?" (uma vez) e espera de novo.
+ *  - Assunto claro → abre o chamado no setor certo, EM SILÊNCIO (ADR 0004: direcionar não gera
+ *    mensagem ao cliente). Quem fala com a pessoa é o atendente do setor.
+ *  - Só cumprimentou ("bom dia") → não responde; espera a pessoa dizer o assunto.
  *  - Falou algo que ela não reconhece, ou passou $maxWaitSeconds → setor padrão (Administrativo).
  *  - mode "off": sem triagem; tudo cai direto no setor padrão.
  * Só usa textos aprovados (Service\Texts).
@@ -52,7 +53,7 @@ final class Jack
 
     /**
      * Decide o que fazer com uma conversa na triagem, lendo tudo o que a pessoa escreveu.
-     * @return array{action:string, sector:?array}|null  action = route | fallback | ask; null = esperar
+     * @return array{action:string, sector:?array}|null  action = route | fallback; null = esperar
      */
     public function decide(array $conv, string $text, int $quietSeconds, int $ageSeconds): ?array
     {
@@ -64,8 +65,7 @@ final class Jack
         }
         $onlyGreeting = (bool) preg_match(self::GREETING, Classifier::normalize($text));
         if ($onlyGreeting && $ageSeconds < $this->maxWaitSeconds) {
-            $asked = $this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND type = 'jack_ask' LIMIT 1", [$conv['id']]);
-            return $asked ? null : ['action' => 'ask', 'sector' => null];
+            return null; // só cumprimentou: espera calada a pessoa contar o assunto
         }
         $fallback = $this->fallbackSector();
         if ($fallback === null) {
