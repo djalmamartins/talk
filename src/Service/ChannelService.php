@@ -8,6 +8,7 @@ use ConnectTalk\Gateway\GatewayException;
 use ConnectTalk\Gateway\GatewayFactory;
 use ConnectTalk\Support\Crypto;
 use ConnectTalk\Support\Db;
+use ConnectTalk\Support\Phone;
 
 /**
  * Tela "Conexão WhatsApp": vários números, cada um com seu setor (opcional), QR Code e situação.
@@ -24,7 +25,7 @@ final class ChannelService
         'lab' => [],
     ];
     private const REQUIRED = [
-        'qrcode' => ['base_url', 'instance', 'api_key'],
+        'qrcode' => ['instance'],
         'official' => ['phone_number_id', 'access_token', 'app_secret'],
         'lab' => [],
     ];
@@ -65,6 +66,7 @@ final class ChannelService
                 'webhook_url' => $this->webhookUrl((int) $r['id']),
                 'config' => $this->publicConfig($r['kind'], $r['config_encrypted']),
                 'attendants' => array_values($people),
+                'simulated' => $this->gateways->isSimulated($r['kind'], $this->safeDecrypt($r['config_encrypted'])),
             ];
         }, $rows);
     }
@@ -108,11 +110,25 @@ final class ChannelService
             }
         }
         if ($kind === 'qrcode') {
+            // QR Code: só nome e número. O servidor da Evolution vem do .env (EVOLUTION_URL/EVOLUTION_API_KEY);
+            // a instância leva o número. base_url/api_key no próprio canal continuam valendo (instalações antigas).
+            $phone = $phone !== null ? Phone::normalize($phone) : null;
+            if ($phone === null || !preg_match('/^55\d{10,11}$/', $phone)) {
+                throw new DomainError('Número do WhatsApp: informe com DDD, ex.: (31) 99999-0000.');
+            }
+            if ($old === null && $this->db->one("SELECT id FROM talk_channels WHERE kind = 'qrcode' AND phone = ?", [$phone])) {
+                throw new DomainError('Este número já está cadastrado.');
+            }
+            $cfg['instance'] ??= 'talk-' . $phone;
             $url = (string) ($cfg['base_url'] ?? '');
-            if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+            if ($url !== '' && (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url))) {
                 throw new DomainError('Endereço da Evolution: informe a URL completa, ex.: http://evolution:8080.');
             }
+            if (!$this->gateways->evolutionReady() && ($url === '' || empty($cfg['api_key'])) && !$this->gateways->isSimulated('qrcode', $cfg)) {
+                throw new DomainError('O servidor do WhatsApp por QR Code (Evolution) ainda não foi configurado: preencha EVOLUTION_URL e EVOLUTION_API_KEY no .env do servidor.');
+            }
             $cfg['webhook_secret'] ??= bin2hex(random_bytes(16));
+            $purpose = 'attendance'; // envio em massa é só pela API oficial
         }
         if ($kind === 'official') {
             $cfg['verify_token'] ??= bin2hex(random_bytes(12));
@@ -160,7 +176,7 @@ final class ChannelService
     {
         $this->assertSupervisor($u);
         $ch = $this->find($id);
-        if ($ch['kind'] === 'lab') {
+        if ($this->gateways->isSimulated($ch['kind'], $this->crypto->decrypt($ch['config_encrypted']))) {
             // laboratório: a situação é a guardada (muda com "Simular leitura")
             return ['state' => $ch['connection_state'], 'detail' => null, 'channel' => $this->one($u, $id)];
         }
@@ -177,7 +193,8 @@ final class ChannelService
     public function simulateScan(StaffMember $u, int $id): array
     {
         $this->assertSupervisor($u);
-        if (!$this->lab || $this->find($id)['kind'] !== 'lab') {
+        $ch = $this->find($id);
+        if (!$this->lab || !$this->gateways->isSimulated($ch['kind'], $this->crypto->decrypt($ch['config_encrypted']))) {
             throw new DomainError('Só no laboratório.', 404);
         }
         $this->store($id, 'connected', null, null);
@@ -270,6 +287,15 @@ final class ChannelService
             $out[$field] = $secret ? ($v === '' ? '' : '••••' . substr($v, -4)) : $v;
         }
         return $out;
+    }
+
+    private function safeDecrypt(string $encrypted): array
+    {
+        try {
+            return $this->crypto->decrypt($encrypted);
+        } catch (\RuntimeException) {
+            return [];
+        }
     }
 
     private function webhookUrl(int $id): string

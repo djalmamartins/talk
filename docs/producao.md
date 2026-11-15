@@ -33,6 +33,10 @@ Preencha o `.env`:
   senhas). É ela que abre os tokens do WhatsApp guardados no banco; sem ela, um backup restaurado
   não reconecta os números.
 - `ERP_API_URL` e `ERP_API_TOKEN`: quando a API do ERP existir. Vazio, o Talk funciona sozinho.
+- `EVOLUTION_URL` e `EVOLUTION_API_KEY`: o servidor da Evolution API que liga os números por QR Code
+  (a chave é a `AUTHENTICATION_API_KEY` dele). Fica configurado uma vez só; depois, para conectar um
+  número, a tela pede só o nome e o número e já mostra o QR Code. O Talk cria a instância
+  `talk-<número>` na Evolution sozinho.
 
 Depois:
 ```bash
@@ -45,8 +49,9 @@ em "Trocar senha".
 
 Em seguida, na tela:
 - **Equipe e setores:** cadastre os atendentes.
-- **Conexão WhatsApp:** número de QR Code (Evolution) e número oficial (Meta). Use o número
-  real só quando for a hora.
+- **Conexão WhatsApp:** em "Conectar novo número", escolha QR Code, informe o nome e o número e
+  leia o QR Code com o celular. O número oficial (Meta) pede os dados do Meta for Developers. Use o
+  número real só quando for a hora.
 - **Horário de atendimento:** ligue quando estiver tudo certo.
 
 ## Conferir se está tudo de pé

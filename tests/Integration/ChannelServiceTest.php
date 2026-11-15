@@ -48,7 +48,7 @@ final class ChannelServiceTest extends DbTestCase
         $svc = $this->channels();
         $c = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Financeiro', 'phone' => '(31) 98888-7777', 'sector_id' => $this->sectors['Financeiro'],
             'config' => ['base_url' => 'http://evo:8080', 'instance' => 'fin', 'api_key' => 'chave-1234']]);
-        $this->assertSame('3198888777' . '7', $c['phone']);
+        $this->assertSame('5531988887777', $c['phone']);
         $this->assertSame('Financeiro', $c['sector_name']);
         $cfg = $this->crypto->decrypt($this->db->one('SELECT config_encrypted FROM talk_channels WHERE id = ?', [$c['id']])['config_encrypted']);
         $this->assertSame(32, strlen($cfg['webhook_secret']));
@@ -66,8 +66,9 @@ final class ChannelServiceTest extends DbTestCase
         $svc = $this->channels();
         $cases = [
             ['kind' => 'lab', 'name' => 'Lab'], // laboratório só no laboratório
-            ['kind' => 'qrcode', 'name' => 'Sem chave', 'config' => ['base_url' => 'http://evo', 'instance' => 'x']],
-            ['kind' => 'qrcode', 'name' => 'URL ruim', 'config' => ['base_url' => 'evo', 'instance' => 'x', 'api_key' => 'k']],
+            ['kind' => 'qrcode', 'name' => 'Sem Evolution', 'phone' => '31977776666'], // sem EVOLUTION_URL no servidor
+            ['kind' => 'qrcode', 'name' => 'Sem número', 'config' => ['base_url' => 'http://evo', 'api_key' => 'k']],
+            ['kind' => 'qrcode', 'name' => 'URL ruim', 'phone' => '31977776666', 'config' => ['base_url' => 'evo', 'api_key' => 'k']],
             ['kind' => 'official', 'name' => 'Sem token', 'config' => ['phone_number_id' => '1']],
             ['kind' => 'qrcode', 'name' => 'Tel', 'phone' => '123', 'config' => ['base_url' => 'http://evo', 'instance' => 'x', 'api_key' => 'k']],
         ];
@@ -85,6 +86,7 @@ final class ChannelServiceTest extends DbTestCase
     public function test_conectar_qrcode_configura_webhook_e_devolve_o_qr(): void
     {
         $this->http->responses = [
+            ['status' => 200, 'body' => '{"instance":{"state":"close"}}'],              // a instância já existe
             ['status' => 201, 'body' => '{}'],                                          // webhook/set
             ['status' => 200, 'body' => '{"instance":{"state":"close"}}'],              // connectionState
             ['status' => 200, 'body' => '{"base64":"iVBORw0KGgo=","code":"2@abc"}'],    // instance/connect
@@ -92,11 +94,11 @@ final class ChannelServiceTest extends DbTestCase
         $r = $this->channels()->connect($this->sup(), $this->channelId);
         $this->assertSame('connecting', $r['state']);
         $this->assertSame('data:image/png;base64,iVBORw0KGgo=', $r['qr']);
-        $this->assertSame('http://evo:8080/webhook/set/connect', $this->http->calls[0]['url']);
-        $this->assertSame('https://talk.connect.lab/webhook/' . $this->channelId, $this->http->calls[0]['body']['webhook']['url']);
-        $this->assertSame('s3cret', $this->http->calls[0]['body']['webhook']['headers']['X-Talk-Secret']);
-        $this->assertSame('k', $this->http->calls[0]['headers']['apikey']);
-        $this->assertSame('http://evo:8080/instance/connect/connect', $this->http->calls[2]['url']);
+        $this->assertSame('http://evo:8080/webhook/set/connect', $this->http->calls[1]['url']);
+        $this->assertSame('https://talk.connect.lab/webhook/' . $this->channelId, $this->http->calls[1]['body']['webhook']['url']);
+        $this->assertSame('s3cret', $this->http->calls[1]['body']['webhook']['headers']['X-Talk-Secret']);
+        $this->assertSame('k', $this->http->calls[1]['headers']['apikey']);
+        $this->assertSame('http://evo:8080/instance/connect/connect', $this->http->calls[3]['url']);
 
         $this->http->responses = [['status' => 200, 'body' => '{"instance":{"instanceName":"connect","state":"open"}}']];
         $this->assertSame('connected', $this->channels()->refresh($this->sup(), $this->channelId)['state']);
@@ -108,6 +110,7 @@ final class ChannelServiceTest extends DbTestCase
     public function test_conectar_com_falha_guarda_o_erro(): void
     {
         $this->http->responses = [
+            ['status' => 401, 'body' => '{}'],
             ['status' => 401, 'body' => '{}'],
             ['status' => 401, 'body' => '{"response":{"message":["Unauthorized"]}}'],
             ['status' => 401, 'body' => '{"response":{"message":["Unauthorized"]}}'],
@@ -141,7 +144,7 @@ final class ChannelServiceTest extends DbTestCase
     public function test_padrao_desativar_e_excluir(): void
     {
         $svc = $this->channels();
-        $other = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Outro', 'config' => ['base_url' => 'http://e', 'instance' => 'o', 'api_key' => 'k']]);
+        $other = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Outro', 'phone' => '31933330001', 'config' => ['base_url' => 'http://e', 'instance' => 'o', 'api_key' => 'k']]);
         $this->assertTrue($other['is_default']); // primeiro com padrão (o do teste não tinha)
         $svc->setDefault($this->sup(), $this->channelId);
         $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) n FROM talk_channels WHERE is_default = 1')['n']);
@@ -161,7 +164,7 @@ final class ChannelServiceTest extends DbTestCase
         } catch (DomainError $e) {
             $this->assertStringContainsString('desative', $e->getMessage());
         }
-        $third = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Terceiro', 'config' => ['base_url' => 'http://e', 'instance' => 't', 'api_key' => 'k']]);
+        $third = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Terceiro', 'phone' => '31933330002', 'config' => ['base_url' => 'http://e', 'instance' => 't', 'api_key' => 'k']]);
         $svc->delete($this->sup(), $third['id']);
         $this->assertNull($this->db->one('SELECT id FROM talk_channels WHERE id = ?', [$third['id']]));
     }
@@ -205,5 +208,53 @@ final class ChannelServiceTest extends DbTestCase
         $this->assertSame('connected', $svc->simulateScan($this->sup(), $lab['id'])['connection_state']);
         $this->expectException(DomainError::class);
         $this->channels(false)->simulateScan($this->sup(), $lab['id']);
+    }
+
+    private function withEvolution(bool $lab = false): ChannelService
+    {
+        $g = new \ConnectTalk\Gateway\GatewayFactory($this->db, $this->crypto, $this->http, ['base_url' => 'http://evolution:8080', 'api_key' => 'global-key']);
+        return new ChannelService($this->db, $this->crypto, $g, 'https://talk.connect.lab/', $lab);
+    }
+
+    public function test_qrcode_so_com_nome_e_numero_cria_a_instancia_e_mostra_o_qr(): void
+    {
+        $svc = $this->withEvolution();
+        $c = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Atendimento', 'phone' => '(31) 97777-6666']);
+        $this->assertSame('5531977776666', $c['phone']);
+        $this->assertSame('attendance', $c['purpose']);
+        $this->assertFalse($c['simulated']);
+        $cfg = $this->crypto->decrypt($this->db->one('SELECT config_encrypted FROM talk_channels WHERE id = ?', [$c['id']])['config_encrypted']);
+        $this->assertSame('talk-5531977776666', $cfg['instance']);
+        $this->assertArrayNotHasKey('base_url', $cfg); // o servidor vem do .env, não fica no canal
+
+        $this->http->responses = [
+            ['status' => 404, 'body' => '{"response":{"message":["instance does not exist"]}}'], // número novo
+            ['status' => 201, 'body' => '{"instance":{"instanceName":"talk-5531977776666"},"qrcode":{"base64":"data:image/png;base64,QUJD"}}'],
+            ['status' => 201, 'body' => '{}'],                                                    // webhook/set
+        ];
+        $r = $svc->connect($this->sup(), $c['id']);
+        $this->assertSame('data:image/png;base64,QUJD', $r['qr']);
+        $this->assertSame('http://evolution:8080/instance/create', $this->http->calls[1]['url']);
+        $this->assertSame('talk-5531977776666', $this->http->calls[1]['body']['instanceName']);
+        $this->assertSame('global-key', $this->http->calls[1]['headers']['apikey']);
+        $this->assertSame('http://evolution:8080/webhook/set/talk-5531977776666', $this->http->calls[2]['url']);
+
+        try {
+            $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'De novo', 'phone' => '5531977776666']);
+            $this->fail('número repetido');
+        } catch (DomainError $e) {
+            $this->assertStringContainsString('já está cadastrado', $e->getMessage());
+        }
+    }
+
+    public function test_qrcode_no_laboratorio_sem_evolution_simula(): void
+    {
+        $g = new \ConnectTalk\Gateway\GatewayFactory($this->db, $this->crypto, $this->http, [], simulateQr: true);
+        $svc = new ChannelService($this->db, $this->crypto, $g, 'https://talk.connect.lab/', true);
+        $c = $svc->save($this->sup(), ['kind' => 'qrcode', 'name' => 'Teste', 'phone' => '31966665555']);
+        $this->assertTrue($c['simulated']);
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $svc->connect($this->sup(), $c['id'])['qr']);
+        $this->assertSame('connected', $svc->simulateScan($this->sup(), $c['id'])['connection_state']);
+        $this->assertSame([], $this->http->calls);
     }
 }

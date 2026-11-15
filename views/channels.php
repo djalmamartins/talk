@@ -44,21 +44,17 @@
     <h3 id="ch-form-title">Conectar novo número</h3>
     <fieldset class="ch-kind" id="ch-kind">
       <legend>Tipo de conexão</legend>
-      <label><input type="radio" name="kind" value="qrcode" checked><b>QR Code</b><small>WhatsApp no celular, via Evolution API</small></label>
+      <label><input type="radio" name="kind" value="qrcode" checked><b>QR Code</b><small>WhatsApp no celular, lido como no WhatsApp Web</small></label>
       <label><input type="radio" name="kind" value="official"><b>API oficial</b><small>WhatsApp Business Platform (Meta)</small></label>
       <?php if ($isLab): ?><label><input type="radio" name="kind" value="lab"><b>Laboratório</b><small>Número simulado, só para testes</small></label><?php endif; ?>
     </fieldset>
     <div class="ch-grid">
-      <label>Nome<input name="name" maxlength="80" required placeholder="Ex.: Atendimento Connect"></label>
-      <label>Telefone (com DDI e DDD)<input name="phone" inputmode="numeric" placeholder="5531999990000"></label>
-      <label>Setor deste número<select name="sector_id" id="ch-sector"><option value="">Todos — a Jack escolhe o setor</option></select></label>
-      <label>Uso<select name="purpose"><option value="attendance">Atendimento</option><option value="bulk">Envios em massa</option><option value="both">Atendimento e envios</option></select></label>
+      <label>Nome da conexão<input name="name" maxlength="80" required placeholder="Ex.: Atendimento Connect"></label>
+      <label>Número do WhatsApp<input name="phone" inputmode="tel" placeholder="(31) 99999-0000"></label>
+      <label id="ch-sector-field">Setor deste número<select name="sector_id" id="ch-sector"><option value="">Todos — a Jack escolhe o setor</option></select></label>
+      <label id="ch-purpose-field">Uso<select name="purpose"><option value="attendance">Atendimento</option><option value="bulk">Envios em massa</option><option value="both">Atendimento e envios</option></select></label>
     </div>
-    <div class="ch-grid" data-kind="qrcode">
-      <label>Endereço da Evolution<input name="cfg.base_url" placeholder="http://evolution:8080"></label>
-      <label>Nome da instância<input name="cfg.instance" placeholder="connect"></label>
-      <label class="wide">Chave da API (apikey)<input name="cfg.api_key" type="password" autocomplete="new-password"></label>
-    </div>
+    <p class="meta" data-kind="qrcode">Depois de salvar, o Talk gera o QR Code para você ler com o celular deste número.</p>
     <div class="ch-grid" data-kind="official">
       <label>Phone number ID<input name="cfg.phone_number_id"></label>
       <label>WhatsApp Business Account ID<input name="cfg.business_account_id"></label>
@@ -85,7 +81,7 @@
     </div>
     <p class="form-error" id="qr-error" role="alert" hidden></p>
     <menu>
-      <?php if ($isLab): ?><button type="button" id="qr-sim" class="ghost">Simular leitura (laboratório)</button><?php endif; ?>
+      <button type="button" id="qr-sim" class="ghost" hidden>Simular leitura (laboratório)</button>
       <button type="button" id="qr-renew">Gerar novo QR Code</button>
       <button type="button" class="primary" id="qr-close">Fechar</button>
     </menu>

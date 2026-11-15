@@ -72,6 +72,22 @@ final class EvolutionGateway implements WhatsAppGateway
     {
         $key = ['apikey' => (string) $this->config['api_key']];
         $warn = null;
+        $createdQr = null;
+        // número novo: a instância ainda não existe na Evolution; cria (a chave global permite)
+        $probe = $this->http->request('GET', $this->instanceUrl('instance/connectionState'), null, $key);
+        if ($probe['status'] === 404) {
+            $c = $this->http->postJson(rtrim((string) $this->config['base_url'], '/') . '/instance/create', array_filter([
+                'instanceName' => (string) $this->config['instance'],
+                'integration' => 'WHATSAPP-BAILEYS',
+                'qrcode' => true,
+                'number' => $this->config['phone'] ?? null,
+            ], fn ($v) => $v !== null), $key);
+            $data = json_decode($c['body'], true) ?: [];
+            if ($c['status'] >= 300) {
+                throw new GatewayException('Evolution: não criou a instância (' . ($data['response']['message'][0] ?? $data['message'] ?? "HTTP {$c['status']}") . ')');
+            }
+            $createdQr = $data['qrcode']['base64'] ?? null;
+        }
         if ($webhookUrl !== null) {
             // Evolution v2: webhook da instância com o segredo no cabeçalho (conferido em verifyWebhook)
             $w = $this->http->postJson($this->instanceUrl('webhook/set'), ['webhook' => [
@@ -82,6 +98,9 @@ final class EvolutionGateway implements WhatsAppGateway
             if ($w['status'] >= 300) {
                 $warn = "webhook não configurado (HTTP {$w['status']}); configure na Evolution";
             }
+        }
+        if ($createdQr !== null) {
+            return ['state' => 'connecting', 'qr' => str_starts_with((string) $createdQr, 'data:image/') ? $createdQr : 'data:image/png;base64,' . $createdQr, 'detail' => $warn];
         }
         $state = $this->connectionState();
         if ($state['state'] === 'connected') {

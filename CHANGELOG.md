@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.16.2] — 2026-11-15
+### Alterado
+- **Cadastro de número por QR Code só com nome e número.** A tela não pede mais endereço da
+  Evolution, nome da instância nem chave da API:
+  - o servidor da Evolution é configurado uma vez no `.env` (`EVOLUTION_URL` e `EVOLUTION_API_KEY`);
+  - o Talk cria na Evolution a instância `talk-<número>` e já mostra o QR Code ao salvar;
+  - o número aceita formato livre, como `(31) 99999-0000`, e não pode repetir;
+  - o setor do número aparece ao configurar depois; o uso do QR Code é sempre atendimento.
+  - Números já cadastrados com endereço e chave próprios continuam funcionando.
+- **Laboratório:** sem Evolution configurada, o QR Code é simulado e aparece o botão "Simular leitura".
+
 ## [0.16.1] — 2026-11-15
 ### Corrigido
 - **Sessão expirada aparecia como erro 500.** O Apache não conhece o código 419 e trocava por 500,

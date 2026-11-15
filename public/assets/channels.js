@@ -54,6 +54,10 @@ async function load() {
 
 function setKind(kind) {
   document.querySelectorAll('#ch-form [data-kind]').forEach((el) => { el.hidden = el.dataset.kind !== kind; });
+  // QR Code novo: só nome e número. O setor aparece ao configurar depois; o uso é sempre atendimento.
+  $('#ch-purpose-field').hidden = kind === 'qrcode';
+  $('#ch-sector-field').hidden = kind === 'qrcode' && !state.editing;
+  $('#ch-form').elements.namedItem('phone').required = kind === 'qrcode';
 }
 
 function openForm(c = null) {
@@ -68,7 +72,7 @@ function openForm(c = null) {
   f.querySelector(`[name=kind][value=${kind}]`).checked = true;
   setKind(kind);
   if (c) {
-    f.elements.namedItem('name').value = c.name; f.elements.namedItem('phone').value = c.phone || ''; f.elements.namedItem('sector_id').value = c.sector_id ?? ''; f.elements.namedItem('purpose').value = c.purpose;
+    f.elements.namedItem('name').value = c.name; f.elements.namedItem('phone').value = c.kind === 'qrcode' && c.phone ? fmtPhone(c.phone).replace('+55 ', '') : (c.phone || ''); f.elements.namedItem('sector_id').value = c.sector_id ?? ''; f.elements.namedItem('purpose').value = c.purpose;
     for (const [k, v] of Object.entries(c.config)) {
       const input = f.querySelector(`[name="cfg.${k}"]`);
       if (input) { if (input.type === 'password') input.placeholder = v ? `salvo (${v})` : ''; else input.value = v; }
@@ -127,6 +131,7 @@ async function connect(id) {
     }
     state.qrFor = id;
     $('#qr-title').textContent = `Ler o QR Code · ${c ? c.name : ''}`;
+    $('#qr-sim').hidden = !c?.simulated;
     $('#qr-dialog').showModal();
     showQr(r);
   } catch (e) { await load(); alertRow(id, e.message); }

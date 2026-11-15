@@ -10,8 +10,25 @@ use ConnectTalk\Support\Db;
 /** Monta o gateway certo para cada canal (a "chavinha" QR Code ↔ oficial). */
 class GatewayFactory
 {
-    public function __construct(private Db $db, private Crypto $crypto, private HttpClient $http)
+    /**
+     * @param array{base_url?:string, api_key?:string} $evolution servidor da Evolution (EVOLUTION_URL e
+     *        EVOLUTION_API_KEY no .env), usado por todos os números de QR Code que não tenham um próprio
+     * @param bool $simulateQr laboratório sem Evolution: o QR Code é simulado (botão "Simular leitura")
+     */
+    public function __construct(private Db $db, private Crypto $crypto, private HttpClient $http, private array $evolution = [], private bool $simulateQr = false)
     {
+        $this->evolution = array_filter($this->evolution, fn ($v) => trim((string) $v) !== '');
+    }
+
+    public function evolutionReady(): bool
+    {
+        return !empty($this->evolution['base_url']) && !empty($this->evolution['api_key']);
+    }
+
+    /** Número de QR Code que, aqui, é simulado (laboratório sem Evolution e sem servidor próprio). */
+    public function isSimulated(string $kind, array $cfg): bool
+    {
+        return $kind === 'lab' || ($kind === 'qrcode' && $this->simulateQr && !$this->evolutionReady() && empty($cfg['base_url']));
     }
 
     public function forChannel(int $channelId): WhatsAppGateway
@@ -21,9 +38,12 @@ class GatewayFactory
             throw new GatewayException("Canal $channelId não existe");
         }
         $cfg = $this->crypto->decrypt($ch['config_encrypted']);
+        if ($this->isSimulated($ch['kind'], $cfg)) {
+            return new LabGateway();
+        }
         return match ($ch['kind']) {
             'official' => new CloudApiGateway($cfg, $this->http),
-            'qrcode' => new EvolutionGateway($cfg, $this->http),
+            'qrcode' => new EvolutionGateway($cfg + $this->evolution, $this->http), // o do número vale mais que o do servidor
             'lab' => new LabGateway(),
         };
     }
