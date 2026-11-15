@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'queue'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Fila de atendimento</h1><p>Acompanhe e gerencie a fila de espera dos atendimentos.</p></div>
   <input id="q-search" class="q-search" type="search" placeholder="Buscar na fila…" aria-label="Buscar na fila">

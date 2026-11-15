@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'channels'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Conexão WhatsApp</h1><p>Os números da Connect no Talk: como cada um conecta, para qual setor vai e se está no ar.</p></div>
 </header>

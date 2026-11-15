@@ -49,8 +49,9 @@ function render() {
   const badge = $('#badge-queue'); if (badge) badge.textContent = s.waiting || '';
 
   // abas por setor
-  const tabs = [{ id: '', name: 'Todos', n: s.waiting }, ...d.distribution.map((x) => ({ id: x.sector_id, name: x.name, n: x.waiting }))];
-  $('#q-tabs').innerHTML = tabs.map((t) => `<button type="button" data-sector="${t.id}" class="${state.sector == t.id ? 'active' : ''}">${esc(t.name)} (${t.n})</button>`).join('');
+  const color = (id) => (state.sectors || []).find((x) => x.id == id)?.color;
+  const tabs = [{ id: '', name: 'Todos', n: s.waiting }, ...d.distribution.map((x) => ({ id: x.sector_id, name: x.name, n: x.waiting, c: x.color || color(x.sector_id) }))];
+  $('#q-tabs').innerHTML = tabs.map((t) => `<button type="button" role="tab" aria-selected="${state.sector == t.id}" data-sector="${t.id}" class="${state.sector == t.id ? 'active' : ''}">${t.id !== '' ? `<i class="dot" style="--c:${esc(t.c || '#6a756f')}"></i>` : ''}${esc(t.name)}<span class="n${t.n ? ' has' : ''}">${t.n}</span></button>`).join('');
 
   const list = rows();
   const tagName = (id) => state.tags.find((t) => t.id == id);
@@ -144,7 +145,7 @@ let timer;
 function connect() {
   const es = new EventSource('/events');
   es.onopen = () => { $('#live').textContent = '● Online'; $('#live').classList.add('on'); };
-  es.onerror = () => { $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
+  es.onerror = () => { $('#live').dataset.sse = '1'; $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
   ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created'].forEach((t) =>
     es.addEventListener(t, () => { clearTimeout(timer); timer = setTimeout(() => load().catch(() => {}), 400); }));
 }

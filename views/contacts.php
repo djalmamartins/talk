@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'contacts'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Contatos</h1><p>Moradores e pessoas que já falaram com a Connect pelo WhatsApp.</p></div>
 </header>

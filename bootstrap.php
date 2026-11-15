@@ -118,4 +118,12 @@ return [
     'schedules' => new \ConnectTalk\Service\ScheduleService($db, $policy, $conversations),
     'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),
     'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $env('APP_ENV') === 'lab'),
+    'notifications' => new \ConnectTalk\Service\Notifications($db, $policy),
+    // seletor de sistemas (rodapé do topo do menu), como o "Ambientes Connect" do ERP.
+    // Sem endereço, o sistema aparece apagado. A permissão de cada sistema é conferida nele mesmo, no login.
+    'systems' => [
+        ['key' => 'erp', 'label' => 'Connect ERP', 'description' => 'Gestão administrativa',
+            'href' => $env('ERP_WEB_URL') ? rtrim((string) $env('ERP_WEB_URL'), '/') . '/dashboard' : null, 'current' => false],
+        ['key' => 'talk', 'label' => 'Connect Talk', 'description' => 'Atendimento pelo WhatsApp', 'href' => '/', 'current' => true],
+    ],
 ];

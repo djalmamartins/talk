@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'reports'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Painel</h1><p id="rp-sub">Como andam os atendimentos: volume, tempo de espera, tempo de atendimento e avaliação dos clientes.</p></div>
   <a class="ghost btn rp-export" id="rp-export" href="#" download>Exportar planilha</a>

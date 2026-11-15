@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.0] — 2026-11-15
+### Adicionado
+- **Topo em todas as telas**, no padrão do Connect ERP:
+  - busca de conversas (nome, telefone, protocolo ou mensagem) no alto, com atalho Ctrl K; de
+    qualquer tela, a busca abre os resultados em Atendimentos, com "Limpar busca";
+  - sino de notificações: conversas esperando na fila dos seus setores, clientes seus que
+    responderam, agendamentos que falharam (7 dias) e, para o supervisor, números de WhatsApp
+    desconectados. Cada aviso leva à tela certa e some quando o motivo some;
+  - menu do usuário à direita: nome, e-mail, papel, "Online", Trocar senha e Sair.
+- **Seletor de sistemas** no lugar do antigo bloco de perfil do menu: "Connect Talk" abre um
+  pop-up com Connect ERP e Connect Talk (endereço do ERP em `ERP_WEB_URL`).
+- **Etiquetas com cor livre:** além das 8 cores sugeridas, seletor de cor e campo com o código
+  (#RRGGBB), com prévia da etiqueta.
+### Alterado
+- Abas de Atendimentos em formato segmentado, sem quebrar "Em atendimento" em duas linhas.
+- Abas por setor da Fila com a cor do setor e o número em destaque, em vez de "Financeiro (0)".
+- Texto das etiquetas um pouco mais escuro que a cor, para ler bem mesmo em cores claras.
+### Removido
+- Simulador de cliente da tela de Atendimentos (o painel da direita agora só mostra o cliente).
+  O endereço `/lab/simulate` continua no laboratório para os testes automáticos.
+
 ## [0.16.2] — 2026-11-15
 ### Alterado
 - **Cadastro de número por QR Code só com nome e número.** A tela não pede mais endereço da

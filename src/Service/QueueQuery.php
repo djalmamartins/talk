@@ -53,7 +53,7 @@ final class QueueQuery
         $waits = array_column($waiting, 'wait_seconds');
 
         // distribuição da fila por setor (inclui setores sem ninguém esperando)
-        $sectors = $this->db->all('SELECT id, name FROM talk_sectors WHERE active = 1 ORDER BY menu_key');
+        $sectors = $this->db->all('SELECT id, name, color FROM talk_sectors WHERE active = 1 ORDER BY menu_key');
         $visible = $u->supervisor ? null : $u->sectors();
         $dist = [];
         foreach ($sectors as $s) {
@@ -61,7 +61,7 @@ final class QueueQuery
                 continue;
             }
             $n = count(array_filter($waiting, fn ($w) => (int) $w['sector_id'] === (int) $s['id']));
-            $dist[] = ['sector_id' => (int) $s['id'], 'name' => $s['name'], 'waiting' => $n];
+            $dist[] = ['sector_id' => (int) $s['id'], 'name' => $s['name'], 'color' => $s['color'], 'waiting' => $n];
         }
 
         return [

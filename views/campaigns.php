@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'campaigns'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Envio em massa</h1><p>Avisos para muitos moradores de uma vez, pela API oficial da Meta, sempre com modelo aprovado.</p></div>
   <button type="button" class="primary" id="cp-new">+ Novo envio</button>

@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'settings'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Horário de atendimento</h1><p>Quando a equipe atende e o que o cliente recebe quando escreve fora desse horário.</p></div>
   <div class="hr-head-actions">

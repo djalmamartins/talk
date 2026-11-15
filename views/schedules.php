@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'schedules'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Agendamentos</h1><p>Mensagens marcadas para sair num dia e hora. O Talk manda sozinho, pelo número de QR Code.</p></div>
   <button type="button" class="primary" id="sc-new">+ Novo agendamento</button>

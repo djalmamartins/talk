@@ -22,4 +22,5 @@ empresa só (`docs/porte-atendechat.md`).
 | S7 | Painel e relatórios (tempo de espera e de atendimento por setor e atendente) e avaliação pós-atendimento | Atendechat Dashboard/UserRating | feito (0.14.0) |
 | S8a | Horário de atendimento (geral, por setor, 24 h, feriados) e mensagem fora do horário | Atendechat Settings | feito (0.15.0) |
 | S8b | Produção: Docker, worker como serviço, backup do banco e dos arquivos, guia de instalação | — | feito (0.16.0); falta instalar no PC do escritório (decisão do Djalma) |
+| U1 | Pedidos do Djalma no teste de 15/11: QR Code só com nome e número; topo com busca, notificações e perfil; seletor de sistemas; cor livre nas etiquetas; abas; sem simulador na tela | prints de 15/11 | feito (0.16.2 e 0.17.0) |
 | J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |

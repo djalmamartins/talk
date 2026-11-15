@@ -108,6 +108,9 @@ $view = static function (string $name, array $vars = []) use ($app): never {
     $sm = !empty($_SESSION['user_id']) ? $app['staff']->find((int) $_SESSION['user_id']) : null;
     $vars['isSupervisor'] = $sm !== null && $sm->supervisor;
     $vars['canBulk'] = $sm !== null && ($sm->supervisor || $sm->managerSectors);
+    $vars['roleLabel'] = $sm === null ? '' : ($sm->supervisor ? 'Supervisor' : ($sm->managerSectors ? 'Gerente de setor' : 'Atendente'));
+    $vars['userEmail'] = $sm !== null ? (string) ($app['db']->one('SELECT email FROM talk_users WHERE id = ?', [$sm->userId])['email'] ?? '') : '';
+    $vars['systems'] = $app['systems'];
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
     require __DIR__ . "/../views/$name.php";
@@ -314,6 +317,9 @@ try {
                       WHERE u.active = 1 ORDER BY u.name"
                 ),
             ]);
+        }
+        if ($path === '/api/notifications') {
+            $json($app['notifications']->for($me));
         }
         if ($path === '/api/conversations') {
             $sector = isset($_GET['sector']) && $_GET['sector'] !== '' ? (int) $_GET['sector'] : null;

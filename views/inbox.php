@@ -10,6 +10,7 @@
 <div class="shell">
 <?php $active = 'inbox'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
+<?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Atendimentos</h1><p>Acompanhe a fila e responda os clientes pelo WhatsApp.</p></div>
 </header>
@@ -24,7 +25,7 @@
     <div class="filters">
       <div class="filter-row"><select id="sector-filter"><option value="">Todos os setores</option></select>
       <select id="tag-filter"><option value="">Todas as etiquetas</option></select></div>
-      <form id="search-form"><input id="search" placeholder="Buscar mensagens, nome, telefone, protocolo"></form>
+      <p class="search-on" id="search-on" hidden></p>
     </div>
     <ul id="conversations" class="items"></ul>
   </aside>
@@ -35,15 +36,6 @@
 
   <aside class="side" id="side">
     <div id="contact-panel"></div>
-    <?php if ($isLab): ?>
-    <div class="sim">
-      <h3>Simulador de cliente (laboratório)</h3>
-      <label>Telefone<input id="sim-phone" value="5531999990001"></label>
-      <label>Nome<input id="sim-name" value="Maria Silva"></label>
-      <div id="sim-thread" class="sim-thread"></div>
-      <form id="sim-form"><label class="attach" title="Cliente envia um arquivo"><input type="file" id="sim-file" hidden><svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"/></svg></label><input id="sim-text" placeholder="Mensagem do cliente…" autocomplete="off"><button>Enviar</button></form>
-    </div>
-    <?php endif ?>
   </aside>
 </main>
 </div>

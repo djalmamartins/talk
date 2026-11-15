@@ -25,6 +25,7 @@ const sectorName = (id) => state.sectors.find((s) => s.id == id)?.name || '—';
 // ------------------------------------------------------------ lista
 async function loadList() {
   if (state.search) return runSearch();
+  searchBar();
   const rows = await api(`/api/conversations?tab=${state.tab}&sector=${state.sector}&tag=${state.tagFilter || ''}`);
   $('#conversations').innerHTML = rows.map((c) => `
     <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}">
@@ -37,7 +38,13 @@ async function loadList() {
   if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; if ($('#badge-queue')) $('#badge-queue').textContent = rows.length || ''; }
 }
 
+function searchBar() {
+  const bar = $('#search-on');
+  bar.hidden = !state.search;
+  bar.innerHTML = state.search ? `Resultados para <b>${esc(state.search)}</b> <button type="button" class="link" id="search-clear">Limpar busca</button>` : '';
+}
 async function runSearch() {
+  searchBar();
   const rows = await api(`/api/search?q=${encodeURIComponent(state.search)}&contact=${encodeURIComponent(/\d{6,}|^\d{8}-/.test(state.search) ? state.search : '')}`);
   $('#conversations').innerHTML = rows.map((r) => `
     <li data-id="${r.conversation_id}" class="search-result">
@@ -203,9 +210,41 @@ function renderTagsDialog() {
 async function openTagsDialog() { await loadTags(); renderTagsDialog(); tagForm(null); $('#tags-dialog').showModal(); }
 function tagForm(t) {
   $('#tag-id').value = t?.id || ''; $('#tag-name').value = t?.name || '';
-  $('#tag-colors').innerHTML = TAG_COLORS.map((c, i) => `<label style="--c:${c}"><input type="radio" name="tag-color" value="${c}" ${(t ? t.color === c : i === 0) ? 'checked' : ''}><span></span></label>`).join('');
+  const color = (t?.color || TAG_COLORS[0]).toUpperCase();
+  const custom = !TAG_COLORS.includes(color);
+  $('#tag-colors').innerHTML = TAG_COLORS.map((c) => `<label style="--c:${c}" title="${c}"><input type="radio" name="tag-color" value="${c}" ${c === color ? 'checked' : ''}><span></span></label>`).join('')
+    + `<label class="custom${custom ? ' on' : ''}" style="--c:${custom ? color : 'transparent'}" title="Escolher outra cor"><input type="color" id="tag-custom" value="${custom ? color.toLowerCase() : '#12804a'}" aria-label="Escolher outra cor"><i></i></label>`
+    + `<input class="tag-hex" id="tag-hex" value="${color}" maxlength="7" aria-label="Código da cor" title="Código da cor (ex.: #12804A)">`;
+  tagPreview();
   $('#tag-save').textContent = t ? 'Salvar' : 'Criar etiqueta';
 }
+// cor da etiqueta: as sugeridas, o seletor livre ou o código (#RRGGBB)
+function tagColor() {
+  const custom = $('#tag-colors .custom');
+  return custom.classList.contains('on') ? $('#tag-custom').value.toUpperCase() : document.querySelector('input[name=tag-color]:checked')?.value;
+}
+function setCustomColor(hex) {
+  document.querySelectorAll('input[name=tag-color]').forEach((r) => { r.checked = r.value === hex; });
+  const preset = TAG_COLORS.includes(hex);
+  const custom = $('#tag-colors .custom');
+  custom.classList.toggle('on', !preset);
+  custom.style.setProperty('--c', preset ? 'transparent' : hex);
+  if (!preset) $('#tag-custom').value = hex.toLowerCase();
+  tagPreview();
+}
+function tagPreview() {
+  const c = tagColor() || TAG_COLORS[0];
+  if (document.activeElement !== $('#tag-hex')) $('#tag-hex').value = c;
+  let p = $('#tag-preview');
+  if (!p) { $('#tag-colors').insertAdjacentHTML('afterend', '<div class="tag-preview" id="tag-preview"></div>'); p = $('#tag-preview'); }
+  p.innerHTML = `Prévia: ${tagChip({ name: $('#tag-name').value.trim() || 'Etiqueta', color: c })}`;
+}
+$('#tag-colors').addEventListener('input', (e) => {
+  if (e.target.id === 'tag-custom') setCustomColor(e.target.value.toUpperCase());
+  if (e.target.id === 'tag-hex') { const v = e.target.value.trim().toUpperCase(); if (/^#[0-9A-F]{6}$/.test(v)) setCustomColor(v); }
+});
+$('#tag-colors').addEventListener('change', (e) => { if (e.target.name === 'tag-color') setCustomColor(e.target.value); });
+$('#tag-name').addEventListener('input', tagPreview);
 $('#nav-tags')?.addEventListener('click', (e) => { e.preventDefault(); openTagsDialog(); });
 $('#tags-close').addEventListener('click', () => $('#tags-dialog').close());
 $('#tags-dialog').addEventListener('close', () => { if (state.panel) renderContact(state.panel.contact, state.panel.conv); loadList(); });
@@ -220,7 +259,7 @@ $('#tag-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#tag-id').value;
   try {
-    await api(id ? `/api/tags/${id}` : '/api/tags', { method: 'POST', body: { name: $('#tag-name').value, color: document.querySelector('input[name=tag-color]:checked')?.value } });
+    await api(id ? `/api/tags/${id}` : '/api/tags', { method: 'POST', body: { name: $('#tag-name').value, color: tagColor() } });
     await loadTags(); renderTagsDialog(); tagForm(null);
   } catch (err) { toast(err.message); }
 });
@@ -310,14 +349,6 @@ document.addEventListener('submit', async (e) => {
     catch (err) { toast(err.message); $('#reply').value = text; }
   }
   if (e.target.id === 'search-form') { e.preventDefault(); state.search = $('#search').value.trim(); loadList(); }
-  if (e.target.id === 'sim-form') {
-    e.preventDefault();
-    const text = $('#sim-text').value.trim();
-    if (!text) return;
-    $('#sim-text').value = '';
-    try { await api('/lab/simulate', { method: 'POST', body: { phone: $('#sim-phone').value, name: $('#sim-name').value, text } }); loadSim(); }
-    catch (err) { toast(err.message); }
-  }
 });
 document.addEventListener('keydown', (e) => {
   if (e.target.id === 'reply' && quickPickKey(e)) return;
@@ -357,9 +388,13 @@ async function sendAttach(caption) {
 }
 document.addEventListener('change', (e) => {
   if (e.target.id === 'attach-input') pickAttach(e.target.files[0]);
-  if (e.target.id === 'sim-file' && e.target.files[0]) simSendFile(e.target.files[0]);
 });
-document.addEventListener('click', (e) => { if (e.target.id === 'attach-clear') clearAttach(); });
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'attach-clear') clearAttach();
+  if (e.target.id === 'search-clear') { state.search = ''; $('#search').value = ''; loadList(); }
+});
+// a busca do topo: apagar o texto (ou o "x" do campo) volta para a lista
+$('#search').addEventListener('search', () => { if (!$('#search').value.trim() && state.search) { state.search = ''; loadList(); } });
 // colar uma imagem (print) direto no campo de resposta
 document.addEventListener('paste', (e) => {
   if (e.target.id !== 'reply') return;
@@ -461,28 +496,6 @@ $('#quick-form').addEventListener('submit', async (e) => {
 });
 $('#sector-filter').addEventListener('change', (e) => { state.sector = e.target.value; loadList(); });
 
-// ------------------------------------------------------------ simulador
-async function simSendFile(file) {
-  const fd = new FormData();
-  fd.append('file', file); fd.append('phone', $('#sim-phone').value); fd.append('name', $('#sim-name').value);
-  if ($('#sim-text').value.trim()) { fd.append('text', $('#sim-text').value.trim()); $('#sim-text').value = ''; }
-  const res = await fetch('/lab/simulate', { method: 'POST', headers: { 'X-CSRF': csrf }, body: fd });
-  if (!res.ok) toast((await res.json().catch(() => ({}))).error || 'Erro');
-  $('#sim-file').value = ''; loadSim();
-}
-async function loadSim() {
-  if (!isLab) return;
-  const { messages: rows, typing } = await api(`/lab/customer?phone=${encodeURIComponent($('#sim-phone').value)}`);
-  const box = $('#sim-thread');
-  box.innerHTML = rows.map((m) => `<div class="msg ${m.direction}">${renderMedia(m)}${m.type === 'document' && m.direction === 'in' ? '' : esc(m.body)}</div>`).join('')
-    + (typing ? '<div class="msg out typing">digitando…</div>' : '');
-  box.scrollTop = box.scrollHeight;
-}
-if (isLab) {
-  $('#sim-phone').addEventListener('change', loadSim);
-  setInterval(() => loadSim().catch(() => {}), 3000); // no laboratório isso também move a fila de envio
-}
-
 // ------------------------------------------------------------ tempo real (SSE)
 let refreshTimer;
 function scheduleRefresh(convId) {
@@ -495,13 +508,12 @@ function scheduleRefresh(convId) {
         if (err.status === 403) { state.current = null; $('#chat').innerHTML = '<div class="empty">Conversa transferida para outro setor.</div>'; $('#contact-panel').innerHTML = ''; }
       });
     }
-    loadSim();
   }, 150);
 }
 function connect() {
   const es = new EventSource('/events');
   es.onopen = () => { $('#live').textContent = '● Online'; $('#live').classList.add('on'); };
-  es.onerror = () => { $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
+  es.onerror = () => { $('#live').dataset.sse = '1'; $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
   ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created', 'message.ack', 'message.media'].forEach((t) =>
     es.addEventListener(t, (ev) => {
       const d = JSON.parse(ev.data);
@@ -518,18 +530,22 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   $('#sector-filter').innerHTML += me.sectors.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   await loadTags().catch(() => {});
   if (!(me.user.supervisor || (me.user.manager_sectors || []).length)) $('#nav-tags')?.remove();
+  // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo;
+  // /?q=... vem da busca do topo em outra tela; /?aba=mine vem das notificações
+  const qs = new URLSearchParams(location.search);
+  if (['pending', 'mine', 'open', 'closed'].includes(qs.get('aba'))) {
+    state.tab = qs.get('aba');
+    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
+  }
+  if (qs.get('q')) { state.search = qs.get('q').trim(); $('#search').value = state.search; }
   await loadList();
   loadQuick().catch(() => {});
-  // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo
-  const qs = new URLSearchParams(location.search);
   if (qs.get('c')) openConversation(Number(qs.get('c'))).catch((err) => toast(err.message));
   const abrir = qs.get('abrir');
   if (abrir === 'mensagens') $('#nav-quick')?.click();
   if (abrir === 'etiquetas') $('#nav-tags')?.click();
   if (abrir === 'busca') $('#search').focus();
   if (qs.toString()) history.replaceState(null, '', '/');
-  loadSim();
   connect();
 })();
 
-$('#nav-search')?.addEventListener('click', (e) => { e.preventDefault(); $('#search').focus(); });
