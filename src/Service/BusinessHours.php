@@ -84,7 +84,7 @@ final class BusinessHours
             'sample' => [
                 '{nome}' => 'Mariana', '{protocolo}' => $now->format('Ymd') . '-00042', '{setor}' => $sectors[0]['name'] ?? 'Financeiro',
                 '{horario}' => $sectors[0]['summary'] ?? $this->describe($cfg['week']),
-                '{volta}' => ($n = $this->nextOpening($sectors[0]['id'] ?? 0, $now->modify('+1 minute'))) ? $this->whenLabel($n, $now) : 'assim que possível',
+                '{volta}' => ($n = $this->nextOpening($sectors[0]['id'] ?? 0, $now, true)) && $n > $now ? $this->whenLabel($n, $now) : 'assim que possível',
             ],
         ];
     }
@@ -254,10 +254,11 @@ final class BusinessHours
         return false;
     }
 
-    public function nextOpening(int $sectorId, \DateTimeImmutable $at): ?\DateTimeImmutable
+    /** @param bool $evenIfOff calcula mesmo com o controle desligado (prévia da mensagem) */
+    public function nextOpening(int $sectorId, \DateTimeImmutable $at, bool $evenIfOff = false): ?\DateTimeImmutable
     {
         $week = $this->weekFor($sectorId);
-        if ($week === null || !$this->enabled()) {
+        if ($week === null || (!$evenIfOff && !$this->enabled())) {
             return $at;
         }
         for ($i = 0; $i <= 31; $i++) {

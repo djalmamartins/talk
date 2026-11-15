@@ -85,7 +85,7 @@ $user = static function () use ($app, $json, $sessionOk) {
 $csrf = static function () use ($json): void {
     $t = $_SERVER['HTTP_X_CSRF'] ?? $_POST['csrf'] ?? '';
     if (!hash_equals($_SESSION['csrf'], (string) $t)) {
-        $json(['error' => 'Sessão expirada, recarregue a página.'], 419);
+        $json(['error' => 'Sessão expirada, recarregue a página.'], 403); // 419 não existe no Apache (vira 500)
     }
 };
 // arquivo enviado pelo formulário (campo "file"): [conteúdo, mime declarado, nome]

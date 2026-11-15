@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1] — 2026-11-15
+### Corrigido
+- **Sessão expirada aparecia como erro 500.** O Apache não conhece o código 419 e trocava por 500,
+  então a tela não mostrava "recarregue a página". Agora responde 403 com essa mensagem.
+- **Prévia da mensagem fora do horário com o controle desligado.** A variável `{volta}` mostrava a
+  hora atual; agora mostra a próxima abertura do horário configurado (ex.: "segunda-feira às 8h").
+
 ## [0.16.0] — 2026-11-14
 ### Adicionado
 - **Pacote de produção** em `deploy/` (guia: `docs/producao.md`):

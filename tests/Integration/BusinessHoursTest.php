@@ -45,6 +45,8 @@ final class BusinessHoursTest extends DbTestCase
     public function test_desligado_nao_muda_nada(): void
     {
         $this->assertFalse($this->hours()->enabled());
+        // a prévia mostra a volta do horário padrão (seg a sex, 8h às 18h), não "agora"
+        $this->assertMatchesRegularExpression('/^(amanhã|hoje|segunda|terça|quarta|quinta|sexta).* às 8h$/', $this->hours()->overview(new StaffMember(1, true))['sample']['{volta}']);
         $c = $this->routed('quero a segunda via do boleto');
         $this->assertCount(0, $this->outbound($c, 'off_hours'));
         $this->assertCount(1, $this->outbound($c, 'jack_routed'));
