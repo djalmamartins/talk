@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1] — 2026-11-15
+### Adicionado
+- `tools/local/whatsapp-check.sh`: confere, só lendo, por que o WhatsApp por QR Code não recebe
+  ou não envia no laboratório: containers, migrações, `.env`, se o motor alcança o Talk (endereço
+  do dev-apache, que muda quando o Docker reinicia), números conectados, webhook de cada número,
+  últimos envios com o erro e erros do Talk no Apache. Não mostra chaves.
+
 ## [0.18.0] — 2026-11-15
 Correções do primeiro teste real com WhatsApp por QR Code.
 ### Corrigido

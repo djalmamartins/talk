@@ -18,6 +18,7 @@ cd "/Volumes/MAC HD/Docker/xampp/www"
 git clone https://github.com/djalmamartins/talk talk
 cd talk && tools/local/install-lab.sh
 tools/local/whatsapp-lab.sh        # WhatsApp por QR Code de verdade (motor ao lado do dev-apache)
+tools/local/whatsapp-check.sh       # não recebe ou não envia? confere tudo (só lê) e diz o que fazer
 echo '127.0.0.1 talk.connect.lab' | sudo tee -a /etc/hosts   # se o script pedir
 ```
 Entre com `supervisor@connect.lab` / `connect123` (outros: financeiro@, administrativo@,
