@@ -29,6 +29,19 @@ class Texts
         return "Atendimento encerrado. Protocolo *{$protocol}*. Se precisar, é só mandar uma nova mensagem.";
     }
 
+    /** Avaliação: vai logo depois do "atendimento encerrado". */
+    public function ratingAsk(?string $attendant): string
+    {
+        return 'Como você avalia ' . ($attendant ? "o atendimento de *{$attendant}*" : 'este atendimento') . '? '
+            . "Responda com um número de *1* (ruim) a *5* (ótimo). Se quiser, escreva também um comentário.";
+    }
+
+    public function ratingThanks(int $score): string
+    {
+        return $score >= 4 ? 'Obrigado pela avaliação! Ficamos felizes em ajudar.'
+            : 'Obrigado pela avaliação. Vamos usar sua resposta para melhorar o atendimento.';
+    }
+
     /** Jaqueline, quando perguntam se é robô (texto aprovado pelo Djalma em 14/11/2026). */
     public function jackIdentity(): string
     {

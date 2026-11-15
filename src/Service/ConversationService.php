@@ -32,6 +32,7 @@ class ConversationService
         private Texts $texts = new Texts(),
         private ?Jack $jack = null,
         private ?MediaStore $media = null,
+        private bool $askRating = true,
     ) {
     }
 
@@ -54,6 +55,9 @@ class ConversationService
                  ORDER BY id DESC LIMIT 1 FOR UPDATE",
                 [$contact['id'], $channelId]
             );
+            if ($conv === null && ($rated = $this->answerRating($channelId, $contact, $in)) !== null) {
+                return $rated; // era a nota do atendimento que acabou de encerrar
+            }
             $isNew = $conv === null;
             if ($isNew) {
                 $conv = $this->createConversation($channelId, $contact);
@@ -108,6 +112,69 @@ class ConversationService
             }
             return (int) $conv['id'];
         });
+    }
+
+    /**
+     * Resposta à pergunta de avaliação: vale nas 24 h depois de encerrar e só para a última conversa
+     * da pessoa naquele número. Se a mensagem não for uma nota, segue o fluxo normal (conversa nova).
+     */
+    private function answerRating(int $channelId, array $contact, InboundMessage $in): ?int
+    {
+        if ($in->type !== 'text' || trim((string) $in->body) === '') {
+            return null;
+        }
+        $r = $this->db->one(
+            'SELECT r.id, r.conversation_id FROM talk_ratings r
+               JOIN talk_conversations c ON c.id = r.conversation_id
+              WHERE r.contact_id = ? AND c.channel_id = ? AND r.answered_at IS NULL AND r.asked_at >= NOW() - INTERVAL 24 HOUR
+                AND c.id = (SELECT MAX(x.id) FROM talk_conversations x WHERE x.contact_id = ? AND x.channel_id = ?)
+              FOR UPDATE',
+            [$contact['id'], $channelId, $contact['id'], $channelId]
+        );
+        if (!$r) {
+            return null;
+        }
+        $parsed = self::parseRating((string) $in->body);
+        if ($parsed === null) {
+            return null;
+        }
+        [$score, $comment] = $parsed;
+        $convId = (int) $r['conversation_id'];
+        $msgId = $this->db->insert('talk_messages', [
+            'conversation_id' => $convId, 'direction' => 'in', 'type' => 'rating', 'body' => $in->body,
+            'provider_message_id' => $in->providerMessageId, 'ack' => 'received',
+        ]);
+        $this->db->run('UPDATE talk_ratings SET score = ?, comment = ?, answered_at = NOW() WHERE id = ?', [$score, $comment, $r['id']]);
+        $conv = $this->get($convId);
+        $this->events->publish('message.created', $convId, $this->sector($conv), null, [
+            'message_id' => $msgId, 'direction' => 'in', 'type' => 'rating', 'body' => $in->body,
+        ]);
+        $this->queueOutbound($conv, $this->texts->ratingThanks($score), null, 'rating_thanks');
+        return $convId;
+    }
+
+    /** "5", "4 - foi rápido", "⭐⭐⭐⭐", "ótimo"... → [nota, comentário]. Outra coisa → null. */
+    public static function parseRating(string $text): ?array
+    {
+        $t = trim($text);
+        // número sozinho, ou seguido de separador e comentário ("4 - foi rápido"); "2 via do boleto" não é nota
+        if (preg_match('/^([1-5])(?:\s*(?:\/\s*5|de\s+5))?\s*(?:$|[-–—:.,!)]\s*(.*)$)/su', $t, $m)) {
+            return [(int) $m[1], self::comment($m[2] ?? '')];
+        }
+        if (preg_match('/^((?:⭐|★|🌟)\x{FE0F}?\s*){1,5}(.*)$/su', $t, $m)) {
+            $stars = preg_match_all('/⭐|★|🌟/u', mb_substr($t, 0, mb_strlen($t) - mb_strlen($m[2])));
+            return [min(5, max(1, $stars)), self::comment($m[2])];
+        }
+        $words = ['pessimo' => 1, 'muito ruim' => 1, 'ruim' => 2, 'regular' => 3, 'razoavel' => 3, 'bom' => 4,
+            'muito bom' => 5, 'otimo' => 5, 'excelente' => 5];
+        $n = trim(preg_replace('/[^\p{L}\s]/u', '', \ConnectTalk\Jack\Classifier::normalize($t)));
+        return isset($words[$n]) ? [$words[$n], null] : null;
+    }
+
+    private static function comment(string $rest): ?string
+    {
+        $rest = trim($rest);
+        return $rest === '' ? null : mb_substr($rest, 0, 500);
     }
 
     public function handleStatus(StatusUpdate $s): void
@@ -491,6 +558,16 @@ class ConversationService
             $conv = $this->get($convId);
             if ($notifyCustomer) {
                 $this->queueOutbound($conv, $this->texts->closed($conv['protocol']), $u->userId);
+                // avaliação: só quando alguém da equipe atendeu
+                if ($this->askRating && $conv['accepted_at'] !== null && $conv['assigned_user_id'] !== null) {
+                    $who = $this->db->one('SELECT name FROM talk_users WHERE id = ?', [$conv['assigned_user_id']]);
+                    $first = $who ? trim(preg_replace('/\s*\(.*\)$/', '', explode(' ', trim($who['name']))[0])) : null;
+                    $this->queueOutbound($conv, $this->texts->ratingAsk($first ?: null), $u->userId, 'rating_ask');
+                    $this->db->run(
+                        'INSERT IGNORE INTO talk_ratings (conversation_id, contact_id, sector_id, user_id) VALUES (?, ?, ?, ?)',
+                        [$convId, $conv['contact_id'], $conv['sector_id'], $conv['assigned_user_id']]
+                    );
+                }
             }
             $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
             return $conv;

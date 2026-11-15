@@ -90,7 +90,7 @@ function renderMsg(m) {
   if (m.type === 'jack') {
     return `<div class="sys-hint" title="Os termos que levaram à sugestão ficam no registro do supervisor">${esc(m.body)} · ${hhmm(m.created_at)}</div>`;
   }
-  const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : '';
+  const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : m.type === 'rating' ? '<span class="rating-tag">⭐ Avaliação</span> ' : '';
   const media = renderMedia(m);
   const text = media && m.type === 'document' && m.direction === 'in' ? '' : esc(m.body); // documento recebido: o corpo é o nome
   return `<div class="msg ${m.direction}${media ? ' has-media' : ''}">${m.direction === 'internal' ? who : ''}${label}${media}${text}<time>${hhmm(m.created_at)} ${ack}</time></div>`;

@@ -21,8 +21,8 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | Schedules | Agendamentos: feito (0.12.0). Lista por dia, editar e cancelar, botão "Agendar" na conversa; abre conversa nova com protocolo quando não há uma aberta. Sai só pelo QR Code (a Meta exige modelo fora da janela de 24 h) | S6a |
 | Campaigns / ContactLists | Envio em massa: feito (0.13.0). Só pela API oficial e com modelo aprovado; público por etiqueta ou lista colada da planilha (sem cadastro separado de listas); variáveis por coluna, nome ou texto fixo; prévia; ritmo por minuto; pausar, retomar, cancelar, agendar; entrega e leitura da Meta; resposta vai ao setor da campanha; "SAIR" tira dos próximos envios | S6b |
 | Tickets (aba "pendentes") + tela de referência | Fila de atendimento com indicadores, prioridade e atendentes online: feito (0.8.0). No Atendechat não existe tela própria; seguimos a tela de referência | S2 |
-| Dashboard | Painel e relatórios | S7 |
-| UserRating | Avaliação pós-atendimento | S7 |
+| Dashboard | Painel: feito (0.14.0). Período (hoje, 7 e 30 dias, mês, datas livres), setor e atendente; atendimentos, encerrados, espera e atendimento médios, nota; por dia, por hora, por setor, por atendente; exporta planilha (CSV). Atendente vê só os próprios; gerente, os setores dele | S7 |
+| UserRating | Avaliação: feito (0.14.0). Ao encerrar um atendimento com atendente, pergunta a nota de 1 a 5 (aceita "5", "4 - comentário", estrelas, "ótimo"); vale por 24 h; desliga com TALK_RATING=off | S7 |
 | Settings (horário) | Horário de atendimento | S8 |
 
 ## Fica de fora (e por quê)

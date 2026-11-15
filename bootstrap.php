@@ -86,7 +86,8 @@ $jack = new Jack(
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
-$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media);
+$conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
+    askRating: $env('TALK_RATING', 'on') !== 'off');
 $gateways = new GatewayFactory($db, $crypto, $http);
 
 return [
@@ -103,6 +104,7 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'reports' => new \ConnectTalk\Service\ReportService($db),
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30')),
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),

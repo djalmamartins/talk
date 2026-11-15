@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.0] — 2026-11-14
+### Adicionado
+- **Avaliação pós-atendimento:** ao encerrar um atendimento que teve atendente, o cliente recebe
+  "Como você avalia o atendimento de *Ana*? Responda com um número de 1 (ruim) a 5 (ótimo)".
+  Aceita "5", "4 - foi rápido", "4/5", estrelas (⭐⭐⭐⭐) e palavras (ótimo, bom, ruim...). A resposta
+  fica na própria conversa encerrada (marcada "⭐ Avaliação") e o cliente recebe um obrigado. Vale
+  por 24 h; uma mensagem que não é nota ("2 via do boleto") abre atendimento novo como sempre.
+  Desliga com `TALK_RATING=off`.
+- Tela **Painel** (`/painel`, no menu de todos): período (hoje, 7 dias, 30 dias, este mês ou datas
+  livres), filtro por setor e atendente; atendimentos, % encerrados, espera média (da fila até
+  aceitar), atendimento médio (de aceitar até encerrar) e nota dos clientes; gráficos por dia e por
+  hora do dia; tabelas por setor e por atendente; distribuição das notas e últimos comentários.
+  Supervisor vê tudo; gerente, os setores que gerencia; atendente, só os próprios atendimentos.
+- **Exportar planilha:** CSV (abre direto no Excel) com um atendimento por linha: protocolo,
+  datas, contato, setor, atendente, espera, duração, nota e comentário.
+- Migration `015_ratings.sql`.
+
 ## [0.13.0] — 2026-11-14
 ### Adicionado
 - Tela **Envio em massa** (`/envios`, para supervisor e gerentes de setor), com duas abas:

@@ -203,6 +203,13 @@ try {
         }
         $view('channels', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/painel') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $view('reports', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/fila') {
         if (!$sessionOk()) {
             header('Location: /login');
@@ -411,6 +418,16 @@ try {
                 'toggle' => $ch->toggle($me, $cid),
                 'simulate-scan' => $ch->simulateScan($me, $cid),
             });
+        }
+        if ($path === '/api/reports') {
+            $json($app['reports']->summary($me, $_GET));
+        }
+        if ($path === '/api/reports/export.csv') {
+            $csvBody = $app['reports']->exportCsv($me, $_GET);
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="atendimentos-' . preg_replace('/[^0-9-]/', '', (string) ($_GET['from'] ?? '')) . '-' . preg_replace('/[^0-9-]/', '', (string) ($_GET['to'] ?? '')) . '.csv"');
+            echo $csvBody;
+            exit;
         }
         if ($path === '/api/queue') {
             $json($app['queue']->overview($me));

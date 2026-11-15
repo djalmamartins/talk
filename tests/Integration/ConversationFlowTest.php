@@ -111,7 +111,9 @@ final class ConversationFlowTest extends DbTestCase
         $this->svc->close($id, $ana, 'Enviada 2ª via');
         $c = $this->conv($id);
         $this->assertSame('closed', $c['status']);
-        $this->assertStringContainsString($c['protocol'], $this->lastOutbound($id));
+        $outs = array_column($this->db->all("SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'out' ORDER BY id DESC LIMIT 2", [$id]), 'body');
+        $this->assertStringContainsString($c['protocol'], $outs[1]);
+        $this->assertStringStartsWith('Como você avalia', $outs[0]); // logo depois, a pergunta da avaliação
 
         // nova mensagem depois de encerrar = novo protocolo
         $novo = $this->inbound('obrigada!');
