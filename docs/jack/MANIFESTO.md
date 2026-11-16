@@ -94,12 +94,13 @@ editável pelo supervisor no futuro. Áudio transcrito ainda não existe (PLANEJ
 
 ## 4. Regras de atendimento
 
-1. Toda conversa nova entra em triagem (`status = bot`).
-2. Número de WhatsApp dedicado a um setor: vai direto para ele, sem a Jack escolher.
-3. Assunto claro já na mensagem: entra na fila do setor na hora.
-4. Assunto ainda não claro: espera `JACK_WAIT_SECONDS` (5 s) sem mensagem nova e lê tudo.
-5. Só cumprimentou: espera calada até `JACK_MAX_WAIT_SECONDS` (30 s).
-6. Não reconheceu, empatou ou passou do tempo: vai para o setor padrão (Administrativo).
+1. Toda conversa nova entra na fila do setor **Geral**, à vista da equipe (desde a 0.23.0).
+2. Número de WhatsApp dedicado a um setor: vai direto para ele, sem passar pelo Geral.
+3. Depois de `JACK_GENERAL_SECONDS` (60 s), com a pessoa sem escrever há `JACK_WAIT_SECONDS` (5 s), a Jack
+   lê tudo e distribui calada.
+4. Se alguém aceita ou transfere no Geral antes, a Jack não mexe mais na conversa.
+5. Sem o setor Geral, vale o fluxo antigo: assunto claro vai na hora; só "bom dia" espera até 30 s.
+6. Não reconheceu, empatou ou só cumprimentou: vai para o setor padrão (Administrativo).
 7. Toda conversa vira chamado com protocolo SAC (Help Desk no ERP quando a API estiver ligada).
 8. Atendente pode transferir a qualquer momento; a transferência vira o gabarito de erro da Jack.
 9. Com atendente humano na conversa, a Jack não responde mais.
@@ -271,7 +272,7 @@ Para ligar cada etapa em produção:
 |---|---|---|
 | Identidade Jaqueline/Jack, assinatura, apresentação | FEITO | `Texts.php`, `Jack::converse()` |
 | Triagem sem menu, lendo a conversa toda | FEITO | `ConversationService::triage()` |
-| Fila instantânea com assunto claro | FEITO | `Jack::isClear()` |
+| Fila instantânea com assunto claro | FEITO, só sem o setor Geral | `Jack::isClear()` |
 | Encaminhar calada | FEITO | ADR 0004, 0.18.0 |
 | Fora do escopo → transfere | FEITO | `Jack::converse()` |
 | Aviso fora do horário | FEITO | `BusinessHours` |
@@ -283,10 +284,12 @@ Para ligar cada etapa em produção:
 | Resumo para o atendente | PLANEJADO | JV1.3 |
 | Chamado duplicado / reabrir | PLANEJADO | JV1.5 |
 | Lembrete de espera | PLANEJADO | JV1.6 |
-| Boleto pelo WhatsApp | PENDENTE (ERP) | JV1.8 |
+| Setor Geral (tudo chega lá, Jack distribui em 1 min) | FEITO (0.23.0) | ADR 0004 |
+| Jack como atendente na Equipe | PLANEJADO | JV1.8 |
+| Boleto pelo WhatsApp | PENDENTE (ERP) | JV1.9 |
 | Laboratório | PARCIAL (LabGateway e testes) | JV1.2; versão com IA na Jack Completa |
-| IA (OpenAI ou outra), prompt modular | Não existe | JV1.9, só classificação |
-| Controle de custo e auditoria da IA | Não existe | junto com JV1.9 |
+| IA (OpenAI ou outra), prompt modular | Não existe | JV1.10, só classificação |
+| Controle de custo e auditoria da IA | Não existe | junto com JV1.10 |
 | Áudio transcrito | Não existe | depois da IA |
 | Memória 180/30 dias, preferências, conhecimento institucional | Não existe | Jack Completa |
 | Automações configuráveis, operações no ERP, apoio ao desenvolvimento | Não existe | Jack Completa |

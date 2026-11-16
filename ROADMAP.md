@@ -27,6 +27,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U3 | Som de alerta ao chegar mensagem, sino sem a bolinha por cima, botão "Abrir chamado" no Help Desk | pedido de 15/11 | feito (0.19.0); chamado real e nomes do ERP dependem da API do ERP (issue #400) |
 | U4 | Protocolo SAC sem hífen; protocolos da pessoa na lateral, do maior para o menor, 5 por página | pedido de 16/11 | feito (0.20.0) |
 | U5 | Fila instantânea; Jack espera 5 s/30 s; espera não conta fora do horário e feriados | pedidos de 16/11 | feito (0.20.1 e 0.21.0) |
+| U6 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.23.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
 ## Jack V1
@@ -44,5 +45,6 @@ atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor 
 | JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |
 | JV1.6 | Lembrete de espera com modelos aprovados editáveis | só o Talk | a fazer |
 | JV1.7 | ~~Pergunta de desempate~~ | — | fora da V1 (decisão de 16/11); fica para a Jack Completa |
-| JV1.8 | Boleto pelo WhatsApp | rota `talk/charges` no ERP | aguardando ERP |
-| JV1.9 | (Opcional) IA só para classificar, lista fechada, custo limitado | JV1.2 + aprovação | a decidir |
+| JV1.8 | Jack cadastrada como atendente na Equipe (sem login), autora das mensagens dela | só o Talk | a fazer |
+| JV1.9 | Boleto pelo WhatsApp: "só um minuto que vou olhar", busca no ERP, envia e lembra do aplicativo | JV1.8 + rota `talk/charges` no ERP | aguardando ERP |
+| JV1.10 | (Opcional) IA só para classificar, lista fechada, custo limitado | JV1.2 + aprovação | a decidir |

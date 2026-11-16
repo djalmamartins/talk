@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // Primeira instalação em produção (rode depois do migrate). Idempotente: não mexe no que já existe.
 //   php bin/setup.php --email=djalma@connect.com.br --name="Djalma"
-// - cria os setores da Jack (Financeiro, Administrativo, Manutenção) se não houver nenhum setor;
+// - cria os setores da Jack (Financeiro, Administrativo, Manutenção) se não houver nenhum setor, e o Geral se faltar;
 // - cria o primeiro supervisor se ainda não houver supervisor, com senha gerada (mostrada uma vez).
 $app = require __DIR__ . '/../bootstrap.php';
 $db = $app['db'];
@@ -21,6 +21,11 @@ if (!$db->one('SELECT id FROM talk_sectors LIMIT 1')) {
     echo "Setores criados: Financeiro, Administrativo, Manutenção.\n";
 } else {
     echo "Setores já existem; mantidos.\n";
+}
+if (!$db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' OR menu_key = '0'")) {
+    $db->insert('talk_sectors', ['name' => 'Geral', 'jack_key' => 'geral', 'menu_key' => '0', 'color' => '#6B7280',
+        'description' => 'Toda mensagem nova chega aqui; depois de 1 minuto a Jack distribui para o setor certo.']);
+    echo "Setor Geral criado.\n";
 }
 
 if ($db->one("SELECT user_id FROM talk_staff WHERE role = 'supervisor' LIMIT 1")) {

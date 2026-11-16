@@ -154,3 +154,22 @@ O manifesto (`docs/jack/MANIFESTO.md`) trouxe definições antigas de uma Jack q
 perguntas. O Djalma decidiu: **na Jack V1 ela só encaminha, calada**, como está desde a 0.18.0.
 Pergunta de desempate e conversa natural ficam para a Jack Completa. Continuam valendo só os três
 casos em que ela fala: apresentação quando perguntam se é robô, fora do escopo e aviso fora do horário.
+
+## Atualização 16/11/2026 — setor Geral e Jack como atendente (pedidos do Djalma)
+
+Substitui a "fila instantânea" da 0.20.1 quando o setor Geral existe:
+- **Toda conversa nova entra na fila do setor Geral**, à vista de quem atende o Geral (e do supervisor).
+- Depois de `JACK_GENERAL_SECONDS` (padrão **60 s**), com a pessoa sem escrever há `JACK_WAIT_SECONDS`
+  (ou no dobro do tempo, de qualquer jeito), a Jack lê tudo e **distribui calada** para Financeiro,
+  Administrativo ou Manutenção. Assunto desconhecido ou só "bom dia" → Administrativo, como antes.
+- Se um atendente **aceita ou transfere** a conversa no Geral antes disso, a Jack não mexe mais nela; o
+  chamado abre nesse momento.
+- A espera no relatório conta desde a chegada no Geral.
+- Número de WhatsApp dedicado a um setor não passa pelo Geral. Sem o setor Geral (ou `JACK_MODE=off`)
+  vale o fluxo anterior.
+
+Planejado (etapa JV1.8 do `ROADMAP.md`): a Jack **cadastrada como atendente** na tela Equipe e setores,
+sem login, como autora das mensagens dela. É o primeiro passo para o boleto (J3/JV1.9): quando pedirem
+a 2ª via, ela avisa que vai olhar, busca o boleto no ERP, envia linha digitável/Pix e link e lembra
+que dá para achar pelo aplicativo, sempre com textos aprovados e as travas da seção "Boleto só com
+identificação inequívoca".

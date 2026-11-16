@@ -29,6 +29,7 @@ final class Jack
         private int $maxWaitSeconds = 30,
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
+        private int $generalSeconds = 60,
     ) {
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
@@ -54,6 +55,21 @@ final class Jack
         }
         $r = $this->classifier->classify($text);
         return $r['sector'] !== null && $r['confident'];
+    }
+
+    /**
+     * Setor Geral (jack_key "geral"): toda conversa nova espera nele, à vista da equipe, até a Jack
+     * distribuir. Sem ele (ou com a Jack desligada) a triagem é a antiga, fora das filas.
+     */
+    public function generalSector(): ?array
+    {
+        return $this->mode === 'off' ? null : $this->sectorByKey('geral');
+    }
+
+    /** No Geral: distribui depois de $generalSeconds com a pessoa calada há $waitSeconds, ou no dobro do tempo de qualquer jeito. */
+    public function isDueInGeneral(int $quietSeconds, int $ageSeconds): bool
+    {
+        return ($ageSeconds >= $this->generalSeconds && $quietSeconds >= $this->waitSeconds) || $ageSeconds >= 2 * $this->generalSeconds;
     }
 
     /** A pessoa parou de escrever (ou já esperou demais)? */

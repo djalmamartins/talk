@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.23.0] — 2026-11-16
+### Adicionado
+- **Setor Geral.** Toda mensagem nova cai na fila do Geral, à vista de quem atende o Geral e do
+  supervisor. Depois de 1 minuto (`JACK_GENERAL_SECONDS`), com a pessoa sem escrever, a Jack lê tudo e
+  distribui calada para Financeiro, Administrativo ou Manutenção. Se alguém aceitar ou transferir no
+  Geral antes, a Jack não mexe mais na conversa e o chamado abre nesse momento. A espera conta desde a
+  chegada. Número dedicado a um setor não passa pelo Geral. A migration `018_jack_geral.sql` cria o
+  setor em quem já tem setores; o `bin/setup.php` cria na primeira instalação.
+
+### Planejado
+- Jack cadastrada como atendente (JV1.8) e boleto pelo WhatsApp com conversa e aviso do aplicativo
+  (JV1.9), no `ROADMAP.md` e na ADR 0004.
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Acertos da Jack no Painel** (Jack V1, etapa JV1.1). Supervisor e gerentes veem a taxa de acerto
