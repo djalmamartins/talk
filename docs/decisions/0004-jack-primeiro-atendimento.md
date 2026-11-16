@@ -147,3 +147,10 @@ Substitui o que vem acima onde for diferente:
   (padrão **30 s**, era 10 min) e então vai para o Administrativo.
 - No laboratório (sem worker), a tela aberta faz a triagem e os envios a cada ~2 s pelo canal de
   tempo real.
+
+## Atualização 16/11/2026 — Jack V1 continua calada (decisão do Djalma)
+
+O manifesto (`docs/jack/MANIFESTO.md`) trouxe definições antigas de uma Jack que conversa e faz
+perguntas. O Djalma decidiu: **na Jack V1 ela só encaminha, calada**, como está desde a 0.18.0.
+Pergunta de desempate e conversa natural ficam para a Jack Completa. Continuam valendo só os três
+casos em que ela fala: apresentação quando perguntam se é robô, fora do escopo e aviso fora do horário.

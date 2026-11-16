@@ -49,7 +49,7 @@ Duas etapas, para não tentar fazer tudo de uma vez:
 Regra herdada da instrução do Moves Talk V1 (27/09): **não construir o ERP dentro do Talk** e não
 transformar a Jack V1 numa integração completa com o ERP.
 
-## 2. ⚠️ Divergência a decidir: a Jack conversa ou só encaminha?
+## 2. Decisão: a Jack V1 só encaminha, calada
 
 As definições de outubro descrevem uma Jack que **conversa** e faz perguntas progressivas:
 
@@ -65,7 +65,7 @@ Hoje a Jack só fala com o cliente em três casos: quando perguntam se é robô 
 pessoa segue perguntando algo fora do escopo depois disso (transfere), e fora do horário (aviso de quando
 a equipe volta, se ligado).
 
-**PENDENTE (decisão do Djalma).** Opções:
+**DECIDIDO em 16/11/2026 pelo Djalma: opção 1.** Registrado na ADR 0004. As opções avaliadas foram:
 
 1. **Calada na V1** (como está): só encaminha; conversa fica para a Jack Completa.
 2. **Uma pergunta de desempate com texto aprovado**: quando o assunto não está claro ou empata, ela
@@ -74,7 +74,7 @@ a equipe volta, se ligado).
 3. **Conversa livre com IA**: exige mudar a ADR 0004 (hoje proíbe texto livre), controle de custo,
    minimização de dados e o laboratório funcionando antes.
 
-Enquanto não houver decisão, o plano da seção 13 segue a opção 1 e deixa a opção 2 como etapa opcional.
+As opções 2 e 3 ficam para a Jack Completa.
 
 ## 3. Personalidade e comportamento
 
@@ -161,7 +161,7 @@ importa, respeitar permissões e permitir correção.
 | Intenções fechadas | `boleto`, `financeiro`, `cotacao`, `administrativo`, `manutencao` | FEITO |
 | Interpretação | 116 termos e expressões com peso, normalização sem acento | FEITO |
 | Confiança | pontuação mínima 3 e folga 2× sobre o segundo setor | FEITO |
-| Pergunta de desempate | — | PENDENTE (seção 2) |
+| Pergunta de desempate | — | JACK COMPLETA (decisão de 16/11) |
 | Urgência | coluna `priority` existe (fila), a Jack não marca | PLANEJADO |
 | Registro de cada decisão | `talk_jack_decisions` (intenção, pontos, termos, setor sugerido e final) | FEITO |
 | Taxa de acertos | `GET /api/jack/stats` e seção "Acertos da Jack" no Painel (supervisor e gerentes) | FEITO (0.22.0) |
@@ -238,14 +238,14 @@ Também em `ROADMAP.md`. Cada etapa é uma entrega pequena, com testes, CHANGELO
 
 | Etapa | Entrega | Depende de |
 |---|---|---|
-| JV1.0 | Este manifesto; decisão da seção 2 registrada na ADR 0004 | Djalma |
+| JV1.0 | Este manifesto; decisão da seção 2 registrada na ADR 0004 (feito: calada) | Djalma |
 | JV1.1 | Painel de acertos na tela (supervisor): taxa por setor, últimos erros, termos que levaram ao erro | só o Talk |
 | JV1.2 | Cenários fixos de triagem (laboratório mínimo, 100+ frases reais anonimizadas) rodando nos testes | JV1.1 |
 | JV1.3 | Resumo para o atendente: nota interna com assunto detectado, termos e protocolos anteriores da pessoa | só o Talk |
 | JV1.4 | Urgência: termos de risco (gás, curto, elevador parado com gente, alagamento) marcam prioridade alta e avisam o gerente | só o Talk |
 | JV1.5 | Chamado duplicado: mesma pessoa e mesmo setor com chamado aberto → junta na conversa existente | PR talk#1/erp#538 |
 | JV1.6 | Lembrete de espera (2 h, máx. 2, alerta ao gerente) com modelos aprovados editáveis | só o Talk |
-| JV1.7 | (Opcional, se aprovada a opção 2) pergunta de desempate com texto aprovado | decisão da seção 2 |
+| JV1.7 | Fora da V1: pergunta de desempate vai para a Jack Completa | decisão de 16/11 |
 | JV1.8 | Boleto pelo WhatsApp com as travas da ADR 0004 | rota `talk/charges` no ERP |
 | JV1.9 | (Opcional) IA só para classificar na lista fechada, com custo limitado e minimização | JV1.2 estável + aprovação |
 
@@ -278,7 +278,7 @@ Para ligar cada etapa em produção:
 | Registro de decisões e taxa de acertos | FEITO | Painel, JV1.1 (0.22.0) |
 | Identificação pelo telefone no ERP | PARCIAL | PR erp#538/talk#1 |
 | Chamado no Help Desk com protocolo | PARCIAL | PR erp#538/talk#1 |
-| Conversa progressiva / perguntas | PENDENTE | seção 2, JV1.7 |
+| Conversa progressiva / perguntas | JACK COMPLETA | decisão de 16/11 (seção 2) |
 | Urgência | PLANEJADO | JV1.4 |
 | Resumo para o atendente | PLANEJADO | JV1.3 |
 | Chamado duplicado / reabrir | PLANEJADO | JV1.5 |
@@ -293,4 +293,4 @@ Para ligar cada etapa em produção:
 | Configuração por administradora | Não se aplica | Connect é administradora única |
 
 Observação de limpeza: `Texts::jackAsk()` e `Texts::jackRouted()` ficaram sem uso desde a 0.18.0
-(a Jack parou de perguntar e de avisar o encaminhamento). Ficam até a decisão da seção 2.
+(a Jack parou de perguntar e de avisar o encaminhamento). Com a decisão da seção 2, podem sair numa próxima limpeza.
