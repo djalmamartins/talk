@@ -13,13 +13,12 @@
 <div class="page">
 <?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
-  <div><h1>Atendimentos</h1><p>Acompanhe a fila e responda os clientes pelo WhatsApp.</p></div>
+  <div><h1>Atendimentos</h1><p>Responda os clientes pelo WhatsApp.</p></div>
 </header>
 <main class="layout">
   <aside class="list">
     <nav class="tabs" id="tabs">
-      <button data-tab="pending" class="active">Fila <b id="badge-pending"></b></button>
-      <button data-tab="mine">Meus</button>
+      <button data-tab="mine" class="active">Meus</button>
       <button data-tab="open">Em atendimento</button>
       <button data-tab="closed">Encerrados</button>
     </nav>

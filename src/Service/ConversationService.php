@@ -454,7 +454,7 @@ class ConversationService
                 throw new DomainError('Esta conversa já foi aceita por outra pessoa.');
             }
             $fromGeneral = (int) $conv['jack_pending'] === 1;
-            $this->db->run("UPDATE talk_conversations SET status = 'open', jack_pending = 0, assigned_user_id = ?, unread = 0, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
+            $this->db->run("UPDATE talk_conversations SET status = 'open', jack_pending = 0, transfer_pending = 0, assigned_user_id = ?, unread = 0, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
             $conv = $this->get($convId);
             if ($fromGeneral) {
                 // pegou no Geral antes da Jack distribuir: ela sai de cena e o chamado abre agora
@@ -598,9 +598,10 @@ class ConversationService
                 'ack' => 'received',
             ]);
             $this->db->run(
-                'UPDATE talk_conversations SET sector_id = ?, status = ?, jack_pending = 0, assigned_user_id = ?, history_from_message_id = ?,
+                'UPDATE talk_conversations SET sector_id = ?, status = ?, jack_pending = 0, transfer_pending = ?, transferred_by = ?, assigned_user_id = ?, history_from_message_id = ?,
                         queued_at = IF(? = \'pending\', NOW(), queued_at) WHERE id = ?',
-                [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
+                [$toSectorId, $toUser ? 'open' : 'pending', ($toUser['id'] ?? null) === $u->userId ? 0 : 1, $u->userId, $toUser['id'] ?? null,
+                 $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
             );
             $this->jack?->settle($convId, $toSectorId);
             if ($conv['helpdesk_ticket_id']) {
@@ -632,7 +633,7 @@ class ConversationService
                 ]);
             }
             $this->db->run(
-                "UPDATE talk_conversations SET status = 'closed', closed_at = NOW(), closed_by = ?, unread = 0 WHERE id = ?",
+                "UPDATE talk_conversations SET status = 'closed', closed_at = NOW(), closed_by = ?, unread = 0, transfer_pending = 0 WHERE id = ?",
                 [$u->userId, $convId]
             );
             if ($conv['helpdesk_ticket_id']) {
@@ -718,7 +719,11 @@ class ConversationService
         if (!$this->policy->canView($u, $conv)) {
             throw new DomainError('Sem acesso a esta conversa.', 403);
         }
-        $this->db->run('UPDATE talk_conversations SET unread = 0 WHERE id = ?', [$convId]);
+        // quem recebeu a transferência abriu a conversa: o aviso do sino sai
+        $this->db->run(
+            'UPDATE talk_conversations SET unread = 0, transfer_pending = IF(assigned_user_id = ?, 0, transfer_pending) WHERE id = ?',
+            [$u->userId, $convId]
+        );
     }
 
     // ------------------------------------------------------------------ apoio

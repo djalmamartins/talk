@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.25.0] — 2026-11-16
+### Alterado
+- **Saiu a aba "Fila" de Atendimentos** (pedido do Djalma). Com o setor Geral ela ficou repetida: a
+  tela abre em "Meus", e quem espera atendimento aparece em **Fila de atendimento** e no sino. O
+  contador no menu lateral passa a vir do sino. Links antigos `/?aba=pending` levam para `/fila`.
+
+### Adicionado
+- **Aviso de transferência no sino.** Quando alguém transfere uma conversa para você ou para a fila
+  de um setor seu, aparece "Conversa transferida para você/para o setor" com o nome do cliente, o
+  protocolo e quem transferiu, e toca o alerta. O aviso some quando alguém do setor aceita, ou quando
+  quem recebeu abre a conversa. Migration `020_transfer_alert.sql`.
+
 ## [0.24.0] — 2026-11-16
 ### Adicionado
 - **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor

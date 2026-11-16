@@ -9,6 +9,7 @@ use ConnectTalk\Support\Db;
 /**
  * O sino do topo: o que pede a atenção da pessoa agora, calculado na hora (não há "lida"):
  * - conversas esperando na fila dos setores dela;
+ * - conversas transferidas para ela ou para os setores dela (até aceitar ou abrir);
  * - conversas dela com mensagem do cliente ainda não lida;
  * - agendamentos que falharam nos últimos 7 dias (dos setores dela ou criados por ela);
  * - supervisor: números de WhatsApp ativos que caíram.
@@ -37,6 +38,27 @@ final class Notifications
             $items[] = ['kind' => 'queue', 'count' => (int) $q['n'], 'href' => '/fila',
                 'title' => $plural((int) $q['n'], '1 conversa esperando na fila', '# conversas esperando na fila'),
                 'text' => $min < 1 ? 'A mais antiga chegou agora.' : "A mais antiga espera há {$this->duration($min)}."];
+        }
+
+        // transferidas para a pessoa, ou para a fila de um setor dela, por outra pessoa
+        $mine = array_map('intval', $u->sectors());
+        $t = $this->db->all(
+            "SELECT c.id, c.protocol, ct.name AS contact, ct.phone, s.name AS sector, c.status, u.name AS by_name
+               FROM talk_conversations c
+               JOIN talk_contacts ct ON ct.id = c.contact_id
+               LEFT JOIN talk_sectors s ON s.id = c.sector_id
+               LEFT JOIN talk_users u ON u.id = c.transferred_by
+              WHERE c.transfer_pending = 1 AND (c.transferred_by IS NULL OR c.transferred_by <> ?)
+                AND ((c.status = 'open' AND c.assigned_user_id = ?)"
+                . ($mine ? " OR (c.status = 'pending' AND c.sector_id IN (" . implode(',', $mine) . '))' : '') . ')
+              ORDER BY c.updated_at DESC LIMIT 5',
+            [$u->userId, $u->userId]
+        );
+        foreach ($t as $r) {
+            $who = $r['contact'] ?: $r['phone'];
+            $items[] = ['kind' => 'transfer', 'count' => 1, 'href' => '/?c=' . (int) $r['id'],
+                'title' => $r['status'] === 'open' ? "Conversa transferida para você: $who" : "Conversa transferida para {$r['sector']}: $who",
+                'text' => 'Protocolo ' . $r['protocol'] . ($r['by_name'] ? ', por ' . $r['by_name'] : '') . '.'];
         }
 
         $m = $this->db->one(

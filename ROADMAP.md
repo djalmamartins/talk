@@ -28,6 +28,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U4 | Protocolo SAC sem hífen; protocolos da pessoa na lateral, do maior para o menor, 5 por página | pedido de 16/11 | feito (0.20.0) |
 | U5 | Fila instantânea; Jack espera 5 s/30 s; espera não conta fora do horário e feriados | pedidos de 16/11 | feito (0.20.1 e 0.21.0) |
 | U6 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.23.0) |
+| U7 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.25.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
 ## Jack V1
