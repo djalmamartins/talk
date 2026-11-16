@@ -285,7 +285,7 @@ Para ligar cada etapa em produção:
 | Chamado duplicado / reabrir | PLANEJADO | JV1.5 |
 | Lembrete de espera | PLANEJADO | JV1.6 |
 | Setor Geral (tudo chega lá, Jack distribui em 1 min) | FEITO (0.23.0) | ADR 0004 |
-| Jack como atendente na Equipe | PLANEJADO | JV1.8 |
+| Jack como atendente na Equipe | FEITO (0.24.0) | JV1.8, migration 019 |
 | Boleto pelo WhatsApp | PENDENTE (ERP) | JV1.9 |
 | Laboratório | PARCIAL (LabGateway e testes) | JV1.2; versão com IA na Jack Completa |
 | IA (OpenAI ou outra), prompt modular | Não existe | JV1.10, só classificação |

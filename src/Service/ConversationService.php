@@ -331,7 +331,7 @@ class ConversationService
     /** Mensagem da Jaqueline: entra na fila com "digitando…" antes, como uma pessoa. */
     private function jackSay(array $conv, string $text, string $type): int
     {
-        return $this->queueOutbound($conv, $text, null, $type, $this->jack?->typingSeconds($text) ?? 0);
+        return $this->queueOutbound($conv, $text, $this->jack?->userId(), $type, $this->jack?->typingSeconds($text) ?? 0);
     }
 
     /** Texto de fora do horário (uma vez por conversa), ou null se o setor está atendendo. */
@@ -570,7 +570,7 @@ class ConversationService
             if ($toUserId !== null) {
                 $toUser = $this->db->one(
                     "SELECT u.id, u.name FROM talk_users u JOIN talk_staff s ON s.user_id = u.id
-                      WHERE u.id = ? AND u.active = 1 AND (s.sector_id = ? OR s.role = 'supervisor') LIMIT 1",
+                      WHERE u.id = ? AND u.active = 1 AND u.is_bot = 0 AND (s.sector_id = ? OR s.role = 'supervisor') LIMIT 1",
                     [$toUserId, $toSectorId]
                 );
                 if (!$toUser) {

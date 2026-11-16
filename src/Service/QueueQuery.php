@@ -107,7 +107,7 @@ final class QueueQuery
                FROM talk_users u
                JOIN talk_staff s ON s.user_id = u.id
                LEFT JOIN talk_sectors sec ON sec.id = s.sector_id
-              WHERE u.active = 1 $filter
+              WHERE u.active = 1 AND u.is_bot = 0 $filter
               GROUP BY u.id, u.name, u.last_seen_at
               ORDER BY online DESC, u.name",
             $params

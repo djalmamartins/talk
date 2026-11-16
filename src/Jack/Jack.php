@@ -36,6 +36,15 @@ final class Jack
         }
     }
 
+    private ?int $userId = null;
+
+    /** Cadastro da Jack como atendente (talk_users.is_bot = 1), autora das mensagens dela. Null se não existir. */
+    public function userId(): ?int
+    {
+        $this->userId ??= (int) ($this->db->one('SELECT id FROM talk_users WHERE is_bot = 1 AND active = 1 ORDER BY id LIMIT 1')['id'] ?? 0);
+        return $this->userId ?: null;
+    }
+
     public function mode(): string
     {
         return $this->mode;

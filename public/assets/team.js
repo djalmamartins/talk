@@ -30,8 +30,17 @@ function renderUsers() {
   const list = state.users.filter((u) => (!q || `${u.name} ${u.email}`.toLowerCase().includes(q))
     && (!sec || u.sector_ids.includes(+sec) || u.role === 'supervisor')
     && (!st || (st === 'active') === u.active));
-  $('#t-users-n').textContent = state.users.filter((u) => u.active).length;
+  $('#t-users-n').textContent = state.users.filter((u) => u.active && !u.bot).length;
   $('#t-rows').innerHTML = list.map((u) => {
+    if (u.bot) {
+      // a Jack: atendente automática, sem login; liga e desliga pela configuração (JACK_MODE)
+      return `<tr data-id="${u.id}" class="t-bot">
+      <td><div class="who"><img class="avatar sm" src="/assets/jack/avatar-64.jpg" alt="" style="object-fit:cover"><div><b>${esc(u.name)}</b><small>Atendente automática · não faz login</small></div></div></td>
+      <td><span class="role role-agent">Atendente</span></td>
+      <td><div class="chips">${u.sector_ids.map(sectorChip).join('')}</div></td>
+      <td><span class="t-st on">Sempre ligada</span></td><td>–</td><td>–</td>
+      <td class="t-actions"><small class="meta">Distribui o Geral</small></td></tr>`;
+    }
     const status = !u.active ? '<span class="t-st off">Desativado</span>' : u.online ? (u.open_count ? '<span class="t-st busy">Atendendo</span>' : '<span class="t-st on">Disponível</span>')
       : `<span class="t-st">Offline${u.last_seen_at ? ` <small>visto ${dt(u.last_seen_at)}</small>` : ''}</span>`;
     return `<tr data-id="${u.id}" class="${u.active ? '' : 'inactive'}">

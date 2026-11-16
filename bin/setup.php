@@ -27,6 +27,10 @@ if (!$db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' OR menu_key 
         'description' => 'Toda mensagem nova chega aqui; depois de 1 minuto a Jack distribui para o setor certo.']);
     echo "Setor Geral criado.\n";
 }
+// a Jack trabalha no Geral (o usuário dela vem da migration 019)
+$db->run("INSERT INTO talk_staff (user_id, sector_id, role)
+          SELECT u.id, s.id, 'agent' FROM talk_users u JOIN talk_sectors s ON s.jack_key = 'geral'
+           WHERE u.is_bot = 1 AND NOT EXISTS (SELECT 1 FROM talk_staff st WHERE st.user_id = u.id AND st.sector_id = s.id)");
 
 if ($db->one("SELECT user_id FROM talk_staff WHERE role = 'supervisor' LIMIT 1")) {
     echo "Já existe supervisor; nada a fazer. Cadastre a equipe pela tela Equipe e setores.\n";

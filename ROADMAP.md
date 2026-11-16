@@ -45,6 +45,6 @@ atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor 
 | JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |
 | JV1.6 | Lembrete de espera com modelos aprovados editáveis | só o Talk | a fazer |
 | JV1.7 | ~~Pergunta de desempate~~ | — | fora da V1 (decisão de 16/11); fica para a Jack Completa |
-| JV1.8 | Jack cadastrada como atendente na Equipe (sem login), autora das mensagens dela | só o Talk | a fazer |
+| JV1.8 | Jack cadastrada como atendente na Equipe (sem login), autora das mensagens dela | só o Talk | feito (0.24.0) |
 | JV1.9 | Boleto pelo WhatsApp: "só um minuto que vou olhar", busca no ERP, envia e lembra do aplicativo | JV1.8 + rota `talk/charges` no ERP | aguardando ERP |
 | JV1.10 | (Opcional) IA só para classificar, lista fechada, custo limitado | JV1.2 + aprovação | a decidir |

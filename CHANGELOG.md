@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0] — 2026-11-16
+### Adicionado
+- **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor
+  Geral, como atendente automática "sempre ligada". As mensagens dela saem com o nome dela na
+  conversa. Ela não faz login, não recebe transferência, não aparece entre os atendentes online e não
+  é editada nem desativada pela tela (liga e desliga com `JACK_MODE`). Migration
+  `019_jack_atendente.sql`.
+
 ## [0.23.0] — 2026-11-16
 ### Adicionado
 - **Setor Geral.** Toda mensagem nova cai na fila do Geral, à vista de quem atende o Geral e do
