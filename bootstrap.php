@@ -80,8 +80,8 @@ $jack = new Jack(
     $db,
     new Classifier(),
     (string) $env('JACK_MODE', 'auto'),
-    (int) $env('JACK_WAIT_SECONDS', '15'),       // espera a pessoa parar de escrever
-    (int) $env('JACK_MAX_WAIT_SECONDS', '120'),  // depois disso vai para o setor padrão
+    (int) $env('JACK_WAIT_SECONDS', '5'),       // espera a pessoa parar de escrever
+    (int) $env('JACK_MAX_WAIT_SECONDS', '30'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
@@ -108,8 +108,8 @@ return [
     'gateways' => $gateways,
     'jack' => $jack,
     'hours' => $hours,
-    'reports' => new \ConnectTalk\Service\ReportService($db),
-    'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30')),
+    'reports' => new \ConnectTalk\Service\ReportService($db, $hours),
+    'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),

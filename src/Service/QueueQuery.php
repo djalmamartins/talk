@@ -14,7 +14,7 @@ final class QueueQuery
 {
     public const ONLINE_SECONDS = 60;
 
-    public function __construct(private Db $db, private AccessPolicy $policy, private int $warnMinutes = 15, private int $lateMinutes = 30)
+    public function __construct(private Db $db, private AccessPolicy $policy, private int $warnMinutes = 15, private int $lateMinutes = 30, private ?BusinessHours $hours = null)
     {
     }
 
@@ -24,6 +24,7 @@ final class QueueQuery
         $waiting = $this->db->all(
             "SELECT c.id, c.protocol, c.sector_id, s.name AS sector_name, c.priority, c.queued_at, c.unread,
                     TIMESTAMPDIFF(SECOND, COALESCE(c.queued_at, c.opened_at), NOW()) AS wait_seconds,
+                    COALESCE(c.queued_at, c.opened_at) AS wait_from, NOW() AS now_db,
                     ct.name AS contact_name, ct.phone,
                     (SELECT GROUP_CONCAT(tg.tag_id ORDER BY tg.tag_id) FROM talk_contact_tags tg WHERE tg.contact_id = c.contact_id) AS tag_ids,
                     (SELECT LEFT(COALESCE(NULLIF(m.body, ''), '(arquivo)'), 140) FROM talk_messages m
@@ -38,7 +39,13 @@ final class QueueQuery
         );
         foreach ($waiting as $i => &$w) {
             $w['position'] = $i + 1;
-            $w['wait_seconds'] = (int) $w['wait_seconds'];
+            // fora do horário do setor e feriados não contam como espera
+            $w['wait_seconds'] = $this->hours
+                ? $this->hours->openSeconds($w['sector_id'] !== null ? (int) $w['sector_id'] : null, new \DateTimeImmutable($w['wait_from']), new \DateTimeImmutable($w['now_db']))
+                : (int) $w['wait_seconds'];
+            // setor fechado agora: a espera fica parada até ele abrir
+            $w['paused'] = $this->hours !== null && $w['sector_id'] !== null && !$this->hours->isOpen((int) $w['sector_id'], new \DateTimeImmutable($w['now_db']));
+            unset($w['wait_from'], $w['now_db']);
             $w['level'] = $w['wait_seconds'] >= $this->lateMinutes * 60 ? 'late' : ($w['wait_seconds'] >= $this->warnMinutes * 60 ? 'warn' : 'ok');
         }
         unset($w);
@@ -69,6 +76,7 @@ final class QueueQuery
             'thresholds' => ['warn_minutes' => $this->warnMinutes, 'late_minutes' => $this->lateMinutes],
             'stats' => [
                 'waiting' => count($waiting),
+                'ticking' => !array_filter($waiting, fn ($w) => $w['paused']), // números do topo correm sozinhos na tela
                 'avg_wait_seconds' => $waits ? (int) round(array_sum($waits) / count($waits)) : 0,
                 'max_wait_seconds' => $waits ? max($waits) : 0,
                 'min_wait_seconds' => $waits ? min($waits) : 0,

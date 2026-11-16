@@ -25,8 +25,8 @@ final class Jack
         private Db $db,
         private Classifier $classifier = new Classifier(),
         private string $mode = 'auto',
-        private int $waitSeconds = 15,
-        private int $maxWaitSeconds = 120,
+        private int $waitSeconds = 5,
+        private int $maxWaitSeconds = 30,
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
     ) {

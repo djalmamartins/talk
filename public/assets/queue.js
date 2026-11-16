@@ -41,7 +41,8 @@ function rows() {
 function render() {
   const d = state.data; const s = d.stats;
   $('#k-waiting').textContent = s.waiting;
-  $('#k-avg').textContent = mmss(s.waiting ? s.avg_wait_seconds + elapsed() : 0);
+  const tick = () => (s.ticking ? elapsed() : 0);
+  $('#k-avg').textContent = mmss(s.waiting ? s.avg_wait_seconds + tick() : 0);
   $('#k-today').textContent = s.today_total;
   $('#k-rate').textContent = s.resolution_rate === null ? '–' : `${s.resolution_rate}%`;
   $('#k-rate-sub').textContent = `${s.today_closed} de ${s.today_total} encerradas hoje`;
@@ -56,7 +57,7 @@ function render() {
   const list = rows();
   const tagName = (id) => state.tags.find((t) => t.id == id);
   $('#q-rows').innerHTML = list.map((w) => {
-    const wait = w.wait_seconds + elapsed();
+    const wait = w.wait_seconds + (w.paused ? 0 : elapsed());
     const tags = (w.tag_ids || '').split(',').filter(Boolean).map(tagName).filter(Boolean)
       .map((t) => `<span class="chip" style="--c:${esc(t.color)}">${esc(t.name)}</span>`).join('');
     return `<tr data-id="${w.id}">
@@ -65,7 +66,7 @@ function render() {
         <div><b>${esc(w.contact_name || fmtPhone(w.phone))}</b><small>${esc(fmtPhone(w.phone))}</small>${tags ? `<div class="chips">${tags}</div>` : ''}</div></div></td>
       <td><span class="sec"><i style="background:${sectorColor(w.sector_id)}"></i>${esc(w.sector_name || '—')}</span></td>
       <td class="subj"><b>${esc(w.protocol)}</b><small>${esc(w.subject || '—')}</small></td>
-      <td><b class="wait ${level(wait)}" data-wait="${w.wait_seconds}">${mmss(wait)}</b><small class="prio prio-${w.priority}">${PRIO[w.priority]}</small><small class="since">na fila desde ${hhmm(w.queued_at)}</small></td>
+      <td><b class="wait ${level(wait)}"${w.paused ? '' : ` data-wait="${w.wait_seconds}"`}>${mmss(wait)}</b>${w.paused ? '<small class="paused" title="Fora do horário do setor a espera não conta">⏸ fora do horário</small>' : ''}<small class="prio prio-${w.priority}">${PRIO[w.priority]}</small><small class="since">na fila desde ${hhmm(w.queued_at)}</small></td>
       <td class="r"><button type="button" class="ghost sm" data-accept="${w.id}">Atender</button><button type="button" class="dots" data-menu="${w.id}" aria-label="Mais ações">⋮</button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" class="empty-row">${s.waiting ? 'Ninguém com esse filtro.' : 'Ninguém esperando. 🎉'}</td></tr>`;
@@ -90,9 +91,9 @@ function render() {
     <div><b>${esc(a.name.replace(/\s*\(.*\)/, ''))}</b><small>${st[a.status]}${a.open_count ? ` · ${a.open_count} em atendimento` : ''}${a.sectors ? ` · ${esc(a.sectors)}` : ''}</small></div></li>`).join('')
     || '<li class="meta">Nenhum atendente cadastrado.</li>';
 
-  $('#w-max').textContent = s.waiting ? mmss(s.max_wait_seconds + elapsed()) : '–';
-  $('#w-avg').textContent = s.waiting ? mmss(s.avg_wait_seconds + elapsed()) : '–';
-  $('#w-min').textContent = s.waiting ? mmss(s.min_wait_seconds + elapsed()) : '–';
+  $('#w-max').textContent = s.waiting ? mmss(s.max_wait_seconds + tick()) : '–';
+  $('#w-avg').textContent = s.waiting ? mmss(s.avg_wait_seconds + tick()) : '–';
+  $('#w-min').textContent = s.waiting ? mmss(s.min_wait_seconds + tick()) : '–';
   $('#q-updated').textContent = `Atualizado às ${new Date(state.loadedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
@@ -103,7 +104,7 @@ setInterval(() => {
     const s = Number(el.dataset.wait) + elapsed(); el.textContent = mmss(s); el.className = `wait ${level(s)}`;
   });
   const s = state.data.stats;
-  if (s.waiting) {
+  if (s.waiting && s.ticking) {
     $('#k-avg').textContent = mmss(s.avg_wait_seconds + elapsed());
     $('#w-max').textContent = mmss(s.max_wait_seconds + elapsed()); $('#w-avg').textContent = mmss(s.avg_wait_seconds + elapsed()); $('#w-min').textContent = mmss(s.min_wait_seconds + elapsed());
   }

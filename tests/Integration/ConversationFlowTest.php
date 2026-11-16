@@ -37,7 +37,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $id = $this->inbound('Bom dia');
         $this->inbound('passei no corredor');
-        $this->assertSame(0, $this->svc->triage(10), 'ainda escrevendo e sem assunto claro: não mexe');
+        $this->assertSame(0, $this->svc->triage(2), 'ainda escrevendo e sem assunto claro: não mexe');
         $this->assertSame('bot', $this->conv($id)['status']);
 
         $this->inbound('e tem uma água aqui no chão');
@@ -60,8 +60,8 @@ final class ConversationFlowTest extends DbTestCase
     public function test_assunto_que_ela_nao_reconhece_vai_para_o_setor_padrao_em_segundos(): void
     {
         $id = $this->inbound('preciso falar com alguém sobre uma coisa');
-        $this->assertSame(0, $this->svc->triage(5));
-        $this->assertSame(1, $this->svc->triage(20));
+        $this->assertSame(0, $this->svc->triage(2));
+        $this->assertSame(1, $this->svc->triage(8));
         $this->assertSame($this->sectors['Administrativo'], (int) $this->conv($id)['sector_id']);
     }
 

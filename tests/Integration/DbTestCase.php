@@ -72,7 +72,7 @@ abstract class DbTestCase extends TestCase
     }
 
     /** Roda a triagem da Jack como se a pessoa tivesse parado de escrever há $seconds segundos. */
-    protected function triage(int $seconds = 30): int
+    protected function triage(int $seconds = 10): int
     {
         return $this->svc->triage($seconds);
     }

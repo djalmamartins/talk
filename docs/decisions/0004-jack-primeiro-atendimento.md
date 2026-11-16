@@ -142,8 +142,8 @@ Substitui o que vem acima onde for diferente:
   resposta: ela espera o assunto. Continua indo o aviso de fora do horário, quando ligado.
 - **Assunto claro já na mensagem** ("estamos sem água no bloco B"): a conversa entra na fila do setor
   **na hora**, sem esperar a pessoa parar de escrever.
-- Assunto ainda não claro: espera `JACK_WAIT_SECONDS` (padrão **15 s**, era 60 s) sem mensagem nova e
+- Assunto ainda não claro: espera `JACK_WAIT_SECONDS` (padrão **5 s**, era 60 s) sem mensagem nova e
   lê tudo; não reconheceu → Administrativo. Só cumprimentou: espera até `JACK_MAX_WAIT_SECONDS`
-  (padrão **2 min**, era 10 min) e então vai para o Administrativo.
+  (padrão **30 s**, era 10 min) e então vai para o Administrativo.
 - No laboratório (sem worker), a tela aberta faz a triagem e os envios a cada ~2 s pelo canal de
   tempo real.

@@ -184,4 +184,30 @@ final class BusinessHoursTest extends DbTestCase
         $this->expectExceptionCode(403);
         $this->hours()->save(new StaffMember(5, false, [], [$this->sectors['Financeiro']]), ['week' => $ok]);
     }
+
+    public function test_espera_so_conta_dentro_do_horario_e_fora_de_feriado(): void
+    {
+        $h = $this->hours();
+        $sector = $this->sectors['Financeiro'];
+        $at = fn (string $t) => new \DateTimeImmutable($t);
+        // desligado: tempo corrido
+        $this->assertSame(3600 * 15, $h->openSeconds($sector, $at('2026-11-16 17:00'), $at('2026-11-17 08:00')));
+
+        $week = array_fill_keys(array_map('strval', range(0, 6)), []);
+        foreach (['1', '2', '3', '4', '5'] as $d) {
+            $week[$d] = [['08:00', '12:00'], ['13:00', '18:00']];
+        }
+        $h->save($this->sup(), ['enabled' => true, 'week' => $week]);
+        // segunda 17:00 → terça 08:30: 1 h na segunda + 30 min na terça; a noite não conta
+        $this->assertSame(5400, $h->openSeconds($sector, $at('2026-11-16 17:00'), $at('2026-11-17 08:30')));
+        // almoço não conta: 11:30 → 13:30 = 1 h
+        $this->assertSame(3600, $h->openSeconds($sector, $at('2026-11-16 11:30'), $at('2026-11-16 13:30')));
+        // sexta 17:00 → segunda 08:15 (fim de semana fechado) = 1 h 15
+        $this->assertSame(4500, $h->openSeconds($sector, $at('2026-11-20 17:00'), $at('2026-11-23 08:15')));
+        // feriado no meio não conta
+        $this->db->insert('talk_holidays', ['day' => '2026-11-17', 'name' => 'Teste']);
+        $this->assertSame(3600 + 1800, $h->openSeconds($sector, $at('2026-11-16 17:00'), $at('2026-11-18 08:30')));
+        // chegou e foi aceita com o setor fechado: espera zero
+        $this->assertSame(0, $h->openSeconds($sector, $at('2026-11-21 10:00'), $at('2026-11-21 11:00')));
+    }
 }

@@ -254,6 +254,45 @@ final class BusinessHours
         return false;
     }
 
+    /**
+     * Segundos de espera que contam: só o tempo em que o setor estava atendendo (dentro do horário e
+     * fora de feriado). Com o controle desligado ou setor 24 h, é o tempo corrido.
+     */
+    public function openSeconds(?int $sectorId, \DateTimeImmutable $from, \DateTimeImmutable $to): int
+    {
+        if ($to <= $from) {
+            return 0;
+        }
+        $total = $to->getTimestamp() - $from->getTimestamp();
+        $week = $sectorId !== null && $this->enabled() ? $this->weekFor($sectorId) : null;
+        if ($week === null) {
+            return $total;
+        }
+        $days = (int) $from->setTime(0, 0)->diff($to->setTime(0, 0))->format('%a');
+        if ($days > 400) {
+            return $total; // espera fora do comum: não vale o cálculo dia a dia
+        }
+        $holidays = array_flip(array_column($this->db->all(
+            'SELECT day FROM talk_holidays WHERE day BETWEEN ? AND ?',
+            [$from->format('Y-m-d'), $to->format('Y-m-d')]
+        ), 'day'));
+        $sum = 0;
+        for ($i = 0; $i <= $days; $i++) {
+            $day = $from->setTime(0, 0)->modify("+$i day");
+            if (isset($holidays[$day->format('Y-m-d')])) {
+                continue;
+            }
+            foreach ($week[$day->format('w')] ?? [] as [$a, $b]) {
+                [$ah, $am] = array_map('intval', explode(':', $a));
+                [$bh, $bm] = array_map('intval', explode(':', $b));
+                $start = max($from->getTimestamp(), $day->setTime($ah, $am)->getTimestamp());
+                $end = min($to->getTimestamp(), $day->setTime($bh, $bm)->getTimestamp());
+                $sum += max(0, $end - $start);
+            }
+        }
+        return $sum;
+    }
+
     /** @param bool $evenIfOff calcula mesmo com o controle desligado (prévia da mensagem) */
     public function nextOpening(int $sectorId, \DateTimeImmutable $at, bool $evenIfOff = false): ?\DateTimeImmutable
     {

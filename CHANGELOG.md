@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.0] — 2026-11-16
+### Alterado
+- **Tempo de espera só conta com o setor atendendo.** Fora do horário do setor e nos feriados a
+  espera não corre: vale no Painel (espera média e planilha), na Fila de atendimento e nos alertas
+  de espera. Na Fila, quem chegou com o setor fechado mostra "⏸ fora do horário" e o relógio fica
+  parado até o setor abrir. Com o controle de horário desligado, nada muda.
+- **Jack ainda mais rápida:** sem assunto claro espera 5 s (era 15 s); só um "bom dia", 30 s (era
+  2 min) e vai para o Administrativo. Assunto claro continua indo na hora.
+
 ## [0.20.1] — 2026-11-16
 ### Corrigido
 - **Mensagem demorava a aparecer na fila.** A Jack esperava 60 s sem mensagem nova antes de

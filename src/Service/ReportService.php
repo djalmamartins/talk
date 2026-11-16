@@ -11,7 +11,8 @@ use ConnectTalk\Support\Db;
  * Escopo: supervisor vê tudo; gerente, os setores que gerencia; atendente, só os próprios atendimentos.
  *
  * Tempos:
- * - espera: de quando entrou na fila até alguém aceitar (a primeira vez);
+ * - espera: de quando entrou na fila até alguém aceitar (a primeira vez), contando só o tempo em
+ *   que o setor estava atendendo (fora do horário e feriados não contam);
  * - atendimento: de quando foi aceito até encerrar.
  * A conversa entra no período pelo dia em que foi aberta.
  */
@@ -19,7 +20,7 @@ final class ReportService
 {
     public const MAX_DAYS = 366;
 
-    public function __construct(private Db $db)
+    public function __construct(private Db $db, private ?BusinessHours $hours = null)
     {
     }
 
@@ -169,6 +170,7 @@ final class ReportService
                          ELSE GREATEST(0, TIMESTAMPDIFF(SECOND,
                               CASE WHEN c.queued_at IS NOT NULL AND c.queued_at <= c.accepted_at THEN c.queued_at ELSE c.opened_at END,
                               c.accepted_at)) END AS wait_s,
+                    CASE WHEN c.queued_at IS NOT NULL AND c.queued_at <= c.accepted_at THEN c.queued_at ELSE c.opened_at END AS wait_from,
                     CASE WHEN c.accepted_at IS NULL OR c.closed_at IS NULL OR c.status <> \'closed\' THEN NULL
                          ELSE GREATEST(0, TIMESTAMPDIFF(SECOND, c.accepted_at, c.closed_at)) END AS handle_s,
                     r.score, r.comment, r.answered_at, (r.id IS NOT NULL) AS rating_asked
@@ -183,7 +185,10 @@ final class ReportService
         );
         foreach ($rows as &$r) {
             $r['assigned_user_id'] = $r['assigned_user_id'] !== null ? (int) $r['assigned_user_id'] : null;
-            $r['wait_s'] = $r['wait_s'] !== null ? (int) $r['wait_s'] : null;
+            $r['wait_s'] = $r['wait_s'] === null ? null : ($this->hours
+                ? $this->hours->openSeconds($r['sector_id'] !== null ? (int) $r['sector_id'] : null, new \DateTimeImmutable($r['wait_from']), new \DateTimeImmutable($r['accepted_at']))
+                : (int) $r['wait_s']);
+            unset($r['wait_from']);
             $r['handle_s'] = $r['handle_s'] !== null ? (int) $r['handle_s'] : null;
             $r['rating_asked'] = (bool) $r['rating_asked'];
         }
