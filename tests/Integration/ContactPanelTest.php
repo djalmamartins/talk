@@ -76,12 +76,29 @@ final class ContactPanelTest extends DbTestCase
         $now = $this->routed('segunda via do boleto de novo');
 
         $doSup = $this->p->panel($sup, $now);
-        $this->assertSame([$man, $fin], array_map('intval', array_column($doSup['history'], 'id')));
-        $this->assertSame('o portão da garagem quebrou', $doSup['history'][0]['subject']);
+        $this->assertSame([$now, $man, $fin], array_column($doSup['history'], 'id'), 'do mais novo para o mais antigo, com o atual');
+        $this->assertTrue($doSup['history'][0]['current']);
+        $this->assertSame('o portão da garagem quebrou', $doSup['history'][1]['subject']);
 
         $daAna = $this->p->panel($this->agent(2, 'Financeiro'), $now);
-        $this->assertSame([$fin], array_map('intval', array_column($daAna['history'], 'id')), 'Financeiro não vê o chamado da Manutenção');
-        $this->assertSame(2, $daAna['history_total']);
+        $this->assertSame([$now, $fin], array_column($daAna['history'], 'id'), 'Financeiro não vê o chamado da Manutenção');
+        $this->assertSame(1, $daAna['history_hidden']);
+    }
+
+    public function test_protocolos_da_pessoa_de_5_em_5(): void
+    {
+        $ids = [];
+        for ($i = 1; $i <= 7; $i++) {
+            $ids[] = $id = $this->routed("segunda via do boleto $i");
+            $this->svc->close($id, $this->sup, 'ok');
+        }
+        $p1 = $this->p->panel($this->sup, $ids[6]);
+        $this->assertSame([$ids[6], $ids[5], $ids[4], $ids[3], $ids[2]], array_column($p1['history'], 'id'));
+        $this->assertSame([1, 2, 7], [$p1['history_page'], $p1['history_pages'], $p1['history_total']]);
+        $p2 = $this->p->history($this->sup, $ids[6], 2);
+        $this->assertSame([$ids[1], $ids[0]], array_column($p2['items'], 'id'));
+        $this->assertSame(2, $this->p->history($this->sup, $ids[6], 99)['page'], 'página além do fim volta para a última');
+        $this->assertMatchesRegularExpression('/^SAC\d{8}\d{4}$/', $p2['items'][0]['protocol']);
     }
 
     public function test_notas_do_contato_valem_para_todas_as_conversas_e_so_o_autor_apaga(): void

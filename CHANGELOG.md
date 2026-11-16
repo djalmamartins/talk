@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.20.0] — 2026-11-16
+### Alterado
+- **Protocolo no formato SAC**: `SAC` + data + sequência do dia, sem hífen (ex.: `SAC202611160003`).
+  É o número interno do Talk, para acompanhar e passar para outra pessoa; vai junto
+  (`talk_protocol`) quando o chamado é aberto no Help Desk do ERP, para saber de onde veio.
+  Os protocolos antigos (`AAAAMMDD-NNNNN`) continuam valendo e aparecem na busca.
+- **Protocolos da pessoa na lateral**: os atendimentos do contato, do protocolo mais novo para o
+  mais antigo, 5 por página, com o atual marcado ("este") e o total. Quem não vê outro setor
+  enxerga só os seus, com o aviso "+N em outros setores".
+
 ## [0.19.0] — 2026-11-15
 ### Adicionado
 - **Som de alerta** quando chega mensagem de cliente ou conversa nova na fila: um "plim" curto,

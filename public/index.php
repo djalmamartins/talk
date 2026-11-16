@@ -532,6 +532,8 @@ try {
                     $json($svc->setPriority($id, $me, (string) ($b['priority'] ?? '')));
                 case 'panel':
                     $json($app['contacts']->panel($me, $id));
+                case 'history':
+                    $json($app['contacts']->history($me, $id, (int) ($_GET['pagina'] ?? 1)));
                 case 'tags':
                     $json($app['contacts']->setContactTags($me, $id, (array) ($b['tag_ids'] ?? [])));
                 case 'contactnotes':

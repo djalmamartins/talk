@@ -69,8 +69,8 @@ Toda conversa do Talk vira um chamado no Help Desk. Usa `TicketService::open()` 
 
 ```json
 {
-  "talk_protocol": "20261114-00001",
-  "subject": "WhatsApp 20261114-00001",
+  "talk_protocol": "SAC202611140001",
+  "subject": "WhatsApp SAC202611140001",
   "area": "technical",
   "resident_id": 77,
   "condominium_id": 3,
@@ -173,6 +173,6 @@ curl -H "Authorization: Bearer $TOKEN" \
   "https://erp.connect.lab/api/v1/talk/people?phones=5531999998888,31999998888"
 
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"talk_protocol":"20261114-00001","subject":"WhatsApp 20261114-00001","area":"technical","requester_phone":"5531999998888"}' \
+  -d '{"talk_protocol":"SAC202611140001","subject":"WhatsApp SAC202611140001","area":"technical","requester_phone":"5531999998888"}' \
   https://erp.connect.lab/api/v1/talk/tickets
 ```

@@ -148,10 +148,6 @@ async function renderContact(contact, c) {
     ['Condomínio', d.condominio], ['Unidade', d.unidade], ['Vínculo', relLabel[d.vinculo] || d.vinculo], ['E-mail', d.email],
   ].filter(([, v]) => v);
   const tags = (panel?.tags || []).map((t) => tagChip(t)).join('');
-  const hist = (panel?.history || []).map((h) => `
-    <li data-open="${h.id}"><b>${esc(h.protocol)}</b><span>${esc(h.subject || '—')}</span>
-      <small class="st st-${h.status}">${convStatus[h.status]}</small><time>${hhmm(h.created_at).split(',')[0]}</time></li>`).join('');
-  const hidden = panel ? panel.history_total - panel.history.length : 0;
   const notes = (panel?.notes || []).map((n) => `
     <li><p>${esc(n.body)}</p><small>${esc((n.user_name || '').split(' (')[0])} · ${hhmm(n.created_at)}
       ${n.user_id == state.me.id || canManageQuick() ? `<button type="button" class="link" data-delnote="${n.id}">apagar</button>` : ''}</small></li>`).join('');
@@ -160,16 +156,36 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b></dd>` : ''}<dt>Protocolo do Talk</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
+      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b></dd>` : ''}<dt>Protocolo</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
-    <section><h4>Últimos chamados</h4>${hist ? `<ul class="cp-hist">${hist}</ul>` : '<p class="meta">Primeiro atendimento desta pessoa.</p>'}
-      ${hidden > 0 ? `<p class="meta">+${hidden} em outros setores</p>` : ''}</section>
+    <section><h4>Protocolos desta pessoa</h4><div id="cp-hist-box">${histHtml(panel)}</div></section>
     <section><h4>Notas do contato</h4>
       <form id="cnote-form" class="cnote-form"><textarea id="cnote" rows="2" maxlength="1000" placeholder="Ex.: prefere contato depois das 18h"></textarea><button>Salvar</button></form>
       <ul class="cp-notes">${notes}</ul></section>`;
   if (state.pickerOpen === c.id) { $('#tag-picker').hidden = false; renderTagPicker(); }
 }
+// protocolos da pessoa, do mais novo para o mais antigo, 5 por página (o atual aparece marcado)
+function histHtml(h) {
+  if (!h?.history?.length) return '<p class="meta">Primeiro atendimento desta pessoa.</p>';
+  const items = h.history.map((x) => `
+    <li${x.current ? ' class="current" aria-current="true"' : ` data-open="${x.id}"`}><b>${esc(x.protocol)}${x.current ? '<em>este</em>' : ''}</b><span>${esc(x.subject || '—')}</span>
+      <small class="st st-${x.status}">${convStatus[x.status]}</small><time>${hhmm(x.created_at).split(',')[0]}</time></li>`).join('');
+  const pager = h.history_pages > 1 ? `<nav class="cp-pager" aria-label="Páginas de protocolos">
+      <button type="button" data-hpage="${h.history_page - 1}" ${h.history_page <= 1 ? 'disabled' : ''} aria-label="Mais novos">‹</button>
+      <span>${h.history_page} de ${h.history_pages} · ${h.history_total} protocolos</span>
+      <button type="button" data-hpage="${h.history_page + 1}" ${h.history_page >= h.history_pages ? 'disabled' : ''} aria-label="Mais antigos">›</button></nav>` : '';
+  return `<ul class="cp-hist">${items}</ul>${pager}${h.history_hidden > 0 ? `<p class="meta">+${h.history_hidden} em outros setores</p>` : ''}`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-hpage]');
+  if (!b || b.disabled || !state.current) return;
+  try {
+    const r = await api(`/api/conversations/${state.current}/history?pagina=${b.dataset.hpage}`);
+    Object.assign(state.panel, { history: r.items, history_page: r.page, history_pages: r.pages, history_total: r.total, history_hidden: r.hidden });
+    $('#cp-hist-box').innerHTML = histHtml(state.panel);
+  } catch (err) { toast(err.message); }
+});
 function renderTagPicker() {
   const mine = (state.panel.tags || []).map((t) => t.id);
   const all = state.tags || [];

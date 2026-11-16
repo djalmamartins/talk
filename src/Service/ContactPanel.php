@@ -24,27 +24,53 @@ final class ContactPanel
     {
         $conv = $this->conversation($u, $convId);
         $contactId = (int) $conv['contact_id'];
-        [$where, $params] = $this->policy->sqlFilter($u, 'c');
-        $history = $this->db->all(
-            "SELECT c.id, c.protocol, c.status, c.opened_at AS created_at, c.closed_at, s.name AS sector_name,
-                    (SELECT LEFT(COALESCE(NULLIF(m.body, ''), '(arquivo)'), 80) FROM talk_messages m
-                      WHERE m.conversation_id = c.id AND m.direction = 'in' ORDER BY m.id LIMIT 1) AS subject
-               FROM talk_conversations c LEFT JOIN talk_sectors s ON s.id = c.sector_id
-              WHERE c.contact_id = :contact AND c.id <> :conv AND $where
-              ORDER BY c.id DESC LIMIT 5",
-            $params + ['contact' => $contactId, 'conv' => $convId]
-        );
-        $total = (int) $this->db->one('SELECT COUNT(*) n FROM talk_conversations WHERE contact_id = ? AND id <> ?', [$contactId, $convId])['n'];
+        $h = $this->historyPage($u, $conv, 1);
         return [
             'tags' => $this->contactTags($contactId),
-            'history' => $history,
-            'history_total' => $total, // inclui conversas de outros setores, que não aparecem
+            'history' => $h['items'],
+            'history_page' => $h['page'],
+            'history_pages' => $h['pages'],
+            'history_total' => $h['total'],
+            'history_hidden' => $h['hidden'], // de outros setores, que esta pessoa não vê
             'notes' => $this->db->all(
                 'SELECT n.id, n.body, n.created_at, n.user_id, u.name AS user_name FROM talk_contact_notes n
                  LEFT JOIN talk_users u ON u.id = n.user_id WHERE n.contact_id = ? ORDER BY n.id DESC LIMIT 20',
                 [$contactId]
             ),
         ];
+    }
+
+    public const HISTORY_PER_PAGE = 5;
+
+    /** Atendimentos da pessoa (inclusive o atual), do protocolo mais novo para o mais antigo, 5 por página. */
+    public function history(StaffMember $u, int $convId, int $page): array
+    {
+        return $this->historyPage($u, $this->conversation($u, $convId), $page);
+    }
+
+    private function historyPage(StaffMember $u, array $conv, int $page): array
+    {
+        $contactId = (int) $conv['contact_id'];
+        [$where, $params] = $this->policy->sqlFilter($u, 'c');
+        $params['contact'] = $contactId;
+        $total = (int) $this->db->one("SELECT COUNT(*) n FROM talk_conversations c WHERE c.contact_id = :contact AND $where", $params)['n'];
+        $all = (int) $this->db->one('SELECT COUNT(*) n FROM talk_conversations WHERE contact_id = ?', [$contactId])['n'];
+        $pages = max(1, (int) ceil($total / self::HISTORY_PER_PAGE));
+        $page = min(max(1, $page), $pages);
+        $items = $this->db->all(
+            "SELECT c.id, c.protocol, c.helpdesk_protocol, c.status, c.opened_at AS created_at, c.closed_at, s.name AS sector_name,
+                    (SELECT LEFT(COALESCE(NULLIF(m.body, ''), '(arquivo)'), 80) FROM talk_messages m
+                      WHERE m.conversation_id = c.id AND m.direction = 'in' ORDER BY m.id LIMIT 1) AS subject
+               FROM talk_conversations c LEFT JOIN talk_sectors s ON s.id = c.sector_id
+              WHERE c.contact_id = :contact AND $where
+              ORDER BY c.id DESC LIMIT " . self::HISTORY_PER_PAGE . ' OFFSET ' . (($page - 1) * self::HISTORY_PER_PAGE),
+            $params
+        );
+        foreach ($items as &$it) {
+            $it['id'] = (int) $it['id'];
+            $it['current'] = $it['id'] === (int) $conv['id'];
+        }
+        return ['items' => $items, 'page' => $page, 'pages' => $pages, 'total' => $total, 'hidden' => $all - $total];
     }
 
     // ------------------------------------------------------------ etiquetas
