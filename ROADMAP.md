@@ -27,4 +27,22 @@ empresa só (`docs/porte-atendechat.md`).
 | U3 | Som de alerta ao chegar mensagem, sino sem a bolinha por cima, botão "Abrir chamado" no Help Desk | pedido de 15/11 | feito (0.19.0); chamado real e nomes do ERP dependem da API do ERP (issue #400) |
 | U4 | Protocolo SAC sem hífen; protocolos da pessoa na lateral, do maior para o menor, 5 por página | pedido de 16/11 | feito (0.20.0) |
 | U5 | Fila instantânea; Jack espera 5 s/30 s; espera não conta fora do horário e feriados | pedidos de 16/11 | feito (0.20.1 e 0.21.0) |
-| J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |
+| J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
+
+## Jack V1
+
+Plano consolidado em `docs/jack/MANIFESTO.md` (seção 13), que separa a **Jack V1** (primeiro
+atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor continua sendo a ADR 0004.
+
+| Etapa | Entrega | Depende de | Situação |
+|---|---|---|---|
+| JV1.0 | Manifesto da Jack; decidir se ela conversa ou só encaminha (registrar na ADR 0004) | Djalma | manifesto feito; decisão pendente |
+| JV1.1 | Painel de acertos na tela do supervisor | só o Talk | a fazer |
+| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | a fazer |
+| JV1.3 | Resumo para o atendente (nota interna com assunto e protocolos anteriores) | só o Talk | a fazer |
+| JV1.4 | Urgência: prioridade alta e aviso ao gerente | só o Talk | a fazer |
+| JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |
+| JV1.6 | Lembrete de espera com modelos aprovados editáveis | só o Talk | a fazer |
+| JV1.7 | (Opcional) pergunta de desempate com texto aprovado | decisão da JV1.0 | a decidir |
+| JV1.8 | Boleto pelo WhatsApp | rota `talk/charges` no ERP | aguardando ERP |
+| JV1.9 | (Opcional) IA só para classificar, lista fechada, custo limitado | JV1.2 + aprovação | a decidir |

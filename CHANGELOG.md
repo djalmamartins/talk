@@ -1,5 +1,12 @@
 # Changelog
 
+## [Não lançado]
+
+### Documentação
+- `docs/jack/MANIFESTO.md`: manifesto e especificação da Jack (V1 e Completa), confrontado com o
+  código da 0.21.0, com a tabela do que está feito, planejado e faltando. Plano da Jack V1 em etapas
+  no `ROADMAP.md`.
+
 ## [0.21.0] — 2026-11-16
 ### Alterado
 - **Tempo de espera só conta com o setor atendendo.** Fora do horário do setor e nos feriados a
