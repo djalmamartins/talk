@@ -505,4 +505,9 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 .cp-pager button{width:30px;height:28px;padding:0;border-radius:8px;font-size:16px;line-height:1}
 .cp-pager button:disabled{opacity:.4;cursor:default}
 .paused{display:block;font-size:11px;color:var(--muted)}
+/* status do atendimento */
+.status-pick{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:2px 4px 2px 10px;background:var(--panel);font-size:13px}
+.status-pick span{color:var(--muted);font-size:12px}.status-pick select{border:0;background:none;font-weight:600;padding:4px 2px;color:var(--text);cursor:pointer}
+.status-pick.st-open{border-color:#9fd3b5}.status-pick.st-pending{border-color:#d8c27a}.status-pick.st-waiting_customer,.status-pick.st-waiting_internal{border-color:#e0a96d;background:#fff6ec}.status-pick.st-closed{background:#f1f2f1}
+.items .stage{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:0 6px;background:#fdebd6;color:#8a4b0f}
 [hidden]{display:none!important}

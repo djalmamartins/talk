@@ -75,7 +75,9 @@ class ConversationService
                 'ack' => 'received',
             ]);
             $this->db->run(
-                'UPDATE talk_conversations SET unread = unread + 1, last_message_at = NOW() WHERE id = ?',
+                // a resposta do cliente tira o "aguardando cliente"
+                "UPDATE talk_conversations SET unread = unread + 1, last_message_at = NOW(),
+                        stage = IF(stage = 'waiting_customer', NULL, stage) WHERE id = ?",
                 [$conv['id']]
             );
             $conv = $this->get((int) $conv['id']);
@@ -431,6 +433,77 @@ class ConversationService
         });
     }
 
+    public const STATUS_LABELS = [
+        'pending' => 'Na fila',
+        'open' => 'Em atendimento',
+        'waiting_customer' => 'Aguardando cliente',
+        'waiting_internal' => 'Aguardando retorno interno',
+    ];
+
+    /**
+     * Muda o status pelo seletor da conversa. Encerrar tem a própria ação (close()).
+     * - pending: devolve para a fila do setor, sem atendente;
+     * - open: assume o atendimento (na fila) ou reabre um encerrado;
+     * - waiting_customer / waiting_internal: continua com o atendente, marcado como aguardando.
+     * Cada mudança fica como nota interna no histórico.
+     */
+    public function setStatus(int $convId, StaffMember $u, string $status): array
+    {
+        if (!isset(self::STATUS_LABELS[$status])) {
+            throw new DomainError('Status inválido.');
+        }
+        return $this->db->transaction(function () use ($convId, $u, $status) {
+            $conv = $this->lock($convId);
+            $this->authorize($u, $conv);
+            if ($conv['status'] === 'bot') {
+                throw new DomainError('A conversa ainda está na triagem.');
+            }
+            $current = $conv['status'] === 'open' && $conv['stage'] ? $conv['stage'] : $conv['status'];
+            if ($current === $status) {
+                return $conv;
+            }
+            if ($conv['status'] === 'closed') {
+                if ($status !== 'open') {
+                    throw new DomainError('Reabra o atendimento antes de mudar o status.');
+                }
+                $other = $this->db->one(
+                    "SELECT id, protocol FROM talk_conversations WHERE contact_id = ? AND channel_id = ? AND status <> 'closed' AND id <> ? LIMIT 1",
+                    [$conv['contact_id'], $conv['channel_id'], $convId]
+                );
+                if ($other) {
+                    throw new DomainError('Este contato já tem outro atendimento aberto (' . $other['protocol'] . ').');
+                }
+                $this->db->run(
+                    "UPDATE talk_conversations SET status = 'open', stage = NULL, assigned_user_id = ?, closed_at = NULL, closed_by = NULL,
+                            accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?",
+                    [$u->userId, $convId]
+                );
+                $note = 'Atendimento reaberto.';
+            } elseif ($status === 'pending') {
+                $this->db->run(
+                    "UPDATE talk_conversations SET status = 'pending', stage = NULL, assigned_user_id = NULL, queued_at = NOW() WHERE id = ?",
+                    [$convId]
+                );
+                $note = 'Status alterado para Na fila (voltou para a fila do setor).';
+            } else {
+                $this->db->run(
+                    "UPDATE talk_conversations SET status = 'open', stage = ?, assigned_user_id = COALESCE(assigned_user_id, ?),
+                            accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?",
+                    [$status === 'open' ? null : $status, $u->userId, $convId]
+                );
+                $note = 'Status alterado para ' . self::STATUS_LABELS[$status] . '.';
+            }
+            $noteId = $this->db->insert('talk_messages', [
+                'conversation_id' => $convId, 'direction' => 'internal', 'author_user_id' => $u->userId,
+                'type' => 'status', 'body' => $note, 'ack' => 'received',
+            ]);
+            $conv = $this->get($convId);
+            $this->events->publish('message.created', $convId, $this->sector($conv), $u->userId, ['message_id' => $noteId, 'direction' => 'internal', 'type' => 'status', 'body' => $note]);
+            $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
+            return $conv;
+        });
+    }
+
     /** Responde ao cliente. Se estava na fila, aceita automaticamente. */
     public function reply(int $convId, StaffMember $u, string $text, ?string $signature = null): int
     {
@@ -543,7 +616,7 @@ class ConversationService
                 'ack' => 'received',
             ]);
             $this->db->run(
-                'UPDATE talk_conversations SET sector_id = ?, status = ?, assigned_user_id = ?, history_from_message_id = ?,
+                'UPDATE talk_conversations SET sector_id = ?, status = ?, stage = NULL, assigned_user_id = ?, history_from_message_id = ?,
                         queued_at = IF(? = \'pending\', NOW(), queued_at) WHERE id = ?',
                 [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
             );
@@ -575,7 +648,7 @@ class ConversationService
                 ]);
             }
             $this->db->run(
-                "UPDATE talk_conversations SET status = 'closed', closed_at = NOW(), closed_by = ?, unread = 0 WHERE id = ?",
+                "UPDATE talk_conversations SET status = 'closed', stage = NULL, closed_at = NOW(), closed_by = ?, unread = 0 WHERE id = ?",
                 [$u->userId, $convId]
             );
             if ($conv['helpdesk_ticket_id']) {
@@ -780,6 +853,7 @@ class ConversationService
             'protocol' => $conv['protocol'],
             'ticket' => self::ticketNumber($conv),
             'status' => $conv['status'],
+            'stage' => $conv['stage'] ?? null,
             'sector_id' => $this->sector($conv),
             'assigned_user_id' => $conv['assigned_user_id'] !== null ? (int) $conv['assigned_user_id'] : null,
             'unread' => (int) $conv['unread'],

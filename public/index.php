@@ -534,6 +534,8 @@ try {
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
                     $json($svc->accept($id, $me));
+                case 'status':
+                    $json($svc->setStatus($id, $me, (string) ($b['status'] ?? '')));
                 case 'priority':
                     $json($svc->setPriority($id, $me, (string) ($b['priority'] ?? '')));
                 case 'panel':

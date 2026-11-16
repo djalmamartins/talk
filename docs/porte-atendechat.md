@@ -25,6 +25,9 @@ de cada item no Talk PHP. Atualizado a cada rodada de trabalho.
 | UserRating | Avaliação: feito (0.14.0). Ao encerrar um atendimento com atendente, pergunta a nota de 1 a 5 (aceita "5", "4 - comentário", estrelas, "ótimo"); vale por 24 h; desliga com TALK_RATING=off | S7 |
 | Settings (horário) | Horário de atendimento: feito (0.15.0). Até 3 faixas por dia; cada setor segue o geral, tem horário próprio ou atende 24 h; feriados (com os nacionais do ano num clique); mensagem fora do horário com variáveis, uma vez por atendimento, no lugar do "já vamos te atender" da Jack. Desligado até o supervisor ligar | S8a |
 
+
+Tickets (UpdateTicketService, status e reabrir): o seletor de status da conversa ficou pronto na 0.22.0. Além do aberto/pendente/fechado do Atendechat, tem "Aguardando cliente" e "Aguardando retorno interno"; reabrir só quando o contato não tem outro atendimento aberto (mesma regra do Atendechat).
+
 ## Fica de fora (e por quê)
 | Atendechat | Motivo |
 |---|---|

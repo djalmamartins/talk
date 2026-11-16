@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.22.0] — 2026-11-16
+### Adicionado
+- **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando
+  cliente, Aguardando retorno interno e Encerrado. "Na fila" devolve para a fila do setor, sem
+  atendente; "Encerrado" abre a tela de encerrar de sempre. Num atendimento encerrado, o seletor
+  oferece "Reabrir", bloqueado se o contato já tem outro atendimento aberto.
+- "Aguardando cliente" sai sozinho quando o cliente responde; "Aguardando retorno interno" fica até
+  o atendente mudar. Os dois aparecem como etiqueta laranja na lista de conversas.
+- Cada mudança fica no histórico como nota interna (🔁 "Status alterado para…").
+- Migração 019: coluna `stage` em `talk_conversations` (só acrescenta).
+### Observação
+- O status não é enviado ao Help Desk do ERP; reabrir no Talk não reabre o chamado de lá (a API do
+  ERP ainda não tem essa ação).
+
 ## [0.21.2] — 2026-11-16
 ### Corrigido
 - O aviso do sino ("A mais antiga espera há…") também deixa de contar o tempo com o setor fechado

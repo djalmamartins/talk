@@ -27,4 +27,5 @@ empresa só (`docs/porte-atendechat.md`).
 | U3 | Som de alerta ao chegar mensagem, sino sem a bolinha por cima, botão "Abrir chamado" no Help Desk | pedido de 15/11 | feito (0.19.0); chamado real e nomes do ERP dependem da API do ERP (issue #400) |
 | U4 | Protocolo SAC sem hífen (SAC26111600004, 0.21.1); protocolos da pessoa na lateral, do maior para o menor, 5 por página | pedido de 16/11 | feito (0.20.0) |
 | U5 | Fila instantânea; Jack espera 5 s/30 s; espera não conta fora do horário e feriados | pedidos de 16/11 | feito (0.20.1 e 0.21.0) |
+| U6 | Mudar o status do atendimento (fila, em atendimento, aguardando cliente/retorno interno, encerrado, reabrir) | pedido de 16/11 | feito (0.22.0) |
 | J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |
