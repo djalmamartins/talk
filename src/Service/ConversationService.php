@@ -231,9 +231,9 @@ class ConversationService
     }
 
     /**
-     * Protocolo do atendimento: SAC + AAAAMMDD + sequência do dia com 4 dígitos (ex.: SAC202611160003),
-     * sem colisão entre processos. "SAC" mostra que o número veio do Talk. Os protocolos antigos
-     * (AAAAMMDD-NNNNN) continuam valendo e aparecem na busca.
+     * Protocolo do atendimento: SAC + AAMMDD + sequência do dia com 5 dígitos (ex.: SAC26111600004),
+     * sem colisão entre processos. "SAC" mostra que o número veio do Talk. Os números antigos ficam em
+     * legacy_protocol (migração 018) e continuam achando a conversa na busca.
      */
     public function nextProtocol(): string
     {
@@ -243,7 +243,7 @@ class ConversationService
             [$day]
         );
         $n = (int) $this->db->one('SELECT `last_value` FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
-        return 'SAC' . date('Ymd') . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+        return 'SAC' . date('ymd') . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
     }
 
     // ------------------------------------------------------------------ triagem (Jack)

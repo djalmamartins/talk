@@ -496,8 +496,11 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 .emoji-pick button:hover,.emoji-pick button:focus-visible{background:#e8f3ec}
 #emoji-btn{border:0;background:none;padding:0;height:auto}
 .msg code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em;background:rgba(0,0,0,.05);padding:0 3px;border-radius:4px}
-.cp-hist li.current{background:#e8f3ec;border-radius:8px;cursor:default}
-.cp-hist li em{font-style:normal;font-size:11px;color:var(--primary-dark);margin-left:6px}
+.cp-proto li{grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:7px 10px}
+.cp-proto li b{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.cp-proto time{grid-row:auto;grid-column:auto}.cp-proto .st{grid-row:auto;grid-column:auto;min-width:86px;text-align:center}
+.cp-proto li.current{background:#e8f3ec;box-shadow:inset 3px 0 0 var(--primary);cursor:default}
+.cp-proto li.current b{color:var(--primary-dark)}
 .cp-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;font-size:12px;color:var(--muted)}
 .cp-pager button{width:30px;height:28px;padding:0;border-radius:8px;font-size:16px;line-height:1}
 .cp-pager button:disabled{opacity:.4;cursor:default}

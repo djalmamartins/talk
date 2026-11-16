@@ -53,6 +53,20 @@ final class InboxAndRealtimeTest extends DbTestCase
         $this->assertSame([], $q->search($this->agent(20, 'Manutenção'), ['q' => 'boleto']));
     }
 
+    public function test_busca_pelo_numero_do_protocolo_novo_ou_antigo(): void
+    {
+        $id = $this->routed('boleto de outubro atrasado');
+        $this->svc->reply($id, $this->agent(10, 'Financeiro'), 'Vou gerar o boleto');
+        $this->db->run("UPDATE talk_conversations SET legacy_protocol = '20261115-00004' WHERE id = ?", [$id]);
+        $proto = $this->conv($id)['protocol'];
+        $q = new InboxQuery($this->db, new AccessPolicy());
+        foreach ([$proto, strtolower($proto), '20261115-00004'] as $term) {
+            $r = $q->search($this->agent(10, 'Financeiro'), ['q' => $term, 'contact' => $term]);
+            $this->assertSame([$id], array_column($r, 'conversation_id'), "busca por $term: uma linha, a conversa");
+        }
+        $this->assertSame([], $q->search($this->agent(20, 'Manutenção'), ['q' => $proto]), 'outro setor não acha');
+    }
+
     public function test_sse_entrega_so_eventos_permitidos_e_transferencia_avisa_origem(): void
     {
         $sse = new SseStream($this->db, new AccessPolicy());

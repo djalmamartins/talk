@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.21.1] — 2026-11-16
+### Alterado
+- **Protocolo SAC + AAMMDD + 5 dígitos** (ex.: `SAC26111600004`). A migração 018 passa os
+  protocolos já emitidos para esse formato (os de 0.20 e os antigos `AAAAMMDD-NNNNN`); o número
+  antigo fica guardado em `legacy_protocol` e continua achando a conversa na busca. Não apaga nada.
+- **Protocolos da pessoa em uma linha por item**: número, data e situação; o atual com fundo verde e
+  uma barra à esquerda (sem o "este"). O assunto aparece ao passar o mouse.
+### Corrigido
+- Busca por número de protocolo (novo, antigo ou chamado CH…) acha a conversa pelo número, uma
+  linha por conversa. Antes dependia de o número aparecer no texto de alguma mensagem.
+- O navegador não fica mais com o CSS/JS da versão anterior depois de atualizar: os arquivos de
+  tela levam a versão no endereço.
+
 ## [0.21.0] — 2026-11-16
 ### Alterado
 - **Tempo de espera só conta com o setor atendendo.** Fora do horário do setor e nos feriados a

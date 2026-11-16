@@ -168,14 +168,15 @@ async function renderContact(contact, c) {
 // protocolos da pessoa, do mais novo para o mais antigo, 5 por página (o atual aparece marcado)
 function histHtml(h) {
   if (!h?.history?.length) return '<p class="meta">Primeiro atendimento desta pessoa.</p>';
+  // uma linha por protocolo: número · data · situação; o assunto aparece ao passar o mouse
   const items = h.history.map((x) => `
-    <li${x.current ? ' class="current" aria-current="true"' : ` data-open="${x.id}"`}><b>${esc(x.protocol)}${x.current ? '<em>este</em>' : ''}</b><span>${esc(x.subject || '—')}</span>
-      <small class="st st-${x.status}">${convStatus[x.status]}</small><time>${hhmm(x.created_at).split(',')[0]}</time></li>`).join('');
+    <li${x.current ? ' class="current" aria-current="true" title="Atendimento aberto agora"' : ` data-open="${x.id}" title="${esc(x.subject || '')}"`}>
+      <b>${esc(x.protocol)}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
   const pager = h.history_pages > 1 ? `<nav class="cp-pager" aria-label="Páginas de protocolos">
       <button type="button" data-hpage="${h.history_page - 1}" ${h.history_page <= 1 ? 'disabled' : ''} aria-label="Mais novos">‹</button>
       <span>${h.history_page} de ${h.history_pages} · ${h.history_total} protocolos</span>
       <button type="button" data-hpage="${h.history_page + 1}" ${h.history_page >= h.history_pages ? 'disabled' : ''} aria-label="Mais antigos">›</button></nav>` : '';
-  return `<ul class="cp-hist">${items}</ul>${pager}${h.history_hidden > 0 ? `<p class="meta">+${h.history_hidden} em outros setores</p>` : ''}`;
+  return `<ul class="cp-hist cp-proto">${items}</ul>${pager}${h.history_hidden > 0 ? `<p class="meta">+${h.history_hidden} em outros setores</p>` : ''}`;
 }
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-hpage]');
