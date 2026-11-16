@@ -49,4 +49,19 @@ final class NotificationsTest extends DbTestCase
         $this->assertSame(['schedules' => 1, 'channels' => 1], $kinds($all)); // a conversa não é dele
         $this->assertSame(2, $all['count']);
     }
+
+    public function test_espera_do_sino_nao_conta_o_setor_fechado(): void
+    {
+        $id = $this->routed('preciso da segunda via do boleto');
+        $this->db->run('UPDATE talk_conversations SET queued_at = NOW() - INTERVAL 3 HOUR WHERE id = ?', [$id]);
+        $hours = new \ConnectTalk\Service\BusinessHours($this->db);
+        $fin = $this->agent(10, 'Financeiro');
+        $bell = fn () => (new Notifications($this->db, new AccessPolicy(), $hours))->for($fin)['items'][0]['text'];
+        $this->assertSame('A mais antiga espera há 3 horas.', $bell());
+        // setor só abre daqui a 3 dias: as últimas 3 horas foram com ele fechado, a espera não corre
+        $week = array_fill_keys(array_map('strval', range(0, 6)), []);
+        $week[(new \DateTimeImmutable($this->db->one('SELECT NOW() n')['n']))->modify('+3 day')->format('w')] = [['08:00', '12:00']];
+        $hours->save(new StaffMember(1, true), ['enabled' => true, 'week' => $week]);
+        $this->assertSame('A mais antiga chegou agora.', $bell());
+    }
 }

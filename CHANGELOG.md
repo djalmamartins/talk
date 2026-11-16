@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.21.2] — 2026-11-16
+### Corrigido
+- O aviso do sino ("A mais antiga espera há…") também deixa de contar o tempo com o setor fechado
+  e os feriados, como o Painel e a Fila (faltou na 0.21.0).
+
 ## [0.21.1] — 2026-11-16
 ### Alterado
 - **Protocolo SAC + AAMMDD + 5 dígitos** (ex.: `SAC26111600004`). A migração 018 passa os
