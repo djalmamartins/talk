@@ -164,7 +164,7 @@ importa, respeitar permissões e permitir correção.
 | Pergunta de desempate | — | PENDENTE (seção 2) |
 | Urgência | coluna `priority` existe (fila), a Jack não marca | PLANEJADO |
 | Registro de cada decisão | `talk_jack_decisions` (intenção, pontos, termos, setor sugerido e final) | FEITO |
-| Taxa de acertos | `GET /api/jack/stats` (supervisor e gerentes) | PARCIAL (sem tela) |
+| Taxa de acertos | `GET /api/jack/stats` e seção "Acertos da Jack" no Painel (supervisor e gerentes) | FEITO (0.22.0) |
 
 ## 8. Ferramentas e operações
 
@@ -275,7 +275,7 @@ Para ligar cada etapa em produção:
 | Encaminhar calada | FEITO | ADR 0004, 0.18.0 |
 | Fora do escopo → transfere | FEITO | `Jack::converse()` |
 | Aviso fora do horário | FEITO | `BusinessHours` |
-| Registro de decisões e taxa de acertos | FEITO (sem tela) | JV1.1 |
+| Registro de decisões e taxa de acertos | FEITO | Painel, JV1.1 (0.22.0) |
 | Identificação pelo telefone no ERP | PARCIAL | PR erp#538/talk#1 |
 | Chamado no Help Desk com protocolo | PARCIAL | PR erp#538/talk#1 |
 | Conversa progressiva / perguntas | PENDENTE | seção 2, JV1.7 |

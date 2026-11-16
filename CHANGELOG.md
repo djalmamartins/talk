@@ -1,6 +1,11 @@
 # Changelog
 
-## [Não lançado]
+## [0.22.0] — 2026-11-16
+### Adicionado
+- **Acertos da Jack no Painel** (Jack V1, etapa JV1.1). Supervisor e gerentes veem a taxa de acerto
+  da Jack no período, por setor sugerido, as palavras que mais levaram a erro e os 20 últimos erros
+  (protocolo, para onde ela mandou e onde a conversa ficou), com link para a conversa. O gerente vê
+  só o que passou pelos setores dele. O texto do cliente não aparece no painel.
 
 ### Documentação
 - `docs/jack/MANIFESTO.md`: manifesto e especificação da Jack (V1 e Completa), confrontado com o

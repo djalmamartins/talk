@@ -38,6 +38,19 @@
     <section class="card"><h3>Notas dos clientes <small class="meta" id="rp-rate-note"></small></h3><div class="rp-dist" id="rp-dist"></div></section>
     <section class="card"><h3>Últimas avaliações</h3><ul class="rp-comments" id="rp-comments"></ul></section>
   </div>
+<?php if (!empty($canBulk)): ?>
+  <section class="card jk" id="jk" aria-labelledby="jk-title">
+    <h3 id="jk-title">Acertos da Jack <small class="meta" id="jk-note"></small></h3>
+    <p class="meta">A Jack acerta quando a conversa fica no setor para onde ela encaminhou. Se um atendente transfere para outro setor, conta como erro. Conta do início do período até hoje.</p>
+    <div class="kpis rp-kpis" id="jk-kpis"></div>
+    <div class="rp-row">
+      <div><h4>Por setor sugerido</h4><div class="q-scroll"><table class="rp-table"><thead><tr><th>Setor</th><th class="r">Acertos</th><th class="r">Erros</th><th class="r">Taxa</th></tr></thead><tbody id="jk-sectors"></tbody></table></div></div>
+      <div><h4>Palavras que mais levaram a erro</h4><ul class="jk-terms" id="jk-terms"></ul></div>
+    </div>
+    <h4>Últimos erros</h4>
+    <div class="q-scroll"><table class="rp-table"><thead><tr><th>Protocolo</th><th>Contato</th><th>Jack mandou para</th><th>Ficou em</th><th>Palavras</th><th class="r">Quando</th></tr></thead><tbody id="jk-errors"></tbody></table></div>
+  </section>
+<?php endif; ?>
 </main>
 </div>
 </div>

@@ -334,7 +334,8 @@ try {
             if (!$me->supervisor && $me->managerSectors === []) {
                 $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
             }
-            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+            // gerente vê só o que passou pelos setores dele; supervisor vê tudo
+            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30))), $me->supervisor ? null : $me->managerSectors));
         }
         if ($path === '/api/contacts') {
             $json($app['contactbook']->list($me, $_GET));
