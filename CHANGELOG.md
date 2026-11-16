@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.20.1] — 2026-11-16
+### Corrigido
+- **Mensagem demorava a aparecer na fila.** A Jack esperava 60 s sem mensagem nova antes de
+  encaminhar. Agora, quando o assunto já está claro ("estamos sem água no bloco B"), a conversa
+  entra na fila do setor na hora. Sem assunto claro, a espera caiu para 15 s; só um "bom dia",
+  para 2 min (era 10). Padrões em `JACK_WAIT_SECONDS` e `JACK_MAX_WAIT_SECONDS`.
+- No laboratório, a tela aberta faz a triagem e os envios a cada ~2 s (antes dependia da próxima
+  ação na tela, até ~25 s).
+
 ## [0.20.0] — 2026-11-16
 ### Alterado
 - **Protocolo no formato SAC**: `SAC` + data + sequência do dia, sem hífen (ex.: `SAC202611160003`).

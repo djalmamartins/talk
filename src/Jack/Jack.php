@@ -7,7 +7,8 @@ use ConnectTalk\Support\Db;
 
 /**
  * Jack (Jaqueline): faz a triagem de toda conversa nova, sem menu de números.
- *  - Espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
+ *  - Assunto claro na mensagem → vai para a fila do setor na hora (sem esperar).
+ *  - Assunto ainda não claro → espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
  *  - Assunto claro → abre o chamado no setor certo, EM SILÊNCIO (ADR 0004: direcionar não gera
  *    mensagem ao cliente). Quem fala com a pessoa é o atendente do setor.
  *  - Só cumprimentou ("bom dia") → não responde; espera a pessoa dizer o assunto.
@@ -24,8 +25,8 @@ final class Jack
         private Db $db,
         private Classifier $classifier = new Classifier(),
         private string $mode = 'auto',
-        private int $waitSeconds = 60,
-        private int $maxWaitSeconds = 600,
+        private int $waitSeconds = 15,
+        private int $maxWaitSeconds = 120,
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
     ) {
@@ -43,6 +44,16 @@ final class Jack
     public function typingSeconds(string $text): int
     {
         return $this->typingBaseSeconds <= 0 ? 0 : min(90, $this->typingBaseSeconds + intdiv(mb_strlen($text), 8));
+    }
+
+    /** O assunto já está claro o bastante para ir para a fila sem esperar a pessoa terminar? */
+    public function isClear(string $text): bool
+    {
+        if ($this->mode === 'off') {
+            return true;
+        }
+        $r = $this->classifier->classify($text);
+        return $r['sector'] !== null && $r['confident'];
     }
 
     /** A pessoa parou de escrever (ou já esperou demais)? */

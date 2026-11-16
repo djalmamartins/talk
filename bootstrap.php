@@ -80,8 +80,8 @@ $jack = new Jack(
     $db,
     new Classifier(),
     (string) $env('JACK_MODE', 'auto'),
-    (int) $env('JACK_WAIT_SECONDS', '60'),       // espera a pessoa parar de escrever
-    (int) $env('JACK_MAX_WAIT_SECONDS', '600'),  // depois disso vai para o setor padrão
+    (int) $env('JACK_WAIT_SECONDS', '15'),       // espera a pessoa parar de escrever
+    (int) $env('JACK_MAX_WAIT_SECONDS', '120'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso

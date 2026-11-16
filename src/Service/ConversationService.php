@@ -270,7 +270,8 @@ class ConversationService
         );
         $routed = 0;
         foreach ($rows as $r) {
-            if (!$this->jack->isDue((int) $r['quiet'], (int) $r['age'])) {
+            // assunto já claro ("estamos sem água") vai para a fila na hora; senão espera a pessoa terminar
+            if (!$this->jack->isDue((int) $r['quiet'], (int) $r['age']) && !$this->jack->isClear($this->inboundText((int) $r['id']))) {
                 continue;
             }
             $routed += (int) $this->db->transaction(function () use ($r): bool {
@@ -677,6 +678,14 @@ class ConversationService
                 [(int) $t['id'], $t['protocol'] ?? null, $conv['id']]
             );
         }
+    }
+
+    private function inboundText(int $convId): string
+    {
+        return implode("\n", array_column($this->db->all(
+            "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type IN ('text','image','video') AND body IS NOT NULL ORDER BY id",
+            [$convId]
+        ), 'body'));
     }
 
     /** Contato com o que veio do cadastro do ERP (condomínio, unidade) em "details", para o chamado. */

@@ -56,8 +56,11 @@ final class SseStream
         return $from !== null && in_array((int) $from, $u->sectors(), true);
     }
 
-    /** Laço de streaming (usado pelo controller). */
-    public function stream(StaffMember $u, int $lastId, int $maxSeconds = 25, float $pollSeconds = 1.0): void
+    /**
+     * Laço de streaming (usado pelo controller). $tick roda a cada ~$tickSeconds enquanto o stream
+     * está aberto: no laboratório (sem worker) é ele que faz a triagem e os envios sem esperar.
+     */
+    public function stream(StaffMember $u, int $lastId, int $maxSeconds = 25, float $pollSeconds = 1.0, ?\Closure $tick = null, float $tickSeconds = 2.0): void
     {
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
@@ -69,7 +72,16 @@ final class SseStream
         echo "retry: 2000\n\n";
         $deadline = microtime(true) + $maxSeconds;
         $lastBeat = microtime(true);
+        $lastTick = 0.0;
         while (microtime(true) < $deadline && !connection_aborted()) {
+            if ($tick !== null && microtime(true) - $lastTick >= $tickSeconds) {
+                $lastTick = microtime(true);
+                try {
+                    $tick();
+                } catch (\Throwable $e) {
+                    error_log('[talk] worker no stream: ' . $e->getMessage());
+                }
+            }
             foreach ($this->fetch($u, $lastId) as $ev) {
                 $lastId = $ev['id'];
                 echo "id: {$ev['id']}\nevent: {$ev['type']}\ndata: " . json_encode($ev['data'], JSON_UNESCAPED_UNICODE) . "\n\n";

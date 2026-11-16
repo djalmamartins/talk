@@ -268,7 +268,11 @@ try {
         if ($last === 0) {
             $last = (int) ($app['db']->one('SELECT COALESCE(MAX(id),0) m FROM talk_events')['m']);
         }
-        $app['sse']->stream($me, $last);
+        // laboratório: sem worker, o próprio stream faz a triagem da Jack e os envios a cada ~2 s
+        $app['sse']->stream($me, $last, tick: $isLab ? static function () use ($app): void {
+            $app['conversations']->triage();
+            $app['worker']->runOnce();
+        } : null);
         exit;
     }
 

@@ -134,3 +134,16 @@ confiança. Ele não escreve respostas; o texto continua vindo dos modelos aprov
   tudo direto para o setor padrão, sem mensagem.
 - A taxa de acertos continua em `/api/jack/stats`: conta como erro quando um atendente transfere a
   conversa para outro setor.
+
+## Atualização 16/11/2026 — fila instantânea e encaminhamento calado (pedidos do Djalma)
+
+Substitui o que vem acima onde for diferente:
+- Encaminhar para o setor **não manda mensagem ao cliente** (desde 0.18.0). Só um "bom dia" não tem
+  resposta: ela espera o assunto. Continua indo o aviso de fora do horário, quando ligado.
+- **Assunto claro já na mensagem** ("estamos sem água no bloco B"): a conversa entra na fila do setor
+  **na hora**, sem esperar a pessoa parar de escrever.
+- Assunto ainda não claro: espera `JACK_WAIT_SECONDS` (padrão **15 s**, era 60 s) sem mensagem nova e
+  lê tudo; não reconheceu → Administrativo. Só cumprimentou: espera até `JACK_MAX_WAIT_SECONDS`
+  (padrão **2 min**, era 10 min) e então vai para o Administrativo.
+- No laboratório (sem worker), a tela aberta faz a triagem e os envios a cada ~2 s pelo canal de
+  tempo real.
