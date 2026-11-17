@@ -1,0 +1,26 @@
+# Connect Talk num Raspberry Pi (ou qualquer PC sem IP fixo): o mesmo docker-compose.yml, com o Cloudflare
+# Tunnel no lugar do Caddy. Nada de porta aberta no roteador; o HTTPS é o da Cloudflare.
+# O instalar-pi.sh põe COMPOSE_FILE=docker-compose.yml:docker-compose.pi.yml no .env, então os comandos de
+# sempre (docker compose ps, logs, up -d --build) já usam este arquivo. Guia: docs/raspberry-pi.md
+services:
+  caddy:
+    profiles: ["caddy"]          # desligado: quem recebe da internet é o túnel
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?preencha CLOUDFLARE_TUNNEL_TOKEN no .env}
+    depends_on: [app]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  # logs com limite, para não encher o cartão/SSD
+  app:
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+  worker:
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+  whatsapp:
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+  db:
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }

@@ -1,5 +1,14 @@
 # Changelog
 
+## [Não lançado]
+### Adicionado
+- **Instalação num Raspberry Pi** (decisão de 17/11/2026: o Talk inteiro no Pi do escritório, com nobreak):
+  - `deploy/docker-compose.pi.yml` troca o Caddy pelo Cloudflare Tunnel, sem porta aberta no roteador e sem IP
+    fixo, e limita o tamanho dos logs;
+  - `deploy/instalar-pi.sh` instala o Docker, gera o `.env` sem trocar o que já existe, liga tudo, testa e
+    cria o primeiro supervisor;
+  - o guia é o `docs/raspberry-pi.md`.
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando
