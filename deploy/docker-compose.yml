@@ -1,21 +1,34 @@
-# Connect Talk — produção (PC do escritório). Guia: docs/producao.md
-# Tudo a partir da pasta deploy/:
+# Connect Talk — produção. Raspberry Pi do escritório: docs/raspberry-pi.md (bash deploy/instalar-pi.sh faz tudo).
+# Outro PC ou VPS: docs/producao.md. Tudo a partir da pasta deploy/:
 #   cp .env.example .env   (e preencha)
 #   docker compose up -d --build          (o site aplica as migrations sozinho ao subir)
 #   docker compose run --rm app php bin/setup.php --email=voce@connect.com.br --name="Seu nome"
+#
+# Entrada pela internet (COMPOSE_PROFILES no .env, ADR 0005):
+#   tunnel  Cloudflare Tunnel (padrão no Pi): HTTPS sem abrir porta no roteador, funciona com CGNAT e sem IP fixo
+#   caddy   HTTPS próprio (Let's Encrypt) com as portas 80 e 443 abertas para este aparelho
+# Todas as imagens têm versão para ARM 64 bits (Raspberry Pi 4/5) e para PC.
 name: talk-php   # não confundir com o Talk antigo em Node ("connect-talk")
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }   # não enche o SSD/cartão do Pi com log
 
 services:
   db:
     image: mariadb:11.4
     restart: unless-stopped
+    <<: *logs
     environment:
       MARIADB_DATABASE: ${DB_DATABASE}
       MARIADB_USER: ${DB_USERNAME}
       MARIADB_PASSWORD: ${DB_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       TZ: America/Sao_Paulo
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=-03:00"]
+    # memória do banco: 256M cabe num Pi de 4 GB junto com o resto; num PC pode subir (DB_BUFFER_POOL=1G)
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=-03:00",
+              "--innodb-buffer-pool-size=${DB_BUFFER_POOL:-256M}"]
     volumes:
       - db:/var/lib/mysql
     healthcheck:
@@ -28,6 +41,7 @@ services:
     build: { context: .., dockerfile: deploy/Dockerfile }
     image: connect-talk-php:latest
     restart: unless-stopped
+    <<: *logs
     env_file: .env
     environment: { DB_HOST: db, DB_PORT: "3306", TRUST_PROXY: "1", APP_ENV: production,
                    EVOLUTION_URL: "http://whatsapp:8080", EVOLUTION_WEBHOOK_URL: "http://app" }
@@ -38,6 +52,7 @@ services:
   worker:
     image: connect-talk-php:latest
     restart: unless-stopped
+    <<: *logs
     env_file: .env
     environment: { DB_HOST: db, DB_PORT: "3306", APP_ENV: production, RUN_MIGRATIONS: "0",
                    EVOLUTION_URL: "http://whatsapp:8080", EVOLUTION_WEBHOOK_URL: "http://app" }
@@ -58,6 +73,7 @@ services:
   whatsapp:
     image: evoapicloud/evolution-api:v2.3.6
     restart: unless-stopped
+    <<: *logs
     environment:
       SERVER_URL: http://whatsapp:8080
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?preencha EVOLUTION_API_KEY no .env}
@@ -83,6 +99,7 @@ services:
   whatsapp-db:
     image: postgres:16-alpine
     restart: unless-stopped
+    <<: *logs
     environment:
       POSTGRES_USER: evolution
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -99,6 +116,8 @@ services:
   caddy:
     image: caddy:2.8
     restart: unless-stopped
+    <<: *logs
+    profiles: ["caddy"]
     ports: ["80:80", "443:443"]
     environment: { TALK_DOMAIN: "${TALK_DOMAIN}" }
     volumes:
@@ -107,10 +126,23 @@ services:
       - caddy_config:/config
     depends_on: [app]
 
+  # HTTPS pela Cloudflare sem abrir porta (padrão no Raspberry Pi). No painel da Cloudflare, o Public Hostname do
+  # túnel aponta TALK_DOMAIN para http://app:80. O WhatsApp oficial (Meta) e o Evolution chegam por aqui.
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    <<: *logs
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on: [app]
+
   # cópia de segurança diária do banco e dos arquivos (pasta deploy/backups no PC)
   backup:
     image: mariadb:11.4
     restart: unless-stopped
+    <<: *logs
     environment:
       DB_HOST: db
       DB_DATABASE: ${DB_DATABASE}
@@ -121,7 +153,7 @@ services:
     entrypoint: ["bash", "/scripts/backup.sh", "--loop"]
     volumes:
       - ./backup.sh:/scripts/backup.sh:ro
-      - ./backups:/backups
+      - ${BACKUP_DIR:-./backups}:/backups
       - storage:/storage:ro
     depends_on: { db: { condition: service_healthy } }
 

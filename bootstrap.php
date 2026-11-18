@@ -72,9 +72,11 @@ if ($env('ERP_API_URL')) {
     $erp = new ErpApi($http, (string) $env('ERP_API_URL'), (string) $env('ERP_API_TOKEN'));
     $directory = new HttpContactDirectory($erp, static fn (string $m) => error_log("[talk] $m"));
     $helpdesk = new HttpHelpdesk($erp, (string) $env('APP_URL', ''));
+    $charges = new \ConnectTalk\Erp\HttpChargeDirectory($erp);
 } else {
     $directory = $env('TALK_CONTACT_SQL') ? new SqlContactDirectory($db, (string) $env('TALK_CONTACT_SQL')) : new NullContactDirectory();
     $helpdesk = new NullHelpdesk();
+    $charges = new \ConnectTalk\Erp\NullChargeDirectory();
 }
 $jack = new Jack(
     $db,
@@ -112,6 +114,7 @@ return [
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
+    'second_copy' => new \ConnectTalk\Service\SecondCopy($db, $policy, $conversations, $charges),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
     'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
     'login' => new \ConnectTalk\Service\LoginGuard($db),

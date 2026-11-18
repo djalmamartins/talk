@@ -77,6 +77,7 @@ async function openConversation(id) {
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
   if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no Help Desk do Connect ERP">Abrir chamado</button>');
+  if (can_act && (c.status === 'open' || c.status === 'pending') && contact.erp_person_id) actions.push('<button data-act="charges" title="Boletos em aberto do morador no Connect ERP">2ª via</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
   if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
   $('#chat').innerHTML = `
@@ -335,6 +336,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
     if (act === 'close') { $('#close-resolution').value = ''; $('#close-dialog').showModal(); return; }
+    if (act === 'charges') { await openCharges(); return; }
     if (act === 'ticket') {
       // começa com o que o cliente escreveu: a primeira linha vira o assunto, as últimas mensagens a descrição
       const said = [...document.querySelectorAll('#msgs .msg.in')].map((m) => m.childNodes[0]?.textContent?.trim() || '').filter(Boolean);
@@ -357,6 +359,30 @@ $('#chat').addEventListener('change', async (e) => {
     await api(`/api/conversations/${state.current}/status`, { method: 'POST', body: { status: to } });
   } catch (err) { toast(err.message); }
   await openConversation(state.current); loadList();
+});
+// 2ª via do boleto: o ERP diz quais boletos podem sair; o atendente escolhe um e ele vai para o cliente
+async function openCharges() {
+  const list = $('#charges-list');
+  list.innerHTML = '<li class="meta">Buscando no Connect ERP…</li>';
+  $('#charges-dialog').showModal();
+  try {
+    const r = await api(`/api/conversations/${state.current}/charges`);
+    list.innerHTML = r.charges.length ? r.charges.map((b) => `<li class="charge">
+        <div><b>${esc(b.reference)}</b> · vence ${esc(b.due)} · <b>${esc(b.amount)}</b>
+        <div class="meta">${esc(b.condominium)}${b.unit ? ' · ' + esc(b.unit) : ''}${b.digitable_line ? '' : ' · sem linha digitável'}${b.pix_copy_paste ? ' · com Pix' : ''}</div></div>
+        <button type="button" class="primary" data-charge="${b.id}">Enviar ao cliente</button></li>`).join('')
+      : `<li class="meta">${esc(r.reason || 'Nenhum boleto em aberto.')}</li>`;
+  } catch (err) { list.innerHTML = `<li class="meta">${esc(err.message)}</li>`; }
+}
+$('#charges-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-charge]');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await api(`/api/conversations/${state.current}/charges`, { method: 'POST', body: { charge_id: +btn.dataset.charge } });
+    $('#charges-dialog').close();
+    await openConversation(state.current); loadList();
+  } catch (err) { btn.disabled = false; toast(err.message); }
 });
 $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;

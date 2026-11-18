@@ -563,6 +563,12 @@ try {
                     ));
                 case 'close':
                     $json($svc->close($id, $me, $b['resolution'] ?? null));
+                case 'charges': // 2ª via do boleto (GET lista; POST envia o escolhido ao cliente)
+                    if ($method === 'POST') {
+                        $json(['message_id' => $app['second_copy']->send($id, $me, (int) ($b['charge_id'] ?? 0),
+                            ($b['sign'] ?? true) ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
+                    }
+                    $json($app['second_copy']->list($me, $id));
                 case 'ticket':
                     $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? '')));
                 case 'notes':

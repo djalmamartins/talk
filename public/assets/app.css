@@ -511,3 +511,7 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 .status-pick.st-open{border-color:#9fd3b5}.status-pick.st-pending{border-color:#d8c27a}.status-pick.st-waiting_customer,.status-pick.st-waiting_internal{border-color:#e0a96d;background:#fff6ec}.status-pick.st-closed{background:#f1f2f1}
 .items .stage{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:0 6px;background:#fdebd6;color:#8a4b0f}
 [hidden]{display:none!important}
+
+/* 2ª via do boleto */
+.charges-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; min-width: min(460px, 80vw); }
+.charges-list .charge { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--line, #dfe5e2); border-radius: 8px; }

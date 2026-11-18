@@ -7,6 +7,13 @@ separada (ADR 0003) e fala com o ERP **somente** por esta API. Baseada no códig
 Legenda: **CONFIRMADO** = existe no repositório do ERP; **PROPOSTO** = precisa ser criado;
 **PENDENTE** = decisão da equipe do ERP.
 
+> **Situação em 18/11/2026: tudo implementado no ERP.** Seções 1 a 5 no ADR 0308 do ERP (PR connect-erp#538) e a
+> seção 6 no ADR 0386. O token `ctk_` sai de `php tools/talk-token.php criar --usuario=EMAIL` no servidor do ERP. No
+> Talk: `HttpContactDirectory`, `HttpHelpdesk` e `HttpChargeDirectory` (botão "2ª via" na conversa, ADR 0005).
+> Conferir a ligação: `php bin/erp-check.php`. Diferenças do que estava proposto abaixo: só o proprietário e o
+> responsável financeiro recebem boleto (inquilino fora), e `portal_url` aponta para a página do boleto no app do
+> morador, sem link assinado de PDF.
+
 ## 0. O que já existe no ERP e será reaproveitado (CONFIRMADO)
 
 | Necessidade do Talk | Onde está no ERP |
@@ -123,7 +130,8 @@ mensagem. Chamar de novo num chamado já resolvido devolve `200` sem mudar nada.
 
 ## 6. Boletos em aberto (2ª via) — `GET /api/v1/talk/charges?resident_id=77&phone=5531999998888`
 
-Usado pela assistente **Jack** (ADR 0004 do Talk) quando o morador pede o boleto pelo WhatsApp.
+Usado pelo atendente no botão **2ª via** da conversa (ADR 0005) e, depois, pela assistente **Jack** (ADR 0004 do
+Talk) quando o morador pede o boleto pelo WhatsApp. O Talk trata `404` como "nenhum boleto", sem motivo.
 É o endpoint mais sensível, então tem regras extras:
 
 - Exige `resident_id` **e** `phone`; o ERP confere que o telefone pertence àquele morador. Sem
