@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.0.0] — 2026-11-18
+Fecha o primeiro roteiro (S1 a S8 e U1 a U6). O Talk fica separado do ERP, instalado num Raspberry Pi no escritório,
+e busca os dados do ERP pela API (ADR 0005).
+### Adicionado
+- **Instalação no Raspberry Pi** (`deploy/instalar-pi.sh` e `docs/raspberry-pi.md`):
+  - confere o aparelho e instala o Docker;
+  - gera as chaves uma vez;
+  - pergunta o domínio, o token do túnel e a ligação com o ERP;
+  - sobe tudo, cria o primeiro supervisor e confere o ERP.
+  Rodar de novo não troca nada.
+- **Cloudflare Tunnel** (`COMPOSE_PROFILES=tunnel`, padrão): HTTPS sem abrir porta no roteador, sem IP fixo e com
+  CGNAT. O Caddy (Let's Encrypt) continua como opção (`COMPOSE_PROFILES=caddy`).
+- **2ª via do boleto** na conversa:
+  - o botão "2ª via" mostra os boletos em aberto do morador no ERP (`GET /talk/charges`, ADR 0386 do ERP);
+  - o atendente escolhe um, e ele vai ao cliente com a referência, o vencimento, o valor, a linha digitável, o Pix
+    copia e cola e o link do app do morador;
+  - o ERP decide o que pode sair: só proprietário ou responsável financeiro com o telefone do cadastro, até 3 boletos.
+- `php bin/erp-check.php`: confere o endereço e o token do ERP sem gravar nada nem mostrar dado de ninguém.
+### Alterado
+- Pensado para o Pi:
+  - todas as imagens têm versão ARM 64 bits;
+  - o banco usa 256 MB de buffer (`DB_BUFFER_POOL`);
+  - os logs do Docker ficam limitados a 30 MB por serviço;
+  - o backup vai para uma pasta configurável (`BACKUP_DIR`, de preferência um disco externo).
+- O `deploy/.env.example` vem sem domínio preenchido (o instalador pergunta).
+### Corrigido
+- Planilha do Painel: nenhuma célula vira fórmula no Excel (nome de contato como `=HYPERLINK(...)` ganha um
+  apóstrofo). O mesmo achado veio da revisão de segurança do ERP.
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando

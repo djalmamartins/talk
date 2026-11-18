@@ -99,6 +99,14 @@
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Abrir chamado</button></menu>
   </form>
 </dialog>
+<dialog id="charges-dialog">
+  <form method="dialog">
+    <h3>2ª via do boleto</h3>
+    <p class="meta">Boletos em aberto deste morador no Connect ERP (só do proprietário ou responsável financeiro, com o telefone do cadastro). O escolhido vai para o cliente com a linha digitável e o Pix.</p>
+    <ul id="charges-list" class="charges-list"></ul>
+    <menu><button value="cancel">Fechar</button></menu>
+  </form>
+</dialog>
 <dialog id="close-dialog">
   <form method="dialog">
     <h3>Encerrar atendimento</h3>

@@ -78,4 +78,20 @@ final class ErpApiTest extends TestCase
         $this->expectExceptionMessage('Área inválida.');
         (new HttpHelpdesk($this->api, ''))->transfer(1, 'X', 1, null);
     }
+
+    public function test_segunda_via_pelo_erp(): void
+    {
+        $this->http->responses[] = ['status' => 200, 'body' => json_encode(['data' => [[
+            'id' => 501, 'condominium' => 'Res. Jardins', 'unit' => 'A-101', 'competence' => '2026-11', 'due_on' => '2026-11-10',
+            'amount_cents' => 45090, 'digitable_line' => '', 'pix_copy_paste' => '0002PIX', 'portal_url' => 'https://app/boletos/1',
+        ]]])];
+        $list = (new \ConnectTalk\Erp\HttpChargeDirectory($this->api))->openCharges(77, '+55 (31) 99999-8888');
+        $this->assertSame('https://erp.connect.lab/api/talk/charges?resident_id=77&phone=5531999998888', $this->http->calls[0]['url']);
+        $this->assertSame(501, $list[0]['id']);
+        $this->assertNull($list[0]['digitable_line'], 'linha vazia vira null');
+        $this->assertSame('0002PIX', $list[0]['pix_copy_paste']);
+
+        $this->http->responses[] = ['status' => 404, 'body' => json_encode(['error' => ['code' => 'not_found']])];
+        $this->assertSame([], (new \ConnectTalk\Erp\HttpChargeDirectory($this->api))->openCharges(77, '31999998888'), '404 do ERP = sem boleto, sem motivo');
+    }
 }

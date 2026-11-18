@@ -34,4 +34,13 @@ final class SupportTest extends TestCase
         $this->expectException(\RuntimeException::class);
         (new Crypto(random_bytes(32)))->decrypt($enc);
     }
+
+    public function test_planilha_nao_vira_formula(): void
+    {
+        $this->assertSame("'=HYPERLINK(\"x\")", \ConnectTalk\Service\ReportService::csvCell('=HYPERLINK("x")'));
+        $this->assertSame("' @SOMA", \ConnectTalk\Service\ReportService::csvCell(' @SOMA'));
+        $this->assertSame("'-1", \ConnectTalk\Service\ReportService::csvCell('-1'));
+        $this->assertSame('Maria Silva', \ConnectTalk\Service\ReportService::csvCell('Maria Silva'));
+        $this->assertSame('4,5', \ConnectTalk\Service\ReportService::csvCell('4,5'));
+    }
 }
