@@ -1,6 +1,6 @@
 # Melhorias de arquitetura do Talk (revisão de 2026-11-20)
 
-Status: **proposta** — nada do código foi alterado nesta revisão.
+Status: **em andamento** — etapa 1 parcialmente feita (ver "Andamento").
 Base analisada: `claude/project-thread-bhzf0c` em `a977898` (0.22.0).
 
 ## Resumo
@@ -73,3 +73,9 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
 - Esta revisão não rodou os testes de integração (o ambiente da revisão não tem MariaDB).
   Cada etapa precisa rodar `vendor/bin/phpunit` completo no lab antes do merge.
 - Etapa 2 mexe em todas as URLs: um teste de fumaça das rotas principais deve vir junto.
+
+## Andamento
+- **2026-11-20 — etapa 1, parte A (feita):** SQL do `/api/me`, do contato da conversa e do
+  simulador `/lab/*` saiu do `index.php`; assinatura num helper só. Restam no `index.php` 4 consultas
+  pequenas (health do worker, e-mail do usuário na view, login e último evento do SSE), que vão
+  para serviços na parte B.

@@ -119,6 +119,7 @@ return [
     'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),
     'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $env('APP_ENV') === 'lab',
         (string) $env('EVOLUTION_WEBHOOK_URL', '')),
+    'lab' => new \ConnectTalk\Lab\Simulator($db, $conversations),
     'notifications' => new \ConnectTalk\Service\Notifications($db, $policy, $hours),
     // seletor de sistemas (rodapé do topo do menu), como o "Ambientes Connect" do ERP.
     // Sem endereço, o sistema aparece apagado. A permissão de cada sistema é conferida nele mesmo, no login.

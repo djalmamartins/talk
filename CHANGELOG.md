@@ -1,5 +1,14 @@
 # Changelog
 
+## [Não lançado] — 2026-11-20
+### Interno (sem mudança de comportamento)
+- Revisão de arquitetura em `docs/arquitetura-melhorias.md`, com plano em 5 etapas.
+- Etapa 1: o `public/index.php` deixou de consultar o banco no `/api/me`, no contato da conversa e
+  no simulador. As consultas foram para `StaffRepository::directory()`, `InboxQuery::contact()` e
+  a nova classe `Lab\Simulator`.
+- `Support\Signature::of()` substitui as 4 cópias da regra "Maria (Financeiro)" → "Maria".
+- Testes novos: `LabAndDirectoryTest` e a assinatura no `SupportTest` (154 testes passando no MariaDB).
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando

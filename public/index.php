@@ -6,9 +6,9 @@ declare(strict_types=1);
  * Fala com o ERP só por API REST (ver docs/api-erp.md).
  */
 
-use ConnectTalk\Domain\InboundMessage;
 use ConnectTalk\Gateway\CloudApiGateway;
 use ConnectTalk\Service\DomainError;
+use ConnectTalk\Support\Signature;
 
 $app = require __DIR__ . '/../bootstrap.php';
 $env = $app['env'];
@@ -308,20 +308,10 @@ try {
         $svc = $app['conversations'];
 
         if ($path === '/api/me') {
-            $names = [];
-            foreach ($app['db']->all('SELECT id, name FROM talk_users') as $r) {
-                $names[(int) $r['id']] = $r['name'];
-            }
             $json([
                 'user' => ['id' => $me->userId, 'name' => $_SESSION['user_name'] ?? '', 'supervisor' => $me->supervisor,
                     'agent_sectors' => $me->agentSectors, 'manager_sectors' => $me->managerSectors],
-                'sectors' => $app['db']->all('SELECT id, name, menu_key, color FROM talk_sectors WHERE active = 1 ORDER BY menu_key'),
-                'users' => $names,
-                // para "Trocar atendente": quem atende em cada setor
-                'staff' => $app['db']->all(
-                    "SELECT s.user_id, u.name, s.sector_id, s.role FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
-                      WHERE u.active = 1 ORDER BY u.name"
-                ),
+                ...$app['staff']->directory(),
             ]);
         }
         if ($path === '/api/notifications') {
@@ -529,7 +519,7 @@ try {
                 case null:
                     $conv = $svc->get($id);
                     $messages = $app['inbox']->messages($me, $id);
-                    $contact = $app['db']->one('SELECT id, name, phone, erp_person_id, erp_snapshot FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+                    $contact = $app['inbox']->contact((int) $conv['contact_id']);
                     $json(['conversation' => $conv, 'contact' => $contact, 'messages' => $messages,
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
@@ -549,9 +539,9 @@ try {
                 case 'attach':
                     [$bytes, $mime, $fname] = $upload();
                     $json(['message_id' => $svc->sendFile($id, $me, $bytes, $mime, $fname, isset($_POST['caption']) ? (string) $_POST['caption'] : null,
-                        ($_POST['sign'] ?? '1') !== '0' ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
+                        ($_POST['sign'] ?? '1') !== '0' ? Signature::of($_SESSION['user_name'] ?? null) : null)]);
                 case 'reply':
-                    $json(['message_id' => $svc->reply($id, $me, (string) ($b['text'] ?? ''), ($b['sign'] ?? true) ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
+                    $json(['message_id' => $svc->reply($id, $me, (string) ($b['text'] ?? ''), ($b['sign'] ?? true) ? Signature::of($_SESSION['user_name'] ?? null) : null)]);
                 case 'transfer':
                     $json($svc->transfer(
                         $id,
@@ -590,37 +580,12 @@ try {
             if ($text === '' && $file === null) {
                 $json(['error' => 'Escreva a mensagem.'], 422);
             }
-            // número de destino: o simulado escolhido (ex.: o do plantão da Manutenção) ou o primeiro simulado
-            $channel = (int) ($app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' AND id = ?", [(int) ($b['channel_id'] ?? 0)])
-                ?? $app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' ORDER BY is_default DESC, id LIMIT 1"))['id'];
-            $pid = 'SIM-' . bin2hex(random_bytes(8));
-            $type = $file['type'] ?? 'text';
-            $id = $app['conversations']->handleInbound($channel, new InboundMessage(
-                $pid, (string) ($b['phone'] ?? '5531999990001'), $type,
-                $type === 'document' ? $file['name'] : ($text !== '' ? $text : null), ($b['name'] ?? '') ?: null
-            ));
-            if ($file !== null) { // no laboratório o arquivo já está aqui: grava direto, sem "baixar do WhatsApp"
-                $app['db']->run('UPDATE talk_messages SET media_path = ?, media_mime = ?, media_name = ?, media_size = ? WHERE provider_message_id = ?',
-                    [$file['path'], $file['mime'], $file['name'], $file['size'], $pid]);
-            }
+            $id = $app['lab']->inbound((int) ($b['channel_id'] ?? 0), (string) ($b['phone'] ?? '5531999990001'), $text,
+                ($b['name'] ?? '') ?: null, $file);
             $json(['conversation_id' => $id]);
         }
         if ($path === '/lab/customer') {
-            $phone = preg_replace('/\D+/', '', (string) ($_GET['phone'] ?? ''));
-            $rows = $app['db']->all(
-                "SELECT m.id, m.direction, m.type, m.body, m.media_path, m.media_name, m.ack, m.created_at, c.protocol FROM talk_messages m
-                 JOIN talk_conversations c ON c.id = m.conversation_id JOIN talk_contacts ct ON ct.id = c.contact_id
-                 WHERE ct.phone = ? AND m.direction <> 'internal' ORDER BY m.id DESC LIMIT 40",
-                [\ConnectTalk\Support\Phone::normalize($phone)]
-            );
-            // o cliente só vê o que já foi enviado; "digitando…" enquanto houver mensagem na fila
-            $rows = array_values(array_filter(array_reverse($rows), fn ($r) => $r['direction'] !== 'out' || $r['ack'] !== 'pending'));
-            $typing = (bool) $app['db']->one(
-                "SELECT o.id FROM talk_outbox o WHERE o.to_phone = ? AND o.status IN ('queued','sending')
-                   AND (o.typing_seconds = 0 AND o.next_attempt_at > NOW()) LIMIT 1",
-                [\ConnectTalk\Support\Phone::normalize($phone)]
-            );
-            $json(['messages' => $rows, 'typing' => $typing]);
+            $json($app['lab']->customerView((string) ($_GET['phone'] ?? '')));
         }
     }
 
