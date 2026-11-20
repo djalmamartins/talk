@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.25.0] — 2026-11-16
+## [0.26.0] — 2026-11-16
 ### Alterado
 - **Saiu a aba "Fila" de Atendimentos** (pedido do Djalma). Com o setor Geral ela ficou repetida: a
   tela abre em "Meus", e quem espera atendimento aparece em **Fila de atendimento** e no sino. O
@@ -10,30 +10,30 @@
 - **Aviso de transferência no sino.** Quando alguém transfere uma conversa para você ou para a fila
   de um setor seu, aparece "Conversa transferida para você/para o setor" com o nome do cliente, o
   protocolo e quem transferiu, e toca o alerta. O aviso some quando alguém do setor aceita, ou quando
-  quem recebeu abre a conversa. Migration `020_transfer_alert.sql`.
+  quem recebeu abre a conversa. Migration `022_transfer_alert.sql`.
 
-## [0.24.0] — 2026-11-16
+## [0.25.0] — 2026-11-16
 ### Adicionado
 - **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor
   Geral, como atendente automática "sempre ligada". As mensagens dela saem com o nome dela na
   conversa. Ela não faz login, não recebe transferência, não aparece entre os atendentes online e não
   é editada nem desativada pela tela (liga e desliga com `JACK_MODE`). Migration
-  `019_jack_atendente.sql`.
+  `021_jack_atendente.sql`.
 
-## [0.23.0] — 2026-11-16
+## [0.24.0] — 2026-11-16
 ### Adicionado
 - **Setor Geral.** Toda mensagem nova cai na fila do Geral, à vista de quem atende o Geral e do
   supervisor. Depois de 1 minuto (`JACK_GENERAL_SECONDS`), com a pessoa sem escrever, a Jack lê tudo e
   distribui calada para Financeiro, Administrativo ou Manutenção. Se alguém aceitar ou transferir no
   Geral antes, a Jack não mexe mais na conversa e o chamado abre nesse momento. A espera conta desde a
-  chegada. Número dedicado a um setor não passa pelo Geral. A migration `018_jack_geral.sql` cria o
+  chegada. Número dedicado a um setor não passa pelo Geral. A migration `020_jack_geral.sql` cria o
   setor em quem já tem setores; o `bin/setup.php` cria na primeira instalação.
 
 ### Planejado
 - Jack cadastrada como atendente (JV1.8) e boleto pelo WhatsApp com conversa e aviso do aplicativo
   (JV1.9), no `ROADMAP.md` e na ADR 0004.
 
-## [0.22.0] — 2026-11-16
+## [0.23.0] — 2026-11-16
 ### Adicionado
 - **Acertos da Jack no Painel** (Jack V1, etapa JV1.1). Supervisor e gerentes veem a taxa de acerto
   da Jack no período, por setor sugerido, as palavras que mais levaram a erro e os 20 últimos erros
@@ -44,6 +44,37 @@
 - `docs/jack/MANIFESTO.md`: manifesto e especificação da Jack (V1 e Completa), confrontado com o
   código da 0.21.0, com a tabela do que está feito, planejado e faltando. Plano da Jack V1 em etapas
   no `ROADMAP.md`.
+## [0.22.0] — 2026-11-16
+### Adicionado
+- **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando
+  cliente, Aguardando retorno interno e Encerrado. "Na fila" devolve para a fila do setor, sem
+  atendente; "Encerrado" abre a tela de encerrar de sempre. Num atendimento encerrado, o seletor
+  oferece "Reabrir", bloqueado se o contato já tem outro atendimento aberto.
+- "Aguardando cliente" sai sozinho quando o cliente responde; "Aguardando retorno interno" fica até
+  o atendente mudar. Os dois aparecem como etiqueta laranja na lista de conversas.
+- Cada mudança fica no histórico como nota interna (🔁 "Status alterado para…").
+- Migração 019: coluna `stage` em `talk_conversations` (só acrescenta).
+### Observação
+- O status não é enviado ao Help Desk do ERP; reabrir no Talk não reabre o chamado de lá (a API do
+  ERP ainda não tem essa ação).
+
+## [0.21.2] — 2026-11-16
+### Corrigido
+- O aviso do sino ("A mais antiga espera há…") também deixa de contar o tempo com o setor fechado
+  e os feriados, como o Painel e a Fila (faltou na 0.21.0).
+
+## [0.21.1] — 2026-11-16
+### Alterado
+- **Protocolo SAC + AAMMDD + 5 dígitos** (ex.: `SAC26111600004`). A migração 018 passa os
+  protocolos já emitidos para esse formato (os de 0.20 e os antigos `AAAAMMDD-NNNNN`); o número
+  antigo fica guardado em `legacy_protocol` e continua achando a conversa na busca. Não apaga nada.
+- **Protocolos da pessoa em uma linha por item**: número, data e situação; o atual com fundo verde e
+  uma barra à esquerda (sem o "este"). O assunto aparece ao passar o mouse.
+### Corrigido
+- Busca por número de protocolo (novo, antigo ou chamado CH…) acha a conversa pelo número, uma
+  linha por conversa. Antes dependia de o número aparecer no texto de alguma mensagem.
+- O navegador não fica mais com o CSS/JS da versão anterior depois de atualizar: os arquivos de
+  tela levam a versão no endereço.
 
 ## [0.21.0] — 2026-11-16
 ### Alterado

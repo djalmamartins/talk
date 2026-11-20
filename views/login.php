@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connect Talk — Entrar</title>
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/app.css?v=<?= TALK_ASSET_V ?>">
 <?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
 <body class="login-page">

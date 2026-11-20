@@ -82,7 +82,7 @@ final class BusinessHours
                 '{horario}' => 'horário do setor (ex.: seg a sex, 8h às 18h)', '{volta}' => 'quando volta (ex.: amanhã às 8h)'],
             // valores de exemplo para a prévia da mensagem (primeiro setor, como se estivesse fechado agora)
             'sample' => [
-                '{nome}' => 'Mariana', '{protocolo}' => 'SAC' . $now->format('Ymd') . '0042', '{setor}' => $sectors[0]['name'] ?? 'Financeiro',
+                '{nome}' => 'Mariana', '{protocolo}' => 'SAC' . $now->format('ymd') . '00042', '{setor}' => $sectors[0]['name'] ?? 'Financeiro',
                 '{horario}' => $sectors[0]['summary'] ?? $this->describe($cfg['week']),
                 '{volta}' => ($n = $this->nextOpening($sectors[0]['id'] ?? 0, $now, true)) && $n > $now ? $this->whenLabel($n, $now) : 'assim que possível',
             ],

@@ -94,7 +94,7 @@ editável pelo supervisor no futuro. Áudio transcrito ainda não existe (PLANEJ
 
 ## 4. Regras de atendimento
 
-1. Toda conversa nova entra na fila do setor **Geral**, à vista da equipe (desde a 0.23.0).
+1. Toda conversa nova entra na fila do setor **Geral**, à vista da equipe (desde a 0.24.0).
 2. Número de WhatsApp dedicado a um setor: vai direto para ele, sem passar pelo Geral.
 3. Depois de `JACK_GENERAL_SECONDS` (60 s), com a pessoa sem escrever há `JACK_WAIT_SECONDS` (5 s), a Jack
    lê tudo e distribui calada.
@@ -165,7 +165,7 @@ importa, respeitar permissões e permitir correção.
 | Pergunta de desempate | — | JACK COMPLETA (decisão de 16/11) |
 | Urgência | coluna `priority` existe (fila), a Jack não marca | PLANEJADO |
 | Registro de cada decisão | `talk_jack_decisions` (intenção, pontos, termos, setor sugerido e final) | FEITO |
-| Taxa de acertos | `GET /api/jack/stats` e seção "Acertos da Jack" no Painel (supervisor e gerentes) | FEITO (0.22.0) |
+| Taxa de acertos | `GET /api/jack/stats` e seção "Acertos da Jack" no Painel (supervisor e gerentes) | FEITO (0.23.0) |
 
 ## 8. Ferramentas e operações
 
@@ -276,7 +276,7 @@ Para ligar cada etapa em produção:
 | Encaminhar calada | FEITO | ADR 0004, 0.18.0 |
 | Fora do escopo → transfere | FEITO | `Jack::converse()` |
 | Aviso fora do horário | FEITO | `BusinessHours` |
-| Registro de decisões e taxa de acertos | FEITO | Painel, JV1.1 (0.22.0) |
+| Registro de decisões e taxa de acertos | FEITO | Painel, JV1.1 (0.23.0) |
 | Identificação pelo telefone no ERP | PARCIAL | PR erp#538/talk#1 |
 | Chamado no Help Desk com protocolo | PARCIAL | PR erp#538/talk#1 |
 | Conversa progressiva / perguntas | JACK COMPLETA | decisão de 16/11 (seção 2) |
@@ -284,8 +284,8 @@ Para ligar cada etapa em produção:
 | Resumo para o atendente | PLANEJADO | JV1.3 |
 | Chamado duplicado / reabrir | PLANEJADO | JV1.5 |
 | Lembrete de espera | PLANEJADO | JV1.6 |
-| Setor Geral (tudo chega lá, Jack distribui em 1 min) | FEITO (0.23.0) | ADR 0004 |
-| Jack como atendente na Equipe | FEITO (0.24.0) | JV1.8, migration 019 |
+| Setor Geral (tudo chega lá, Jack distribui em 1 min) | FEITO (0.24.0) | ADR 0004 |
+| Jack como atendente na Equipe | FEITO (0.25.0) | JV1.8, migration 021 |
 | Boleto pelo WhatsApp | PENDENTE (ERP) | JV1.9 |
 | Laboratório | PARCIAL (LabGateway e testes) | JV1.2; versão com IA na Jack Completa |
 | IA (OpenAI ou outra), prompt modular | Não existe | JV1.10, só classificação |

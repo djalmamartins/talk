@@ -46,5 +46,5 @@ $initials = mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), 
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Salvar</button></menu>
   </form>
 </dialog>
-<script src="/assets/account.js" type="module"></script>
-<script src="/assets/topbar.js" type="module"></script>
+<script src="/assets/account.js?v=<?= TALK_ASSET_V ?>" type="module"></script>
+<script src="/assets/topbar.js?v=<?= TALK_ASSET_V ?>" type="module"></script>

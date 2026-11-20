@@ -14,7 +14,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $id = $this->inbound('oi');
         $c = $this->conv($id);
-        $this->assertMatchesRegularExpression('/^SAC\d{8}0001$/', $c['protocol']);
+        $this->assertMatchesRegularExpression('/^SAC\d{6}00001$/', $c['protocol']);
         $this->assertSame('bot', $c['status'], 'fica na triagem da Jack');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) n FROM talk_outbox')['n'], 'nada de menu 1, 2, 3');
     }
@@ -23,7 +23,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $a = $this->conv($this->inbound('oi', '5531911111111'));
         $b = $this->conv($this->inbound('oi', '5531922222222'));
-        $this->assertSame(substr($a['protocol'], 0, 11) . '0002', $b['protocol']);
+        $this->assertSame(substr($a['protocol'], 0, 9) . '00002', $b['protocol']);
     }
 
     public function test_webhook_repetido_e_ignorado(): void

@@ -42,7 +42,7 @@ final class InboxQuery
             $conds[] = 'EXISTS (SELECT 1 FROM talk_contact_tags ft WHERE ft.contact_id = c.contact_id AND ft.tag_id = :tag)';
             $params['tag'] = $tagId;
         }
-        $sql = 'SELECT c.id, c.protocol, c.status, c.sector_id, s.name AS sector_name, c.assigned_user_id, c.unread,
+        $sql = 'SELECT c.id, c.protocol, c.status, c.stage, c.sector_id, s.name AS sector_name, c.assigned_user_id, c.unread,
                        c.last_message_at, ct.name AS contact_name, ct.phone, ct.erp_person_id, ct.erp_snapshot,
                        (SELECT GROUP_CONCAT(tg.tag_id ORDER BY tg.tag_id) FROM talk_contact_tags tg WHERE tg.contact_id = c.contact_id) AS tag_ids,
                        (SELECT COALESCE(NULLIF(m.body, \'\'), CASE m.type WHEN \'image\' THEN \'📷 Foto\' WHEN \'audio\' THEN \'🎤 Áudio\' WHEN \'video\' THEN \'🎬 Vídeo\' WHEN \'document\' THEN \'📄 Documento\' END)
@@ -117,6 +117,14 @@ final class InboxQuery
     {
         [$where, $params] = $this->policy->sqlFilter($u, 'c');
         $conds = [$where, "m.direction <> 'internal'"];
+        // busca por número de protocolo (SAC26111600004, o antigo 20261115-00004 ou o chamado CH…):
+        // acha a conversa pelo número, uma linha por conversa, sem procurar o texto nas mensagens
+        $q = strtoupper(trim((string) ($f['q'] ?? '')));
+        if (preg_match('/^(SAC\d{6,}|\d{8}-\d{5}|CH[0-9A-Z]{6,})$/', $q)) {
+            $f['contact'] = $q;
+            unset($f['q']);
+            $conds[] = "m.id = (SELECT MIN(m1.id) FROM talk_messages m1 WHERE m1.conversation_id = c.id AND m1.direction <> 'internal')";
+        }
         if (!empty($f['q'])) {
             $conds[] = 'MATCH(m.body) AGAINST (:q IN BOOLEAN MODE)';
             $params['q'] = $this->booleanQuery((string) $f['q']);
@@ -142,10 +150,10 @@ final class InboxQuery
             $params['fuser'] = (int) $f['user_id'];
         }
         if (!empty($f['contact'])) {
-            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto OR c.helpdesk_protocol = :hproto)';
+            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto OR c.legacy_protocol = :lproto OR c.helpdesk_protocol = :hproto)';
             $params['cname'] = '%' . $f['contact'] . '%';
             $params['cphone'] = '%' . preg_replace('/\D+/', '', (string) $f['contact']) . '%';
-            $params['proto'] = $params['hproto'] = $f['contact'];
+            $params['proto'] = $params['lproto'] = $params['hproto'] = $f['contact'];
         }
         return $this->db->all(
             'SELECT m.id, m.conversation_id, m.direction, m.body, m.created_at, m.author_user_id,

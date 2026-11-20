@@ -20,6 +20,16 @@ async function api(path, opts = {}) {
 }
 const toast = (msg) => alert(msg);
 const statusLabel = { bot: 'no menu', pending: 'na fila', open: 'em atendimento', closed: 'encerrado' };
+const stageLabel = { waiting_customer: 'aguardando cliente', waiting_internal: 'aguardando retorno interno' };
+const statusText = (c) => (c.status === 'open' && stageLabel[c.stage]) || statusLabel[c.status];
+// seletor de status da conversa: o valor atual junta status + situação (aguardando…)
+function statusSelect(c) {
+  const cur = c.status === 'open' && c.stage ? c.stage : c.status;
+  const opts = c.status === 'closed'
+    ? [['closed', 'Encerrado'], ['open', 'Reabrir (em atendimento)']]
+    : [['pending', 'Na fila'], ['open', 'Em atendimento'], ['waiting_customer', 'Aguardando cliente'], ['waiting_internal', 'Aguardando retorno interno'], ['closed', 'Encerrado']];
+  return `<label class="status-pick st-${cur}" title="Mudar o status do atendimento"><span>Status</span><select id="status-select" data-cur="${cur}">${opts.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
+}
 const sectorName = (id) => state.sectors.find((s) => s.id == id)?.name || '—';
 
 // ------------------------------------------------------------ lista
@@ -32,7 +42,7 @@ async function loadList() {
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
       <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
-      <span class="last">${esc(waPlain(c.last_body))}</span>
+      <span class="last">${c.status === 'open' && c.stage ? `<span class="stage st-${c.stage}">${c.stage === 'waiting_customer' ? 'Aguardando cliente' : 'Aguardando retorno'}</span> ` : ''}${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
 }
@@ -62,6 +72,7 @@ async function openConversation(id) {
   document.querySelector('.layout').classList.add('has-chat');
   const { conversation: c, contact, messages, can_act } = await api(`/api/conversations/${id}`);
   const actions = [];
+  if (can_act && c.status !== 'bot') actions.push(statusSelect(c));
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
   if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no Help Desk do Connect ERP">Abrir chamado</button>');
@@ -70,7 +81,7 @@ async function openConversation(id) {
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
-      <div class="meta">${esc(contact.phone)} · ${c.helpdesk_protocol ? `chamado <b>${esc(c.helpdesk_protocol)}</b>` : `protocolo <b>${esc(c.protocol)}</b>`} · ${esc(sectorName(c.sector_id))} · ${statusLabel[c.status]}
+      <div class="meta">${esc(contact.phone)} · ${c.helpdesk_protocol ? `chamado <b>${esc(c.helpdesk_protocol)}</b>` : `protocolo <b>${esc(c.protocol)}</b>`} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
       ${c.assigned_user_id ? ' · ' + esc(state.users[c.assigned_user_id] || '#' + c.assigned_user_id) : ''}</div></div>
       <div class="actions">${actions.join('')}</div>
     </div>
@@ -109,7 +120,7 @@ function renderMsg(m) {
   if (m.type === 'jack') {
     return `<div class="sys-hint" title="Os termos que levaram à sugestão ficam no registro do supervisor">${esc(m.body)} · ${hhmm(m.created_at)}</div>`;
   }
-  const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : m.type === 'rating' ? '<span class="rating-tag">⭐ Avaliação</span> ' : '';
+  const label = m.direction === 'internal' ? (m.type === 'transfer' ? '🔀 ' : m.type === 'status' ? '🔁 ' : m.type === 'resolution' ? '✅ ' : '📝 ') : m.type === 'rating' ? '<span class="rating-tag">⭐ Avaliação</span> ' : '';
   const media = renderMedia(m);
   const text = media && m.type === 'document' && m.direction === 'in' ? '' : waFormat(esc(m.body)); // documento recebido: o corpo é o nome
   return `<div class="msg ${m.direction}${media ? ' has-media' : ''}">${m.direction === 'internal' ? who : ''}${label}${media}${text}<time>${hhmm(m.created_at)} ${ack}</time></div>`;
@@ -167,14 +178,15 @@ async function renderContact(contact, c) {
 // protocolos da pessoa, do mais novo para o mais antigo, 5 por página (o atual aparece marcado)
 function histHtml(h) {
   if (!h?.history?.length) return '<p class="meta">Primeiro atendimento desta pessoa.</p>';
+  // uma linha por protocolo: número · data · situação; o assunto aparece ao passar o mouse
   const items = h.history.map((x) => `
-    <li${x.current ? ' class="current" aria-current="true"' : ` data-open="${x.id}"`}><b>${esc(x.protocol)}${x.current ? '<em>este</em>' : ''}</b><span>${esc(x.subject || '—')}</span>
-      <small class="st st-${x.status}">${convStatus[x.status]}</small><time>${hhmm(x.created_at).split(',')[0]}</time></li>`).join('');
+    <li${x.current ? ' class="current" aria-current="true" title="Atendimento aberto agora"' : ` data-open="${x.id}" title="${esc(x.subject || '')}"`}>
+      <b>${esc(x.protocol)}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
   const pager = h.history_pages > 1 ? `<nav class="cp-pager" aria-label="Páginas de protocolos">
       <button type="button" data-hpage="${h.history_page - 1}" ${h.history_page <= 1 ? 'disabled' : ''} aria-label="Mais novos">‹</button>
       <span>${h.history_page} de ${h.history_pages} · ${h.history_total} protocolos</span>
       <button type="button" data-hpage="${h.history_page + 1}" ${h.history_page >= h.history_pages ? 'disabled' : ''} aria-label="Mais antigos">›</button></nav>` : '';
-  return `<ul class="cp-hist">${items}</ul>${pager}${h.history_hidden > 0 ? `<p class="meta">+${h.history_hidden} em outros setores</p>` : ''}`;
+  return `<ul class="cp-hist cp-proto">${items}</ul>${pager}${h.history_hidden > 0 ? `<p class="meta">+${h.history_hidden} em outros setores</p>` : ''}`;
 }
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-hpage]');
@@ -334,6 +346,17 @@ document.addEventListener('click', async (e) => {
   } catch (err) { toast(err.message); }
 });
 
+// mudança de status pelo seletor do topo da conversa
+$('#chat').addEventListener('change', async (e) => {
+  const sel = e.target.closest('#status-select');
+  if (!sel || !state.current) return;
+  const to = sel.value;
+  if (to === 'closed') { sel.value = sel.dataset.cur; $('#close-resolution').value = ''; $('#close-dialog').showModal(); return; }
+  try {
+    await api(`/api/conversations/${state.current}/status`, { method: 'POST', body: { status: to } });
+  } catch (err) { toast(err.message); }
+  await openConversation(state.current); loadList();
+});
 $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;
   try {

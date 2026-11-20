@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf" content="<?= htmlspecialchars($csrf) ?>">
 <title>Fila de atendimento · Connect Talk</title>
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/app.css?v=<?= TALK_ASSET_V ?>">
 <?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
 <body data-lab="<?= $isLab ? '1' : '0' ?>">
@@ -60,6 +60,6 @@
   <li><button type="button" data-prio="low">Prioridade baixa</button></li>
   <li><button type="button" data-open>Abrir conversa</button></li>
 </menu>
-<script src="/assets/queue.js" type="module"></script>
+<script src="/assets/queue.js?v=<?= TALK_ASSET_V ?>" type="module"></script>
 </body>
 </html>

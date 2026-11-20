@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf" content="<?= htmlspecialchars($csrf) ?>">
 <title>Equipe e setores · Connect Talk</title>
-<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/app.css?v=<?= TALK_ASSET_V ?>">
 <?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
 <body data-lab="<?= $isLab ? '1' : '0' ?>">
@@ -81,6 +81,6 @@
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Salvar</button></menu>
   </form>
 </dialog>
-<script src="/assets/team.js" type="module"></script>
+<script src="/assets/team.js?v=<?= TALK_ASSET_V ?>" type="module"></script>
 </body>
 </html>

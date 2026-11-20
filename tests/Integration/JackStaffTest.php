@@ -23,7 +23,7 @@ final class JackStaffTest extends DbTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->jackId = (int) $this->db->one('SELECT id FROM talk_users WHERE is_bot = 1')['id']; // criada pela migration 019
+        $this->jackId = (int) $this->db->one('SELECT id FROM talk_users WHERE is_bot = 1')['id']; // criada pela migration 021
         $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(),
             new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto'));
     }

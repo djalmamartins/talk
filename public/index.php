@@ -102,6 +102,8 @@ $upload = static function () use ($json): array {
     }
     return [(string) file_get_contents($f['tmp_name']), (string) $f['type'], (string) $f['name']];
 };
+// versão dos arquivos de tela: muda a cada atualização, e o navegador não fica com CSS/JS velho
+define('TALK_ASSET_V', (string) max(array_map('filemtime', array_merge([__FILE__], glob(__DIR__ . '/assets/*.css') ?: [], glob(__DIR__ . '/assets/*.js') ?: []))));
 $view = static function (string $name, array $vars = []) use ($app): never {
     $vars['csrf'] ??= $_SESSION['csrf'];
     // o menu lateral mostra "Conexão WhatsApp" só para o supervisor
@@ -533,6 +535,8 @@ try {
                         'can_act' => $app['policy']->canAct($me, $conv)]);
                 case 'accept':
                     $json($svc->accept($id, $me));
+                case 'status':
+                    $json($svc->setStatus($id, $me, (string) ($b['status'] ?? '')));
                 case 'priority':
                     $json($svc->setPriority($id, $me, (string) ($b['priority'] ?? '')));
                 case 'panel':

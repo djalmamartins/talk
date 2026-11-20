@@ -17,7 +17,7 @@ use ConnectTalk\Support\Db;
  */
 final class Notifications
 {
-    public function __construct(private Db $db, private AccessPolicy $policy)
+    public function __construct(private Db $db, private AccessPolicy $policy, private ?BusinessHours $hours = null)
     {
     }
 
@@ -35,6 +35,17 @@ final class Notifications
         );
         if ((int) $q['n'] > 0) {
             $min = max(0, (int) $q['wait_min']);
+            if ($this->hours !== null) {
+                // espera só conta com o setor atendendo (fora do horário e feriados, não)
+                $rows = $this->db->all(
+                    "SELECT c.sector_id, COALESCE(c.queued_at, c.opened_at) t, NOW() now_db FROM talk_conversations c WHERE c.status = 'pending' AND c.sector_id IS NOT NULL AND $where",
+                    $params
+                );
+                $min = 0;
+                foreach ($rows as $r) {
+                    $min = max($min, intdiv($this->hours->openSeconds((int) $r['sector_id'], new \DateTimeImmutable($r['t']), new \DateTimeImmutable($r['now_db'])), 60));
+                }
+            }
             $items[] = ['kind' => 'queue', 'count' => (int) $q['n'], 'href' => '/fila',
                 'title' => $plural((int) $q['n'], '1 conversa esperando na fila', '# conversas esperando na fila'),
                 'text' => $min < 1 ? 'A mais antiga chegou agora.' : "A mais antiga espera há {$this->duration($min)}."];

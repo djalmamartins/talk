@@ -168,7 +168,7 @@ Substitui a "fila instantânea" da 0.20.1 quando o setor Geral existe:
 - Número de WhatsApp dedicado a um setor não passa pelo Geral. Sem o setor Geral (ou `JACK_MODE=off`)
   vale o fluxo anterior.
 
-Feito na 0.24.0 (etapa JV1.8): a Jack **cadastrada como atendente** ("Jaqueline (Jack)", `talk_users.is_bot = 1`)
+Feito na 0.25.0 (etapa JV1.8): a Jack **cadastrada como atendente** ("Jaqueline (Jack)", `talk_users.is_bot = 1`)
 no setor Geral, sem login, autora das mensagens dela. Não recebe transferência, não aparece como online
 e não é editada nem desativada pela tela; liga e desliga com `JACK_MODE`. É o primeiro passo para o boleto (J3/JV1.9): quando pedirem
 a 2ª via, ela avisa que vai olhar, busca o boleto no ERP, envia linha digitável/Pix e link e lembra

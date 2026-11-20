@@ -98,7 +98,7 @@ final class ContactPanelTest extends DbTestCase
         $p2 = $this->p->history($this->sup, $ids[6], 2);
         $this->assertSame([$ids[1], $ids[0]], array_column($p2['items'], 'id'));
         $this->assertSame(2, $this->p->history($this->sup, $ids[6], 99)['page'], 'página além do fim volta para a última');
-        $this->assertMatchesRegularExpression('/^SAC\d{8}\d{4}$/', $p2['items'][0]['protocol']);
+        $this->assertMatchesRegularExpression('/^SAC\d{6}\d{5}$/', $p2['items'][0]['protocol']);
     }
 
     public function test_notas_do_contato_valem_para_todas_as_conversas_e_so_o_autor_apaga(): void
