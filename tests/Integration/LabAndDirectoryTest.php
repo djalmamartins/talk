@@ -7,6 +7,9 @@ use ConnectTalk\Lab\Simulator;
 use ConnectTalk\Service\InboxQuery;
 use ConnectTalk\Service\AccessPolicy;
 use ConnectTalk\Service\StaffRepository;
+use ConnectTalk\Service\LoginGuard;
+use ConnectTalk\Service\OutboxWorker;
+use ConnectTalk\Realtime\EventBus;
 
 /** Consultas que saíram do public/index.php (etapa 1 da revisão de arquitetura). */
 final class LabAndDirectoryTest extends DbTestCase
@@ -42,5 +45,37 @@ final class LabAndDirectoryTest extends DbTestCase
         $view = $sim->customerView('5531988887777');
         $this->assertSame('Oi, preciso da segunda via', $view['messages'][0]['body']);
         $this->assertSame('in', $view['messages'][0]['direction']);
+    }
+
+    public function test_login_confere_email_senha_e_ativo(): void
+    {
+        $id = $this->db->insert('talk_users', ['name' => 'Ana', 'email' => 'ana@exemplo.test', 'password_hash' => password_hash('certa', PASSWORD_DEFAULT)]);
+        $this->db->insert('talk_users', ['name' => 'Bia', 'email' => 'bia@exemplo.test', 'password_hash' => password_hash('certa', PASSWORD_DEFAULT), 'active' => 0]);
+        $g = new LoginGuard($this->db);
+
+        $this->assertSame($id, (int) $g->check(' ANA@exemplo.test ', 'certa')['id']);
+        $this->assertNull($g->check('ana@exemplo.test', 'errada'));
+        $this->assertNull($g->check('bia@exemplo.test', 'certa'), 'inativo não entra');
+        $this->assertSame('ana@exemplo.test', (new StaffRepository($this->db))->email($id));
+    }
+
+    public function test_sinal_de_vida_do_worker(): void
+    {
+        $w = new OutboxWorker($this->db, $this->gateways(), new EventBus($this->db));
+        $this->assertNull($w->secondsSinceHeartbeat());
+        $this->assertFalse(OutboxWorker::isAlive(null));
+
+        $w->heartbeat();
+
+        $this->assertTrue(OutboxWorker::isAlive($w->secondsSinceHeartbeat()));
+        $this->assertFalse(OutboxWorker::isAlive(91));
+    }
+
+    public function test_ultimo_evento_do_tempo_real(): void
+    {
+        $bus = new EventBus($this->db);
+        $this->assertSame(0, $bus->lastId());
+        $id = $bus->publish('teste', null, null, null);
+        $this->assertSame($id, $bus->lastId());
     }
 }

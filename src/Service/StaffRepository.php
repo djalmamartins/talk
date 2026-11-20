@@ -45,4 +45,9 @@ final class StaffRepository
             ),
         ];
     }
+
+    public function email(int $userId): string
+    {
+        return (string) ($this->db->one('SELECT email FROM talk_users WHERE id = ?', [$userId])['email'] ?? '');
+    }
 }

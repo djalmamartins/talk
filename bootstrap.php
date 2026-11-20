@@ -98,6 +98,7 @@ return [
     'db' => $db,
     'crypto' => $crypto,
     'policy' => $policy,
+    'events' => $events,
     'staff' => new StaffRepository($db),
     'conversations' => $conversations,
     'inbox' => new InboxQuery($db, $policy),

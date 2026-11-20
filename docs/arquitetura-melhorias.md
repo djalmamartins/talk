@@ -1,6 +1,6 @@
 # Melhorias de arquitetura do Talk (revisão de 2026-11-20)
 
-Status: **em andamento** — etapa 1 parcialmente feita (ver "Andamento").
+Status: **em andamento** — etapa 1 feita; próxima: etapa 2 (ver "Andamento").
 Base analisada: `claude/project-thread-bhzf0c` em `a977898` (0.22.0).
 
 ## Resumo
@@ -79,3 +79,6 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   simulador `/lab/*` saiu do `index.php`; assinatura num helper só. Restam no `index.php` 4 consultas
   pequenas (health do worker, e-mail do usuário na view, login e último evento do SSE), que vão
   para serviços na parte B.
+- **2026-11-20 — etapa 1, parte B (feita):** as 4 consultas restantes foram para `OutboxWorker`,
+  `LoginGuard`, `StaffRepository` e `EventBus`. `public/index.php` tem zero acesso direto ao banco.
+  Próxima: etapa 2 (roteador mínimo e rotas por área), começando por um teste de fumaça das rotas.

@@ -31,9 +31,8 @@ if (rtrim((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/') === '/
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     try {
-        $hb = $app['db']->one("SELECT TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM talk_settings WHERE name = 'worker_heartbeat'");
-        $age = $hb ? (int) $hb['age'] : null;
-        echo json_encode(['ok' => true, 'db' => 'ok', 'worker' => ['ok' => $age !== null && $age <= 90, 'seconds_since' => $age]]);
+        $age = $app['worker']->secondsSinceHeartbeat();
+        echo json_encode(['ok' => true, 'db' => 'ok', 'worker' => ['ok' => \ConnectTalk\Service\OutboxWorker::isAlive($age), 'seconds_since' => $age]]);
     } catch (\Throwable) {
         http_response_code(503);
         echo json_encode(['ok' => false, 'db' => 'erro']);
@@ -111,7 +110,7 @@ $view = static function (string $name, array $vars = []) use ($app): never {
     $vars['isSupervisor'] = $sm !== null && $sm->supervisor;
     $vars['canBulk'] = $sm !== null && ($sm->supervisor || $sm->managerSectors);
     $vars['roleLabel'] = $sm === null ? '' : ($sm->supervisor ? 'Supervisor' : ($sm->managerSectors ? 'Gerente de setor' : 'Atendente'));
-    $vars['userEmail'] = $sm !== null ? (string) ($app['db']->one('SELECT email FROM talk_users WHERE id = ?', [$sm->userId])['email'] ?? '') : '';
+    $vars['userEmail'] = $sm !== null ? $app['staff']->email($sm->userId) : '';
     $vars['systems'] = $app['systems'];
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
@@ -159,8 +158,8 @@ try {
                 http_response_code(429);
                 $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab]);
             }
-            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [$email]);
-            if ($u && password_verify((string) ($_POST['password'] ?? ''), $u['password_hash'])) {
+            $u = $app['login']->check($email, (string) ($_POST['password'] ?? ''));
+            if ($u !== null) {
                 $app['login']->succeeded($email);
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int) $u['id'];
@@ -268,7 +267,7 @@ try {
         $app['queue']->touch($me->userId); // presença: conectado = online (o stream reconecta a cada ~25 s)
         $last = (int) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? $_GET['last'] ?? 0);
         if ($last === 0) {
-            $last = (int) ($app['db']->one('SELECT COALESCE(MAX(id),0) m FROM talk_events')['m']);
+            $last = $app['events']->lastId();
         }
         // laboratório: sem worker, o próprio stream faz a triagem da Jack e os envios a cada ~2 s
         $app['sse']->stream($me, $last, tick: $isLab ? static function () use ($app): void {

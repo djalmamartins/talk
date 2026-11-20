@@ -12,10 +12,9 @@ $app = require __DIR__ . '/../bootstrap.php';
 $db = $app['db'];
 
 if (in_array('--check', $argv, true)) {
-    $hb = $db->one("SELECT TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM talk_settings WHERE name = 'worker_heartbeat'");
-    $age = $hb ? (int) $hb['age'] : null;
+    $age = $app['worker']->secondsSinceHeartbeat();
     fwrite(STDOUT, $age === null ? "worker nunca rodou\n" : "último sinal há {$age}s\n");
-    exit($age !== null && $age <= 90 ? 0 : 1);
+    exit(\ConnectTalk\Service\OutboxWorker::isAlive($age) ? 0 : 1);
 }
 
 // primeira subida: espera o site aplicar as migrations
@@ -26,12 +25,7 @@ for ($i = 0; !$db->one("SELECT 1 AS ok FROM information_schema.tables WHERE tabl
     sleep(5);
 }
 
-$beat = static function () use ($db): void {
-    $db->run(
-        "INSERT INTO talk_settings (name, value) VALUES ('worker_heartbeat', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
-        [json_encode(['at' => date('c'), 'pid' => getmypid(), 'host' => gethostname()])]
-    );
-};
+$beat = static fn () => $app['worker']->heartbeat();
 
 $worker = $app['worker'];
 $conversations = $app['conversations'];

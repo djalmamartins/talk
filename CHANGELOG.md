@@ -7,7 +7,10 @@
   no simulador. As consultas foram para `StaffRepository::directory()`, `InboxQuery::contact()` e
   a nova classe `Lab\Simulator`.
 - `Support\Signature::of()` substitui as 4 cópias da regra "Maria (Financeiro)" → "Maria".
-- Testes novos: `LabAndDirectoryTest` e a assinatura no `SupportTest` (154 testes passando no MariaDB).
+- Etapa 1B: as 4 consultas restantes saíram do `index.php`. Agora são `OutboxWorker::secondsSinceHeartbeat()`,
+  `isAlive()` e `heartbeat()` (que também servem ao `bin/talk-worker --check`, sem duplicar a regra dos 90 s),
+  `LoginGuard::check()`, `StaffRepository::email()` e `EventBus::lastId()`. O `index.php` não acessa mais o banco direto.
+- Testes novos: `LabAndDirectoryTest` e a assinatura no `SupportTest` (157 testes passando no MariaDB).
 
 ## [0.22.0] — 2026-11-16
 ### Adicionado

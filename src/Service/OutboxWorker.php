@@ -18,6 +18,8 @@ final class OutboxWorker
 
     public const MEDIA_ATTEMPTS = 3;
 
+    public const HEARTBEAT_MAX_SECONDS = 90;
+
     public function __construct(private Db $db, private GatewayFactory $gateways, private EventBus $events, private ?MediaStore $media = null)
     {
     }
@@ -151,5 +153,26 @@ final class OutboxWorker
     {
         $sector = $this->db->one('SELECT sector_id FROM talk_conversations WHERE id = ?', [$convId])['sector_id'] ?? null;
         $this->events->publish('message.ack', $convId, $sector !== null ? (int) $sector : null, null, ['message_id' => $messageId, 'ack' => $ack]);
+    }
+
+    /** Segundos desde o último sinal de vida do worker, ou null se ele nunca rodou. */
+    public function secondsSinceHeartbeat(): ?int
+    {
+        $hb = $this->db->one("SELECT TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS age FROM talk_settings WHERE name = 'worker_heartbeat'");
+        return $hb ? (int) $hb['age'] : null;
+    }
+
+    /** O worker está vivo se deu sinal no último minuto e meio. */
+    public static function isAlive(?int $secondsSince): bool
+    {
+        return $secondsSince !== null && $secondsSince <= self::HEARTBEAT_MAX_SECONDS;
+    }
+
+    public function heartbeat(): void
+    {
+        $this->db->run(
+            "INSERT INTO talk_settings (name, value) VALUES ('worker_heartbeat', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+            [json_encode(['at' => date('c'), 'pid' => getmypid(), 'host' => gethostname()])]
+        );
     }
 }

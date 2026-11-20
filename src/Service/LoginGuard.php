@@ -46,4 +46,11 @@ final class LoginGuard
         $u = $this->db->one('SELECT active, UNIX_TIMESTAMP(password_changed_at) changed FROM talk_users WHERE id = ?', [$userId]);
         return $u && (int) $u['active'] === 1 && ($u['changed'] === null || (int) $u['changed'] <= $authAt);
     }
+
+    /** Usuário ativo com esse e-mail e senha, ou null. Não conta tentativa: quem chama decide. */
+    public function check(string $email, string $password): ?array
+    {
+        $u = $this->db->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [mb_strtolower(trim($email))]);
+        return $u && password_verify($password, $u['password_hash']) ? $u : null;
+    }
 }
