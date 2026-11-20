@@ -82,7 +82,7 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
 - **2026-11-20 — etapa 1, parte B (feita):** as 4 consultas restantes foram para `OutboxWorker`,
   `LoginGuard`, `StaffRepository` e `EventBus`. `public/index.php` tem zero acesso direto ao banco.
   Próxima: etapa 2 (roteador mínimo e rotas por área), começando por um teste de fumaça das rotas.
-- **2026-11-20 — etapa 2, preparo (feito):** teste de fumaça `RoutesSmokeTest` com retrato de 47 rotas
+- **2026-11-20 — etapa 2, preparo (feito):** teste de fumaça `RoutesSmokeTest` com retrato de 44 rotas
   (anônimo e supervisor, páginas, API, ações da conversa, simulador, 401/403/404). Conferido que
   renomear uma rota faz o teste falhar. Próxima: `src/Http/Router.php` e as rotas da API de conversas
   por primeiro, mantendo o retrato igual.

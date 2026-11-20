@@ -10,7 +10,7 @@
 - Etapa 1B: as 4 consultas restantes saíram do `index.php`. Agora são `OutboxWorker::secondsSinceHeartbeat()`,
   `isAlive()` e `heartbeat()` (que também servem ao `bin/talk-worker --check`, sem duplicar a regra dos 90 s),
   `LoginGuard::check()`, `StaffRepository::email()` e `EventBus::lastId()`. O `index.php` não acessa mais o banco direto.
-- Etapa 2, preparo: `RoutesSmokeTest` sobe o site de verdade (`php -S`, modo lab) e compara 47 rotas
+- Etapa 2, preparo: `RoutesSmokeTest` sobe o site de verdade (`php -S`, modo lab) e compara 44 rotas
   (código HTTP e chaves do JSON) com o retrato em `tests/Fixtures/routes-snapshot.json`. É a rede de
   segurança para trocar o roteador.
 - Testes novos: `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (158 testes passando no MariaDB).
