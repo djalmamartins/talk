@@ -1,0 +1,343 @@
+{
+    "anon GET /health": [
+        200,
+        [
+            "db",
+            "ok",
+            "worker"
+        ]
+    ],
+    "anon GET /api/me": [
+        401,
+        [
+            "error"
+        ]
+    ],
+    "anon GET /": [
+        302,
+        "text/html"
+    ],
+    "anon GET /rota-que-nao-existe": [
+        404,
+        "text/html"
+    ],
+    "anon POST /login": [
+        302,
+        "text/html"
+    ],
+    "supervisor GET /": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /contatos": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /agendamentos": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /envios": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /configuracoes": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /equipe": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /conexoes": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /painel": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /fila": [
+        200,
+        "text/html"
+    ],
+    "supervisor GET /api/me": [
+        200,
+        [
+            "sectors",
+            "staff",
+            "user",
+            "users"
+        ]
+    ],
+    "supervisor GET /api/notifications": [
+        200,
+        [
+            "count",
+            "items"
+        ]
+    ],
+    "supervisor GET /api/conversations?tab=pending": [
+        200,
+        []
+    ],
+    "supervisor GET /api/jack/stats": [
+        200,
+        [
+            "acertos",
+            "com_sugestao",
+            "conversas",
+            "erros",
+            "modo",
+            "por_setor",
+            "taxa"
+        ]
+    ],
+    "supervisor GET /api/contacts": [
+        200,
+        [
+            "items",
+            "page",
+            "per_page",
+            "total"
+        ]
+    ],
+    "supervisor GET /api/templates": [
+        200,
+        []
+    ],
+    "supervisor GET /api/campaigns": [
+        200,
+        []
+    ],
+    "supervisor GET /api/schedules": [
+        200,
+        [
+            "counts",
+            "items"
+        ]
+    ],
+    "supervisor GET /api/settings/hours": [
+        200,
+        [
+            "config",
+            "holidays",
+            "now",
+            "sample",
+            "sectors",
+            "summary",
+            "variables"
+        ]
+    ],
+    "supervisor GET /api/team/users": [
+        200,
+        [
+            [
+                "active",
+                "closed_today",
+                "created_at",
+                "email",
+                "erp_user_id",
+                "id",
+                "last_seen_at",
+                "name",
+                "online",
+                "open_count",
+                "role",
+                "sector_ids"
+            ]
+        ]
+    ],
+    "supervisor GET /api/team/sectors": [
+        200,
+        [
+            [
+                "active",
+                "channels",
+                "color",
+                "description",
+                "id",
+                "jack",
+                "name",
+                "open_count",
+                "people",
+                "waiting"
+            ]
+        ]
+    ],
+    "supervisor GET /api/team/audit": [
+        200,
+        []
+    ],
+    "supervisor GET /api/channels": [
+        200,
+        [
+            [
+                "active_conversations",
+                "attendants",
+                "config",
+                "connection_state",
+                "conversations",
+                "created_at",
+                "id",
+                "is_default",
+                "kind",
+                "last_error",
+                "name",
+                "phone",
+                "purpose",
+                "sector_id",
+                "sector_name",
+                "simulated",
+                "state_checked_at",
+                "status",
+                "webhook_url"
+            ]
+        ]
+    ],
+    "supervisor GET /api/reports": [
+        200,
+        [
+            "by_day",
+            "by_hour",
+            "by_sector",
+            "by_user",
+            "filters",
+            "kpis",
+            "period",
+            "ratings",
+            "scope"
+        ]
+    ],
+    "supervisor GET /api/queue": [
+        200,
+        [
+            "attendants",
+            "distribution",
+            "now",
+            "stats",
+            "thresholds",
+            "waiting"
+        ]
+    ],
+    "supervisor GET /api/tags": [
+        200,
+        []
+    ],
+    "supervisor GET /api/quick-messages": [
+        200,
+        []
+    ],
+    "supervisor GET /api/search?q=boleto": [
+        200,
+        []
+    ],
+    "supervisor GET /api/nao-existe": [
+        404,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /lab/simulate": [
+        200,
+        [
+            "conversation_id"
+        ]
+    ],
+    "supervisor GET /api/conversations/{id}": [
+        200,
+        [
+            "can_act",
+            "contact",
+            "conversation",
+            "messages"
+        ]
+    ],
+    "supervisor GET /api/conversations/{id}/panel": [
+        200,
+        [
+            "history",
+            "history_hidden",
+            "history_page",
+            "history_pages",
+            "history_total",
+            "notes",
+            "tags"
+        ]
+    ],
+    "supervisor GET /api/conversations/{id}/history": [
+        200,
+        [
+            "hidden",
+            "items",
+            "page",
+            "pages",
+            "total"
+        ]
+    ],
+    "supervisor POST /api/conversations/{id}/accept": [
+        200,
+        [
+            "accepted_at",
+            "assigned_user_id",
+            "channel_id",
+            "closed_at",
+            "closed_by",
+            "contact_id",
+            "helpdesk_protocol",
+            "helpdesk_ticket_id",
+            "history_from_message_id",
+            "id",
+            "last_message_at",
+            "legacy_protocol",
+            "off_hours_at",
+            "opened_at",
+            "priority",
+            "protocol",
+            "queued_at",
+            "sector_id",
+            "stage",
+            "status",
+            "subject",
+            "unread",
+            "updated_at"
+        ]
+    ],
+    "supervisor POST /api/conversations/{id}/reply": [
+        200,
+        [
+            "message_id"
+        ]
+    ],
+    "supervisor POST /api/conversations/{id}/notes": [
+        200,
+        [
+            "message_id"
+        ]
+    ],
+    "supervisor POST /api/conversations/{id}/read": [
+        200,
+        [
+            "ok"
+        ]
+    ],
+    "supervisor POST /api/conversations/{id}/acao-que-nao-existe": [
+        404,
+        [
+            "error"
+        ]
+    ],
+    "supervisor GET /lab/customer?phone=5531977776666": [
+        200,
+        [
+            "messages",
+            "typing"
+        ]
+    ],
+    "supervisor POST /api/me": [
+        403,
+        [
+            "error"
+        ]
+    ]
+}
