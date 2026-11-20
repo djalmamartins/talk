@@ -46,6 +46,32 @@ final class JackTest extends DbTestCase
         $this->assertSame(0.667, $s['taxa']);
     }
 
+    public function test_painel_mostra_erros_recentes_e_termos_e_gerente_ve_so_seus_setores(): void
+    {
+        $this->routed('o portão da garagem quebrou', '5531911111111');                 // acerto (Manutenção)
+        $b = $this->routed('quero um orçamento para o condomínio', '5531922222222');  // erro: humano levou para Manutenção
+        $this->svc->transfer($b, new \ConnectTalk\Domain\StaffMember(1, true), $this->sectors['Manutenção'], 'era reparo');
+        $this->routed('preciso da segunda via do boleto', '5531933333333');            // acerto (Financeiro)
+        $this->routed('bom dia');                                                         // sem assunto (vai para o padrão no tempo)
+
+        $s = $this->jack->stats();
+        $this->assertCount(1, $s['erros_recentes']);
+        $e = $s['erros_recentes'][0];
+        $this->assertSame($b, $e['conversation_id']);
+        $this->assertSame('Administrativo', $e['sugerido']);
+        $this->assertSame('Manutenção', $e['final']);
+        $this->assertContains('orcamento', $e['termos']);
+        $this->assertArrayNotHasKey('texto', $e); // o painel não mostra o texto do cliente
+        $this->assertSame('orcamento', $s['termos_dos_erros'][0]['termo']);
+
+        $fin = $this->jack->stats(30, [$this->sectors['Financeiro']]);
+        $this->assertSame(1, $fin['com_sugestao']);
+        $this->assertSame([], $fin['erros_recentes']);
+        $man = $this->jack->stats(30, [$this->sectors['Manutenção']]);
+        $this->assertSame(2, $man['com_sugestao']); // o acerto dele e o erro que terminou no setor dele
+        $this->assertSame(1, $man['erros']);
+    }
+
     public function test_perguntou_se_e_robo_ela_se_apresenta_e_depois_passa_o_que_nao_sabe(): void
     {
         $id = $this->inbound('oi');

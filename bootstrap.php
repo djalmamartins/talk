@@ -83,6 +83,7 @@ $jack = new Jack(
     (int) $env('JACK_WAIT_SECONDS', '5'),       // espera a pessoa parar de escrever
     (int) $env('JACK_MAX_WAIT_SECONDS', '30'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
+    generalSeconds: (int) $env('JACK_GENERAL_SECONDS', '60'),   // tempo no setor Geral antes de ela distribuir
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));

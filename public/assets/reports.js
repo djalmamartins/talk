@@ -113,6 +113,34 @@ function render(d) {
     || '<li class="meta">Ainda não há avaliações no período. A pergunta vai ao cliente quando o atendimento é encerrado.</li>';
 }
 
+// Acertos da Jack (só supervisor e gerentes; a seção não existe para atendentes)
+const pct = (v) => (v === null || v === undefined ? '–' : `${Math.round(v * 100)}%`);
+async function loadJack() {
+  if (!$('#jk')) return;
+  const from = new Date(`${$('#rp-from').value}T12:00:00`);
+  const days = Math.max(1, Math.min(365, Math.round((Date.now() - from.getTime()) / 86400000) + 1));
+  const res = await fetch(`/api/jack/stats?days=${days}`);
+  if (!res.ok) { $('#jk').hidden = true; return; }
+  const d = await res.json();
+  $('#jk').hidden = false;
+  $('#jk-note').textContent = `últimos ${d.dias} dia(s)${d.modo === 'off' ? ' · Jack desligada' : ''}`;
+  $('#jk-kpis').innerHTML = [
+    kpi(pct(d.taxa), 'Taxa de acerto', d.taxa === null ? 'Ainda sem conversas avaliadas' : `${d.acertos} de ${d.acertos + d.erros} conversas`),
+    kpi(d.erros, 'Erros', 'Transferidas para outro setor'),
+    kpi(d.com_sugestao, 'Com assunto claro', `de ${d.conversas} conversa(s) na triagem`),
+    kpi(d.sem_assunto, 'Sem assunto claro', 'Foram para o setor padrão'),
+  ].join('');
+  $('#jk-sectors').innerHTML = d.por_setor.map((x) => `<tr><td>${esc(x.setor)}</td><td class="r">${x.acertos}</td>
+    <td class="r">${x.erros}</td><td class="r">${pct(x.taxa)}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="meta">Nenhuma conversa encaminhada no período.</td></tr>';
+  $('#jk-terms').innerHTML = d.termos_dos_erros.map((t) => `<li><span class="tag">${esc(t.termo)}</span> <small class="meta">${t.vezes}×</small></li>`).join('')
+    || '<li class="meta">Nenhum erro no período.</li>';
+  $('#jk-errors').innerHTML = d.erros_recentes.map((e) => `<tr><td><a class="link" href="/?c=${e.conversation_id}">${esc(e.protocolo)}</a></td>
+    <td>${esc(e.contato || '')}</td><td>${esc(e.sugerido || '')}</td><td>${esc(e.final || '')}</td>
+    <td>${e.termos.map(esc).join(', ')}</td><td class="r">${dm(e.quando)}</td></tr>`).join('')
+    || '<tr><td colspan="6" class="meta">Nenhum erro no período.</td></tr>';
+}
+
 // balão ao passar o mouse (ou focar com o teclado)
 const tip = document.createElement('div');
 tip.className = 'rp-tip';
@@ -134,12 +162,15 @@ form.addEventListener('click', (e) => {
   if (!b) return;
   setPeriod(b.dataset.p);
   load();
+  loadJack();
 });
 form.addEventListener('change', (e) => {
   if (e.target.type === 'date') form.querySelectorAll('[data-p]').forEach((b) => b.classList.remove('on'));
   load();
+  if (e.target.type === 'date') loadJack();
 });
 form.addEventListener('submit', (e) => e.preventDefault());
 
 setPeriod('7');
 load();
+loadJack();

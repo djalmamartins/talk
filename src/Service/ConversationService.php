@@ -62,6 +62,7 @@ class ConversationService
             $isNew = $conv === null;
             if ($isNew) {
                 $conv = $this->createConversation($channelId, $contact);
+                $this->parkInGeneral($conv);
             }
 
             $msgId = $this->db->insert('talk_messages', [
@@ -99,7 +100,7 @@ class ConversationService
                 }
                 if ($talk !== null) {
                     $this->jackSay($conv, $this->texts->jackOutOfScope($talk['sector']['name']), 'jack_scope');
-                    if ($conv['status'] === 'bot') {
+                    if (self::inTriage($conv)) {
                         $this->jack->record($conv, $talk['sector'], 'scope', null);
                         // o texto de "fora do escopo" já avisa a transferência
                         $this->route($conv, $talk['sector'], $contact);
@@ -263,23 +264,29 @@ class ConversationService
         $rows = $this->db->all(
             "SELECT c.id,
                     TIMESTAMPDIFF(SECOND, MAX(m.created_at), NOW() + INTERVAL ? SECOND) AS quiet,
-                    TIMESTAMPDIFF(SECOND, c.opened_at, NOW() + INTERVAL ? SECOND) AS age
+                    TIMESTAMPDIFF(SECOND, c.opened_at, NOW() + INTERVAL ? SECOND) AS age,
+                    c.jack_pending
                FROM talk_conversations c
                JOIN talk_messages m ON m.conversation_id = c.id AND m.direction = 'in'
-              WHERE c.status = 'bot'
-              GROUP BY c.id, c.opened_at",
+              WHERE c.status = 'bot' OR (c.jack_pending = 1 AND c.status = 'pending' AND c.assigned_user_id IS NULL)
+              GROUP BY c.id, c.opened_at, c.jack_pending",
             [$clockShift, $clockShift]
         );
         $routed = 0;
         foreach ($rows as $r) {
-            // assunto já claro ("estamos sem água") vai para a fila na hora; senão espera a pessoa terminar
-            if (!$this->jack->isDue((int) $r['quiet'], (int) $r['age']) && !$this->jack->isClear($this->inboundText((int) $r['id']))) {
+            if ((int) $r['jack_pending'] === 1) {
+                // no Geral: espera o tempo combinado (padrão 1 min) antes de distribuir, mesmo com assunto claro
+                if (!$this->jack->isDueInGeneral((int) $r['quiet'], (int) $r['age'])) {
+                    continue;
+                }
+            } elseif (!$this->jack->isDue((int) $r['quiet'], (int) $r['age']) && !$this->jack->isClear($this->inboundText((int) $r['id']))) {
+                // sem Geral: assunto já claro ("estamos sem água") vai para a fila na hora; senão espera a pessoa terminar
                 continue;
             }
             $routed += (int) $this->db->transaction(function () use ($r): bool {
                 $conv = $this->lock((int) $r['id']);
-                if ($conv['status'] !== 'bot') {
-                    return false; // outro processo já encaminhou
+                if (!self::inTriage($conv)) {
+                    return false; // outro processo já encaminhou, ou um atendente pegou no Geral
                 }
                 $texts = array_column($this->db->all(
                     "SELECT body FROM talk_messages WHERE conversation_id = ? AND direction = 'in' AND type IN ('text','image','video') AND body IS NOT NULL ORDER BY id", // legenda de foto/vídeo também conta
@@ -304,7 +311,8 @@ class ConversationService
                     ]);
                 }
                 $d = $fixed ? ['action' => 'route', 'sector' => $fixed]
-                    : $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
+                    // no Geral o tempo de espera já passou: "bom dia" sozinho não segura mais a conversa
+                    : $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $conv['jack_pending'] === 1 ? PHP_INT_MAX : (int) $r['age']);
                 if ($d === null) {
                     return false; // já perguntou e a pessoa ainda não disse o assunto: espera
                 }
@@ -325,7 +333,7 @@ class ConversationService
     /** Mensagem da Jaqueline: entra na fila com "digitando…" antes, como uma pessoa. */
     private function jackSay(array $conv, string $text, string $type): int
     {
-        return $this->queueOutbound($conv, $text, null, $type, $this->jack?->typingSeconds($text) ?? 0);
+        return $this->queueOutbound($conv, $text, $this->jack?->userId(), $type, $this->jack?->typingSeconds($text) ?? 0);
     }
 
     /** Texto de fora do horário (uma vez por conversa), ou null se o setor está atendendo. */
@@ -358,10 +366,50 @@ class ConversationService
             ?? $this->db->one("SELECT id, name FROM talk_sectors WHERE active = 1 ORDER BY menu_key LIMIT 1");
     }
 
+    /** Conversa ainda nas mãos da Jack: na triagem antiga (status bot) ou esperando no Geral. */
+    private static function inTriage(array $conv): bool
+    {
+        return $conv['status'] === 'bot'
+            || ((int) ($conv['jack_pending'] ?? 0) === 1 && $conv['status'] === 'pending' && $conv['assigned_user_id'] === null);
+    }
+
+    /**
+     * Conversa nova vai para a fila do Geral (à vista da equipe) e a Jack distribui depois.
+     * Número dedicado a um setor não passa pelo Geral: a triagem manda direto para o setor dele.
+     */
+    private function parkInGeneral(array $conv): void
+    {
+        $general = $this->jack?->generalSector();
+        if ($general === null) {
+            return;
+        }
+        $fixed = $this->db->one('SELECT s.id FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?', [$conv['channel_id']]);
+        if ($fixed) {
+            return;
+        }
+        $this->db->run(
+            "UPDATE talk_conversations SET sector_id = ?, status = 'pending', jack_pending = 1, queued_at = NOW() WHERE id = ? AND status = 'bot'",
+            [$general['id'], $conv['id']]
+        );
+    }
+
+    private function openTicketIfMissing(array $conv): void
+    {
+        if ($conv['helpdesk_ticket_id']) {
+            return;
+        }
+        $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
+        $this->openTicket($conv, $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]), $sector['name'] ?? null);
+    }
+
     /** Coloca a conversa na fila do setor e abre o chamado. Não manda nada para o cliente. */
     private function route(array $conv, array $sector, array $contact): void
     {
-        $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending', queued_at = NOW() WHERE id = ?", [$sector['id'], $conv['id']]);
+        // vindo do Geral, a espera continua contando de quando a mensagem chegou
+        $this->db->run(
+            "UPDATE talk_conversations SET sector_id = ?, status = 'pending', jack_pending = 0, queued_at = IF(jack_pending = 1, queued_at, NOW()) WHERE id = ?",
+            [$sector['id'], $conv['id']]
+        );
         $conv = $this->get((int) $conv['id']);
         $this->openTicket($conv, $contact, $sector['name']);
         $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
@@ -407,8 +455,15 @@ class ConversationService
             if ($conv['status'] !== 'pending') {
                 throw new DomainError('Esta conversa já foi aceita por outra pessoa.');
             }
-            $this->db->run("UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, unread = 0, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
+            $fromGeneral = (int) $conv['jack_pending'] === 1;
+            $this->db->run("UPDATE talk_conversations SET status = 'open', jack_pending = 0, transfer_pending = 0, assigned_user_id = ?, unread = 0, accepted_at = COALESCE(accepted_at, NOW()) WHERE id = ?", [$u->userId, $convId]);
             $conv = $this->get($convId);
+            if ($fromGeneral) {
+                // pegou no Geral antes da Jack distribuir: ela sai de cena e o chamado abre agora
+                $this->jack?->settle($convId, (int) $conv['sector_id']);
+                $this->openTicketIfMissing($conv);
+                $conv = $this->get($convId);
+            }
             $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
             return $conv;
         });
@@ -492,6 +547,11 @@ class ConversationService
                     [$status === 'open' ? null : $status, $u->userId, $convId]
                 );
                 $note = 'Status alterado para ' . self::STATUS_LABELS[$status] . '.';
+            }
+            // alguém mexeu no status: a Jack sai de cena (se estava no Geral) e o aviso de transferência some
+            $this->db->run('UPDATE talk_conversations SET jack_pending = 0, transfer_pending = 0 WHERE id = ?', [$convId]);
+            if ((int) $conv['jack_pending'] === 1) {
+                $this->openTicketIfMissing($this->get($convId));
             }
             $noteId = $this->db->insert('talk_messages', [
                 'conversation_id' => $convId, 'direction' => 'internal', 'author_user_id' => $u->userId,
@@ -588,7 +648,7 @@ class ConversationService
             if ($toUserId !== null) {
                 $toUser = $this->db->one(
                     "SELECT u.id, u.name FROM talk_users u JOIN talk_staff s ON s.user_id = u.id
-                      WHERE u.id = ? AND u.active = 1 AND (s.sector_id = ? OR s.role = 'supervisor') LIMIT 1",
+                      WHERE u.id = ? AND u.active = 1 AND u.is_bot = 0 AND (s.sector_id = ? OR s.role = 'supervisor') LIMIT 1",
                     [$toUserId, $toSectorId]
                 );
                 if (!$toUser) {
@@ -616,13 +676,16 @@ class ConversationService
                 'ack' => 'received',
             ]);
             $this->db->run(
-                'UPDATE talk_conversations SET sector_id = ?, status = ?, stage = NULL, assigned_user_id = ?, history_from_message_id = ?,
+                'UPDATE talk_conversations SET sector_id = ?, status = ?, stage = NULL, jack_pending = 0, transfer_pending = ?, transferred_by = ?, assigned_user_id = ?, history_from_message_id = ?,
                         queued_at = IF(? = \'pending\', NOW(), queued_at) WHERE id = ?',
-                [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
+                [$toSectorId, $toUser ? 'open' : 'pending', ($toUser['id'] ?? null) === $u->userId ? 0 : 1, $u->userId, $toUser['id'] ?? null,
+                 $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
             );
             $this->jack?->settle($convId, $toSectorId);
             if ($conv['helpdesk_ticket_id']) {
                 $this->safeHelpdesk(fn () => $this->helpdesk->transfer((int) $conv['helpdesk_ticket_id'], $to['name'], $u->userId, $note));
+            } elseif ((int) $conv['jack_pending'] === 1) {
+                $this->openTicketIfMissing($this->get($convId)); // tirou do Geral antes da Jack: chamado já no setor novo
             }
             $conv = $this->get($convId);
             $this->queueOutbound($conv, $this->texts->transferred($to['name']), null);
@@ -648,7 +711,7 @@ class ConversationService
                 ]);
             }
             $this->db->run(
-                "UPDATE talk_conversations SET status = 'closed', stage = NULL, closed_at = NOW(), closed_by = ?, unread = 0 WHERE id = ?",
+                "UPDATE talk_conversations SET status = 'closed', stage = NULL, closed_at = NOW(), closed_by = ?, unread = 0, transfer_pending = 0 WHERE id = ?",
                 [$u->userId, $convId]
             );
             if ($conv['helpdesk_ticket_id']) {
@@ -734,7 +797,11 @@ class ConversationService
         if (!$this->policy->canView($u, $conv)) {
             throw new DomainError('Sem acesso a esta conversa.', 403);
         }
-        $this->db->run('UPDATE talk_conversations SET unread = 0 WHERE id = ?', [$convId]);
+        // quem recebeu a transferência abriu a conversa: o aviso do sino sai
+        $this->db->run(
+            'UPDATE talk_conversations SET unread = 0, transfer_pending = IF(assigned_user_id = ?, 0, transfer_pending) WHERE id = ?',
+            [$u->userId, $convId]
+        );
     }
 
     // ------------------------------------------------------------------ apoio

@@ -159,7 +159,7 @@ try {
                 http_response_code(429);
                 $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab]);
             }
-            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [$email]);
+            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1 AND is_bot = 0', [$email]); // a Jack não entra
             if ($u && password_verify((string) ($_POST['password'] ?? ''), $u['password_hash'])) {
                 $app['login']->succeeded($email);
                 session_regenerate_id(true);
@@ -320,7 +320,7 @@ try {
                 // para "Trocar atendente": quem atende em cada setor
                 'staff' => $app['db']->all(
                     "SELECT s.user_id, u.name, s.sector_id, s.role FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
-                      WHERE u.active = 1 ORDER BY u.name"
+                      WHERE u.active = 1 AND u.is_bot = 0 ORDER BY u.name"
                 ),
             ]);
         }
@@ -336,7 +336,8 @@ try {
             if (!$me->supervisor && $me->managerSectors === []) {
                 $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
             }
-            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+            // gerente vê só o que passou pelos setores dele; supervisor vê tudo
+            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30))), $me->supervisor ? null : $me->managerSectors));
         }
         if ($path === '/api/contacts') {
             $json($app['contactbook']->list($me, $_GET));
