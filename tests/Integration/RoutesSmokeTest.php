@@ -100,6 +100,10 @@ final class RoutesSmokeTest extends DbTestCase
         foreach (['', '/panel', '/history'] as $sub) {
             $take('GET', "/api/conversations/$id$sub");
         }
+        // ação por GET não pode rodar: o CSRF só é conferido em POST (antes, GET /tags apagava as etiquetas)
+        $take('GET', "/api/conversations/$id/accept");
+        $take('GET', "/api/conversations/$id/tags");
+        $this->assertNull($this->conv($id)['assigned_user_id'], 'GET /accept não pode aceitar a conversa');
         $take('POST', "/api/conversations/$id/accept");
         $take('POST', "/api/conversations/$id/reply", ['text' => 'Já envio.']);
         $take('POST', "/api/conversations/$id/notes", ['note' => 'Cliente pediu por e-mail também.']);

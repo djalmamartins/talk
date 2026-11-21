@@ -86,3 +86,7 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   (anônimo e supervisor, páginas, API, ações da conversa, simulador, 401/403/404). Conferido que
   renomear uma rota faz o teste falhar. Próxima: `src/Http/Router.php` e as rotas da API de conversas
   por primeiro, mantendo o retrato igual.
+- **2026-11-21 — etapa 2, parte A (feita):** `src/Http/Router.php` e rotas de conversa em
+  `src/Http/Routes/conversations.php`. Achado de segurança corrigido no caminho: ações por GET
+  pulavam o CSRF (ver CHANGELOG). Próxima: mover as demais rotas da API (equipe, canais, envios,
+  agendamentos, configurações) para arquivos por área, uma área por rodada.

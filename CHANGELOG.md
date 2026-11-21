@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Não lançado] — 2026-11-20
+### Segurança
+- Ações de uma conversa (aceitar, encerrar, transferir, etiquetas, responder…) só rodam por **POST**.
+  Antes, um GET em `/api/conversations/{id}/accept` (ou `/close`, `/tags`…) também executava a ação, e
+  GET não passa pela conferência de CSRF: um link de outro site aberto por um atendente logado podia
+  aceitar ou encerrar uma conversa, ou apagar as etiquetas do contato. Agora esses GET dão 404.
+  As telas já usavam POST, então nada muda para quem usa o sistema.
 ### Interno (sem mudança de comportamento)
 - Revisão de arquitetura em `docs/arquitetura-melhorias.md`, com plano em 5 etapas.
 - Etapa 1: o `public/index.php` deixou de consultar o banco no `/api/me`, no contato da conversa e
@@ -13,7 +19,9 @@
 - Etapa 2, preparo: `RoutesSmokeTest` sobe o site de verdade (`php -S`, modo lab) e compara 44 rotas
   (código HTTP e chaves do JSON) com o retrato em `tests/Fixtures/routes-snapshot.json`. É a rede de
   segurança para trocar o roteador.
-- Testes novos: `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (158 testes passando no MariaDB).
+- Etapa 2A: roteador mínimo `Http\Router` (método + padrão, `{id}` numérico) e as 16 rotas de conversa
+  em `src/Http/Routes/conversations.php`. O `switch` de ações saiu do `index.php`.
+- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB).
 
 ## [0.22.0] — 2026-11-16
 ### Adicionado

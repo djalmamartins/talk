@@ -275,6 +275,18 @@
             "total"
         ]
     ],
+    "supervisor GET /api/conversations/{id}/accept": [
+        404,
+        [
+            "error"
+        ]
+    ],
+    "supervisor GET /api/conversations/{id}/tags": [
+        404,
+        [
+            "error"
+        ]
+    ],
     "supervisor POST /api/conversations/{id}/accept": [
         200,
         [

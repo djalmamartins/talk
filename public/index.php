@@ -7,8 +7,8 @@ declare(strict_types=1);
  */
 
 use ConnectTalk\Gateway\CloudApiGateway;
+use ConnectTalk\Http\Router;
 use ConnectTalk\Service\DomainError;
-use ConnectTalk\Support\Signature;
 
 $app = require __DIR__ . '/../bootstrap.php';
 $env = $app['env'];
@@ -304,7 +304,6 @@ try {
         if ($method !== 'GET') {
             $csrf();
         }
-        $svc = $app['conversations'];
 
         if ($path === '/api/me') {
             $json([
@@ -493,10 +492,6 @@ try {
             }
             $json($app['contacts']->saveTag($me, $body(), (int) $m[1]));
         }
-        if (preg_match('#^/api/conversations/(\d+)/contact-notes/(\d+)/delete$#', $path, $m) && $method === 'POST') {
-            $app['contacts']->deleteNote($me, (int) $m[1], (int) $m[2]);
-            $json(['ok' => true]);
-        }
         if ($path === '/api/quick-messages') {
             $json($method === 'POST' ? $app['quick']->save($me, $body()) : $app['quick']->available($me));
         }
@@ -510,57 +505,10 @@ try {
         if ($path === '/api/search') {
             $json($app['inbox']->search($me, $_GET));
         }
-        if (preg_match('#^/api/conversations/(\d+)(?:/(\w+))?$#', $path, $m)) {
-            $id = (int) $m[1];
-            $action = $m[2] ?? null;
-            $b = $method === 'POST' ? $body() : [];
-            switch ($action) {
-                case null:
-                    $conv = $svc->get($id);
-                    $messages = $app['inbox']->messages($me, $id);
-                    $contact = $app['inbox']->contact((int) $conv['contact_id']);
-                    $json(['conversation' => $conv, 'contact' => $contact, 'messages' => $messages,
-                        'can_act' => $app['policy']->canAct($me, $conv)]);
-                case 'accept':
-                    $json($svc->accept($id, $me));
-                case 'status':
-                    $json($svc->setStatus($id, $me, (string) ($b['status'] ?? '')));
-                case 'priority':
-                    $json($svc->setPriority($id, $me, (string) ($b['priority'] ?? '')));
-                case 'panel':
-                    $json($app['contacts']->panel($me, $id));
-                case 'history':
-                    $json($app['contacts']->history($me, $id, (int) ($_GET['pagina'] ?? 1)));
-                case 'tags':
-                    $json($app['contacts']->setContactTags($me, $id, (array) ($b['tag_ids'] ?? [])));
-                case 'contactnotes':
-                    $json($app['contacts']->addNote($me, $id, (string) ($b['body'] ?? '')));
-                case 'attach':
-                    [$bytes, $mime, $fname] = $upload();
-                    $json(['message_id' => $svc->sendFile($id, $me, $bytes, $mime, $fname, isset($_POST['caption']) ? (string) $_POST['caption'] : null,
-                        ($_POST['sign'] ?? '1') !== '0' ? Signature::of($_SESSION['user_name'] ?? null) : null)]);
-                case 'reply':
-                    $json(['message_id' => $svc->reply($id, $me, (string) ($b['text'] ?? ''), ($b['sign'] ?? true) ? Signature::of($_SESSION['user_name'] ?? null) : null)]);
-                case 'transfer':
-                    $json($svc->transfer(
-                        $id,
-                        $me,
-                        (int) ($b['sector_id'] ?? 0),
-                        isset($b['note']) ? (string) $b['note'] : null,
-                        !empty($b['user_id']) ? (int) $b['user_id'] : null,
-                        !isset($b['keep_history']) || (bool) $b['keep_history'],
-                    ));
-                case 'close':
-                    $json($svc->close($id, $me, $b['resolution'] ?? null));
-                case 'ticket':
-                    $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? '')));
-                case 'notes':
-                    $json(['message_id' => $svc->addNote($id, $me, (string) ($b['note'] ?? ''))]);
-                case 'read':
-                    $svc->markRead($id, $me);
-                    $json(['ok' => true]);
-            }
-        }
+        // conversa: rotas em src/Http/Routes/conversations.php
+        $router = new Router();
+        (require __DIR__ . '/../src/Http/Routes/conversations.php')($router, $app, $me, $json, $body, $upload);
+        $router->dispatch($method, $path);
         $json(['error' => 'Rota não encontrada.'], 404);
     }
 
