@@ -103,3 +103,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
 - **2026-11-21 — etapa 2, parte G (feita, etapa 2 concluída):** rotas fora da API em
   `src/Http/Routes/web.php`. `index.php` com 165 linhas. Próxima: etapa 3, dividir o
   `ConversationService` atrás da fachada, começando pelo `TicketBridge` (helpdesk do ERP), a parte mais isolada.
+- **2026-11-21 — etapa 3, parte A (feita):** `TicketBridge` (863 → 816 linhas no `ConversationService`).
+  Próxima: `Triage` (triagem da Jack, horário de atendimento e roteamento para o setor).

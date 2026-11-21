@@ -28,14 +28,18 @@ class ConversationService
         private EventBus $events,
         private AccessPolicy $policy,
         private ContactDirectory $directory,
-        private Helpdesk $helpdesk,
+        Helpdesk $helpdesk,
         private Texts $texts = new Texts(),
         private ?Jack $jack = null,
         private ?MediaStore $media = null,
         private bool $askRating = true,
         private ?BusinessHours $hours = null,
+        ?TicketBridge $tickets = null,
     ) {
+        $this->tickets = $tickets ?? new TicketBridge($db, $helpdesk);
     }
+
+    private TicketBridge $tickets;
 
     // ------------------------------------------------------------------ entrada
 
@@ -363,7 +367,7 @@ class ConversationService
     {
         $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending', queued_at = NOW() WHERE id = ?", [$sector['id'], $conv['id']]);
         $conv = $this->get((int) $conv['id']);
-        $this->openTicket($conv, $contact, $sector['name']);
+        $this->tickets->openAuto($conv, $contact, $sector['name']);
         $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
     }
@@ -388,7 +392,7 @@ class ConversationService
             'last_message_at' => date('Y-m-d H:i:s'),
         ]);
         $conv = $this->get($id);
-        $this->openTicket($conv, $contact, $sector['name']);
+        $this->tickets->openAuto($conv, $contact, $sector['name']);
         $this->db->insert('talk_messages', [
             'conversation_id' => $id, 'direction' => 'internal', 'author_user_id' => $userId, 'type' => 'note', 'body' => $note, 'ack' => 'received',
         ]);
@@ -621,9 +625,7 @@ class ConversationService
                 [$toSectorId, $toUser ? 'open' : 'pending', $toUser['id'] ?? null, $keepHistory ? $conv['history_from_message_id'] : $noteId, $toUser ? 'open' : 'pending', $convId]
             );
             $this->jack?->settle($convId, $toSectorId);
-            if ($conv['helpdesk_ticket_id']) {
-                $this->safeHelpdesk(fn () => $this->helpdesk->transfer((int) $conv['helpdesk_ticket_id'], $to['name'], $u->userId, $note));
-            }
+            $this->tickets->transfer($conv, $to['name'], $u->userId, $note);
             $conv = $this->get($convId);
             $this->queueOutbound($conv, $this->texts->transferred($to['name']), null);
             // avisa o setor de origem (some da lista) e o de destino (aparece na fila)
@@ -651,9 +653,7 @@ class ConversationService
                 "UPDATE talk_conversations SET status = 'closed', stage = NULL, closed_at = NOW(), closed_by = ?, unread = 0 WHERE id = ?",
                 [$u->userId, $convId]
             );
-            if ($conv['helpdesk_ticket_id']) {
-                $this->safeHelpdesk(fn () => $this->helpdesk->close((int) $conv['helpdesk_ticket_id'], $u->userId, $resolution));
-            }
+            $this->tickets->close($conv, $u->userId, $resolution);
             $conv = $this->get($convId);
             if ($notifyCustomer) {
                 $this->queueOutbound($conv, $this->texts->closed(self::ticketNumber($conv)), $u->userId);
@@ -695,21 +695,7 @@ class ConversationService
         if ($conv['status'] === 'bot') {
             throw new DomainError('Espere a conversa chegar à fila de um setor para abrir o chamado.');
         }
-        $contact = $this->ticketContact($this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]));
-        $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
-        try {
-            $t = $this->helpdesk->open($conv + ['subject' => $subject, 'ticket_message' => $description], $contact, $sector['name'] ?? null);
-        } catch (\Throwable $e) {
-            error_log('[talk] abrir chamado: ' . $e->getMessage());
-            throw new DomainError('O Help Desk do ERP não respondeu. Tente de novo em instantes.', 502);
-        }
-        if (!is_array($t) || !isset($t['id'])) {
-            throw new DomainError('O Help Desk do ERP ainda não está ligado ao Talk (falta ERP_API_URL no .env).', 409);
-        }
-        $this->db->run(
-            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, subject = ? WHERE id = ?',
-            [(int) $t['id'], $t['protocol'] ?? null, $subject, $convId]
-        );
+        $this->tickets->openNow($conv, $subject, $description);
         $conv = $this->get($convId);
         $this->addNote($convId, $u, 'Chamado ' . self::ticketNumber($conv) . ' aberto no Help Desk: ' . $subject);
         $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
@@ -739,20 +725,6 @@ class ConversationService
 
     // ------------------------------------------------------------------ apoio
 
-    /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
-    /** Abre o chamado no Help Desk e guarda o id e o número dele (o número que o cliente vê). */
-    private function openTicket(array $conv, array $contact, ?string $sectorName): void
-    {
-        $contact = $this->ticketContact($contact);
-        $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sectorName));
-        if (is_array($t) && isset($t['id'])) {
-            $this->db->run(
-                'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ? WHERE id = ?',
-                [(int) $t['id'], $t['protocol'] ?? null, $conv['id']]
-            );
-        }
-    }
-
     private function inboundText(int $convId): string
     {
         return implode("\n", array_column($this->db->all(
@@ -761,29 +733,10 @@ class ConversationService
         ), 'body'));
     }
 
-    /** Contato com o que veio do cadastro do ERP (condomínio, unidade) em "details", para o chamado. */
-    private function ticketContact(array $contact): array
-    {
-        if (!is_array($contact['details'] ?? null)) {
-            $contact['details'] = json_decode((string) ($contact['erp_snapshot'] ?? ''), true) ?: [];
-        }
-        return $contact;
-    }
-
     /** Número do chamado para o cliente: o do Help Desk, quando houver; senão, o protocolo do Talk. */
     public static function ticketNumber(array $conv): string
     {
-        return (string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']);
-    }
-
-    private function safeHelpdesk(callable $fn): mixed
-    {
-        try {
-            return $fn();
-        } catch (\Throwable $e) {
-            error_log('[talk] helpdesk do ERP falhou: ' . $e->getMessage());
-            return null;
-        }
+        return TicketBridge::number($conv);
     }
 
     /** Grava a mensagem de saída e coloca na fila de envio. */

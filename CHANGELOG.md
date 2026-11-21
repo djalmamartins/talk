@@ -38,7 +38,10 @@
 - Etapa 2G: webhooks, login/logout, SSE, arquivos e simulador em `src/Http/Routes/web.php`.
   **Etapa 2 concluída:** o `public/index.php` caiu de 634 para 165 linhas e só faz a montagem
   (sessão, CSRF, respostas, erros) e o despacho; todas as rotas estão em `src/Http/Routes/`. Retrato com 93 casos.
-- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB; o retrato das rotas conta como 1).
+- Etapa 3A: a ponte com o Help Desk do ERP saiu do `ConversationService` para `Service\TicketBridge`
+  (abrir sozinho, abrir pelo botão, transferir, encerrar, número do chamado). O `ConversationService`
+  mantém a mesma assinatura e delega; os testes de chamado (`OpenTicketTest`, ERP fora do ar) seguem iguais.
+- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (161 testes passando no MariaDB; o retrato das rotas conta como 1).
 
 ## [0.22.0] — 2026-11-16
 ### Adicionado
