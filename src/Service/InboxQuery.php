@@ -173,4 +173,10 @@ final class InboxQuery
         $words = preg_split('/\s+/u', trim(preg_replace('/[+\-<>()~*"@]+/u', ' ', $q) ?? '')) ?: [];
         return implode(' ', array_map(fn ($w) => '+' . $w . '*', array_filter($words, fn ($w) => mb_strlen($w) >= 2)));
     }
+
+    /** Dados do contato mostrados no topo da conversa. */
+    public function contact(int $contactId): ?array
+    {
+        return $this->db->one('SELECT id, name, phone, erp_person_id, erp_snapshot FROM talk_contacts WHERE id = ?', [$contactId]);
+    }
 }

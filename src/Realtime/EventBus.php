@@ -25,4 +25,10 @@ class EventBus
             'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ]);
     }
+
+    /** Último evento publicado: o stream começa daqui quando o navegador não diz de onde parou. */
+    public function lastId(): int
+    {
+        return (int) $this->db->one('SELECT COALESCE(MAX(id),0) m FROM talk_events')['m'];
+    }
 }

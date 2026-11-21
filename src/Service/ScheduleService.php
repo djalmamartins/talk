@@ -171,9 +171,9 @@ final class ScheduleService
         $author = $this->db->one('SELECT name FROM talk_users WHERE id = ?', [$s['created_by']]);
         if ($conv === null) {
             $conv = $this->conversations->startOutbound((int) $s['channel_id'], $contact, (int) $s['sector_id'], (int) $s['created_by'],
-                'Conversa iniciada por mensagem agendada por ' . explode(' (', (string) ($author['name'] ?? '—'))[0] . '.');
+                'Conversa iniciada por mensagem agendada por ' . \ConnectTalk\Support\Signature::of($author['name'] ?? '—') . '.');
         }
-        $first = explode(' (', (string) ($author['name'] ?? ''))[0];
+        $first = \ConnectTalk\Support\Signature::of($author['name'] ?? null);
         $body = (int) $s['sign'] === 1 && $first !== '' ? "*{$first}:*\n{$s['body']}" : $s['body'];
         $msgId = $this->conversations->queueOutbound($conv, $body, (int) $s['created_by']);
         $this->db->run("UPDATE talk_schedules SET status = 'sent', sent_at = NOW(), sent_conversation_id = ?, sent_message_id = ?, updated_at = NOW() WHERE id = ?",

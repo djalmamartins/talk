@@ -5,6 +5,7 @@ namespace ConnectTalk\Tests\Unit;
 
 use ConnectTalk\Support\Crypto;
 use ConnectTalk\Support\Phone;
+use ConnectTalk\Support\Signature;
 use PHPUnit\Framework\TestCase;
 
 final class SupportTest extends TestCase
@@ -33,5 +34,12 @@ final class SupportTest extends TestCase
         $this->assertSame(['token' => 'abc'], $k->decrypt($enc));
         $this->expectException(\RuntimeException::class);
         (new Crypto(random_bytes(32)))->decrypt($enc);
+    }
+
+    public function test_assinatura_curta_do_atendente(): void
+    {
+        $this->assertSame('Maria', Signature::of('Maria (Financeiro)'));
+        $this->assertSame('João Souza', Signature::of('João Souza'));
+        $this->assertSame('', Signature::of(null));
     }
 }

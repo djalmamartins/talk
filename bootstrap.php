@@ -55,6 +55,12 @@ if (is_file($envFile)) {
 
 $env = static fn (string $k, ?string $d = null) => getenv($k) !== false ? (string) getenv($k) : $d;
 date_default_timezone_set($env('TZ', 'America/Sao_Paulo'));
+$isLab = $env('APP_ENV') === 'lab';
+// sem estas o Talk não sobe: avisa qual falta em vez de um erro de banco ou de chave sem explicação
+$missing = array_values(array_filter(['DB_DATABASE', 'DB_USERNAME', 'TALK_KEY'], static fn (string $k) => (string) $env($k, '') === ''));
+if ($missing !== []) {
+    throw new RuntimeException('Falta no .env do Talk: ' . implode(', ', $missing) . ' (veja .env.example).');
+}
 
 $db = Db::connect(
     sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $env('DB_HOST', 'localhost'), $env('DB_PORT', '3306'), $env('DB_DATABASE')),
@@ -91,13 +97,15 @@ $conversations = new ConversationService($db, $events, $policy, $directory, $hel
     askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours);
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
-    simulateQr: $env('APP_ENV') === 'lab');
+    simulateQr: $isLab);
 
 return [
     'env' => $env,
+    'isLab' => $isLab,
     'db' => $db,
     'crypto' => $crypto,
     'policy' => $policy,
+    'events' => $events,
     'staff' => new StaffRepository($db),
     'conversations' => $conversations,
     'inbox' => new InboxQuery($db, $policy),
@@ -113,12 +121,13 @@ return [
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
-    'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
+    'team' => new \ConnectTalk\Service\TeamService($db, $events, static fn (): ?string => $_SERVER['REMOTE_ADDR'] ?? null),
     'login' => new \ConnectTalk\Service\LoginGuard($db),
     'schedules' => new \ConnectTalk\Service\ScheduleService($db, $policy, $conversations),
-    'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),
-    'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $env('APP_ENV') === 'lab',
+    'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $isLab),
+    'channels' => new \ConnectTalk\Service\ChannelService($db, $crypto, $gateways, (string) $env('APP_URL', ''), $isLab,
         (string) $env('EVOLUTION_WEBHOOK_URL', '')),
+    'lab' => new \ConnectTalk\Lab\Simulator($db, $conversations),
     'notifications' => new \ConnectTalk\Service\Notifications($db, $policy, $hours),
     // seletor de sistemas (rodapé do topo do menu), como o "Ambientes Connect" do ERP.
     // Sem endereço, o sistema aparece apagado. A permissão de cada sistema é conferida nele mesmo, no login.

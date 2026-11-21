@@ -28,4 +28,26 @@ final class StaffRepository
         }
         return new StaffMember($userId, $sup, $agent, $manager);
     }
+
+    /** Nomes, setores ativos e quem atende cada setor (usado no /api/me e em "Trocar atendente"). */
+    public function directory(): array
+    {
+        $names = [];
+        foreach ($this->db->all('SELECT id, name FROM talk_users') as $r) {
+            $names[(int) $r['id']] = $r['name'];
+        }
+        return [
+            'sectors' => $this->db->all('SELECT id, name, menu_key, color FROM talk_sectors WHERE active = 1 ORDER BY menu_key'),
+            'users' => $names,
+            'staff' => $this->db->all(
+                "SELECT s.user_id, u.name, s.sector_id, s.role FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
+                  WHERE u.active = 1 ORDER BY u.name"
+            ),
+        ];
+    }
+
+    public function email(int $userId): string
+    {
+        return (string) ($this->db->one('SELECT email FROM talk_users WHERE id = ?', [$userId])['email'] ?? '');
+    }
 }

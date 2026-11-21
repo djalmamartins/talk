@@ -1,0 +1,138 @@
+# Melhorias de arquitetura do Talk (revisão de 2026-11-20)
+
+Status: **concluída** em 2026-11-21 (ver "Andamento" e "O que ficou de fora").
+Base analisada: `claude/project-thread-bhzf0c` em `a977898` (0.22.0).
+
+## Resumo
+O Talk está bem organizado nas camadas de baixo: `Domain/` (objetos de valor),
+`Contracts/` (ERP trocável: `Http*`, `Sql*`, `Null*`), `Gateway/` (Evolution e Cloud API
+atrás de uma fábrica), `Support/Db` com SQL parametrizado e 23 arquivos de teste.
+Os problemas estão em **dois pontos de concentração**: o controlador frontal
+`public/index.php` (634 linhas) e o `ConversationService` (863 linhas).
+É ali que cada nova tela do ROADMAP fica mais cara.
+
+## Achados (por prioridade)
+
+### 1. `public/index.php` faz papel de roteador, controlador e repositório — ALTA
+- Todas as rotas (páginas, API, mídia, webhooks, SSE, laboratório) num único
+  arquivo com `if`/`preg_match`/`switch` em sequência; a ordem dos `if` decide qual rota vence.
+- **13 consultas SQL diretas** (`$app['db']`) no controlador, por exemplo em
+  `/api/me`, `GET /api/conversations/{id}` e todo o simulador `/lab/*`
+  (inclusive um `UPDATE talk_messages` ali). Essas regras ficam fora dos testes de serviço.
+- A assinatura do atendente (`explode(' (', $_SESSION['user_name'])[0]`) aparece 4 vezes.
+- As 9 páginas repetem o mesmo bloco `$view(..., ['isLab', 'csrf', 'userName'])`.
+
+**Proposta:** um roteador mínimo próprio (≈60 linhas, sem framework, coerente com o
+"orgânico") que mapeia `método + padrão → callable`, e as rotas divididas por área em
+`src/Http/Routes/{pages,conversations,team,channels,campaigns,lab}.php`. O `index.php`
+fica só com sessão, CSRF, tratamento de erro e despacho. As consultas inline vão para
+serviços existentes (`StaffRepository::directory()`, `InboxQuery::detail()`) e um novo
+`Lab\Simulator`. A assinatura vira `StaffMember::signature()` ou um helper de sessão.
+
+### 2. `ConversationService` acumula quatro responsabilidades — ALTA
+Hoje ele cuida de: (a) entrada de mensagens e avaliação (`handleInbound`, `answerRating`,
+`handleStatus`), (b) triagem da Jack, horário e roteamento (`triage`, `offHours`, `route`),
+(c) ações do atendente (`accept`, `transfer`, `close`, `setStatus`, `reply`, `sendFile`…)
+e (d) integração com o helpdesk do ERP (`openTicket`, `openTicketNow`, `safeHelpdesk`).
+
+**Proposta:** separar em `InboundService` (a), `Triage` (b), `ConversationActions` (c) e
+`TicketBridge` (d), com `lock()`, `authorize()`, `summary()` e `queueOutbound()` num
+`ConversationStore` compartilhado. Fazer **sem mudar assinaturas públicas**: o
+`ConversationService` vira uma fachada que delega, para os 18 testes de integração
+continuarem valendo; depois os chamadores migram aos poucos.
+
+### 3. Contêiner de dependências é um array com chaves em texto — MÉDIA
+`bootstrap.php` devolve `['db' => …, 'team' => …]`; erro de digitação só aparece em
+execução e o editor não ajuda. Metade das classes usa `use`, metade nome completo.
+`TeamService` recebe `$_SERVER['REMOTE_ADDR']` na montagem (estado da requisição dentro do serviço).
+
+**Proposta:** uma classe `App` com propriedades `readonly` tipadas (mesma montagem,
+mesmo arquivo), e o IP passado por chamada em vez de no construtor.
+
+### 4. Leitura do `.env` e configuração espalhadas — BAIXA
+`$env('APP_ENV') === 'lab'` aparece em vários construtores. Um `Config` pequeno
+(`isLab`, `appUrl`, limites da fila, Jack) centraliza valores padrão e validação na subida.
+
+### 5. Front-end: `app.js` com 654 linhas — BAIXA
+As outras telas já têm JS próprio. Vale extrair de `app.js` o que é comum (fetch com CSRF,
+SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
+
+## O que NÃO mudar
+- Os contratos `ContactDirectory`/`Helpdesk` e a fábrica de gateways: já são o desenho certo.
+- `Db` com SQL explícito: combina com a decisão de não usar framework/ORM.
+- Isolamento por setor no `AccessPolicy`: só garantir que continue sendo chamado nos serviços, não no controlador.
+
+## Ordem sugerida (cada etapa é um PR pequeno, com testes passando)
+1. Tirar o SQL do `index.php` para serviços + helper de assinatura (menor risco, ganha teste).
+2. Roteador mínimo e rotas por área (comportamento idêntico; conferir com os testes e um passeio no lab).
+3. Dividir o `ConversationService` atrás da fachada.
+4. Classe `App` tipada e `Config`.
+5. `core.js` no front, junto com a próxima tela.
+
+## Riscos e lacunas
+- Esta revisão não rodou os testes de integração (o ambiente da revisão não tem MariaDB).
+  Cada etapa precisa rodar `vendor/bin/phpunit` completo no lab antes do merge.
+- Etapa 2 mexe em todas as URLs: um teste de fumaça das rotas principais deve vir junto.
+
+## Andamento
+- **2026-11-20 — etapa 1, parte A (feita):** SQL do `/api/me`, do contato da conversa e do
+  simulador `/lab/*` saiu do `index.php`; assinatura num helper só. Restam no `index.php` 4 consultas
+  pequenas (health do worker, e-mail do usuário na view, login e último evento do SSE), que vão
+  para serviços na parte B.
+- **2026-11-20 — etapa 1, parte B (feita):** as 4 consultas restantes foram para `OutboxWorker`,
+  `LoginGuard`, `StaffRepository` e `EventBus`. `public/index.php` tem zero acesso direto ao banco.
+  Próxima: etapa 2 (roteador mínimo e rotas por área), começando por um teste de fumaça das rotas.
+- **2026-11-20 — etapa 2, preparo (feito):** teste de fumaça `RoutesSmokeTest` com retrato de 44 rotas
+  (anônimo e supervisor, páginas, API, ações da conversa, simulador, 401/403/404). Conferido que
+  renomear uma rota faz o teste falhar. Próxima: `src/Http/Router.php` e as rotas da API de conversas
+  por primeiro, mantendo o retrato igual.
+- **2026-11-21 — etapa 2, parte A (feita):** `src/Http/Router.php` e rotas de conversa em
+  `src/Http/Routes/conversations.php`. Achado de segurança corrigido no caminho: ações por GET
+  pulavam o CSRF (ver CHANGELOG). Próxima: mover as demais rotas da API (equipe, canais, envios,
+  agendamentos, configurações) para arquivos por área, uma área por rodada.
+- **2026-11-21 — etapa 2, parte B (feita):** rotas da equipe em `src/Http/Routes/team.php`; esta área
+  não tinha ação por GET. Próxima: canais (`/api/channels`), que tem ações como `connect` e `logout`.
+- **2026-11-21 — etapa 2, parte C (feita):** canais em `src/Http/Routes/channels.php` (já recusavam
+  GET em ação). Próxima: envios em massa e modelos (`/api/campaigns`, `/api/templates`).
+- **2026-11-21 — etapa 2, parte D (feita):** campanhas e modelos em `src/Http/Routes/campaigns.php`.
+  Próxima: agendamentos, configurações, etiquetas, mensagens rápidas e contatos (o que resta da API).
+- **2026-11-21 — etapa 2, parte E (feita):** toda a API em `src/Http/Routes/` (6 arquivos por área).
+  Próxima: páginas, mídia, SSE, webhooks e simulador também no roteador; com isso a etapa 2 fecha.
+- **2026-11-21 — etapa 2, parte F (feita):** telas em `src/Http/Routes/pages.php`, por tabela.
+  Próxima: login/logout, SSE, mídia, webhooks e simulador no roteador; com isso a etapa 2 fecha.
+- **2026-11-21 — etapa 2, parte G (feita, etapa 2 concluída):** rotas fora da API em
+  `src/Http/Routes/web.php`. `index.php` com 165 linhas. Próxima: etapa 3, dividir o
+  `ConversationService` atrás da fachada, começando pelo `TicketBridge` (helpdesk do ERP), a parte mais isolada.
+- **2026-11-21 — etapa 3, parte A (feita):** `TicketBridge` (863 → 816 linhas no `ConversationService`).
+  Próxima: `Triage` (triagem da Jack, horário de atendimento e roteamento para o setor).
+- **2026-11-21 — etapa 3, parte B (feita):** `ConversationStore`, base comum para as próximas partes.
+  Próxima: `Triage` (triagem da Jack, horário e roteamento), usando o `ConversationStore`.
+- **2026-11-21 — etapa 3, parte C (feita):** `Triage`. Próxima: `InboundService` (entrada de mensagens,
+  avaliação e status de entrega); depois o que sobra no `ConversationService` são as ações do atendente.
+- **2026-11-21 — etapa 3, parte D (feita):** `InboundService`. O `ConversationService` (era 863 linhas)
+  ficou com 458: ações do atendente mais a fachada que delega para `InboundService`, `Triage`,
+  `TicketBridge` e `ConversationStore`. Separar as ações em `ConversationActions` não compensa agora
+  (seria só mudar o nome); a etapa 3 fica por aqui. Próxima: etapa 4 (classe `App` tipada e `Config`).
+- **2026-11-21 — etapa 4, parte A (feita):** IP fora do construtor do `TeamService` (achado 3 deste
+  documento). Era um bug real: a auditoria gravava o IP do proxy em produção. Próxima: `Config` com as
+  variáveis do `.env` e validação na subida.
+- **2026-11-21 — etapa 4, parte B (feita):** `isLab` uma vez só e aviso claro quando falta variável
+  obrigatória no `.env`. As leituras do `.env` já estavam todas no `bootstrap.php`; uma classe `Config`
+  só mudaria o lugar delas.
+
+## O que ficou de fora (de propósito)
+- **Classe `App` tipada no lugar do array `$app[...]`:** mexeria em todos os arquivos de rota e no worker
+  só para trocar `['x']` por `->x`. Vale fazer junto com a próxima mudança grande, não sozinha.
+- **`core.js` no front:** como previsto, junto com a próxima tela.
+- **`ConversationActions`:** o que sobrou no `ConversationService` (458 linhas) são as ações do atendente;
+  separar seria só trocar o nome.
+
+## Resultado
+| | Antes | Depois |
+|---|---|---|
+| `public/index.php` | 634 linhas, 13 consultas SQL, todas as rotas | 165 linhas, 0 SQL, só monta e despacha |
+| `ConversationService` | 863 linhas, 4 responsabilidades | 458 linhas + `InboundService`, `Triage`, `TicketBridge`, `ConversationStore` |
+| Rotas | `if`/`switch` em sequência | `Http\Router` + 8 arquivos em `src/Http/Routes/` |
+| Testes | 151 | 161, incluindo retrato de 93 rotas com o site rodando de verdade |
+
+Achados corrigidos no caminho: ações de conversa por GET pulavam o CSRF; auditoria gravava o IP do proxy.

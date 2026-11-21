@@ -1,5 +1,63 @@
 # Changelog
 
+## [Não lançado] — 2026-11-20
+### Segurança
+- Ações de uma conversa (aceitar, encerrar, transferir, etiquetas, responder…) só rodam por **POST**.
+  Antes, um GET em `/api/conversations/{id}/accept` (ou `/close`, `/tags`…) também executava a ação, e
+  GET não passa pela conferência de CSRF: um link de outro site aberto por um atendente logado podia
+  aceitar ou encerrar uma conversa, ou apagar as etiquetas do contato. Agora esses GET dão 404.
+  As telas já usavam POST, então nada muda para quem usa o sistema.
+- Auditoria da equipe (`talk_audit_log.ip`) gravava o IP do proxy Caddy, não o de quem fez a ação: o
+  IP era lido na montagem, antes do ajuste do `TRUST_PROXY`. Agora é lido na hora de gravar. O teste de
+  fumaça roda com `TRUST_PROXY=1` e confere o IP (falhava no código anterior).
+### Alterado
+- Sem `DB_DATABASE`, `DB_USERNAME` ou `TALK_KEY` no `.env`, o Talk para na subida dizendo qual falta
+  (antes, dava erro de banco ou de chave sem explicação). Quem já roda não precisa mudar nada.
+### Interno (sem mudança de comportamento)
+- Etapa 4B: "é laboratório?" calculado uma vez no `bootstrap.php` (estava repetido em 4 lugares).
+- Revisão de arquitetura em `docs/arquitetura-melhorias.md`, com plano em 5 etapas.
+- Etapa 1: o `public/index.php` deixou de consultar o banco no `/api/me`, no contato da conversa e
+  no simulador. As consultas foram para `StaffRepository::directory()`, `InboxQuery::contact()` e
+  a nova classe `Lab\Simulator`.
+- `Support\Signature::of()` substitui as 4 cópias da regra "Maria (Financeiro)" → "Maria".
+- Etapa 1B: as 4 consultas restantes saíram do `index.php`. Agora são `OutboxWorker::secondsSinceHeartbeat()`,
+  `isAlive()` e `heartbeat()` (que também servem ao `bin/talk-worker --check`, sem duplicar a regra dos 90 s),
+  `LoginGuard::check()`, `StaffRepository::email()` e `EventBus::lastId()`. O `index.php` não acessa mais o banco direto.
+- Etapa 2, preparo: `RoutesSmokeTest` sobe o site de verdade (`php -S`, modo lab) e compara 44 rotas
+  (código HTTP e chaves do JSON) com o retrato em `tests/Fixtures/routes-snapshot.json`. É a rede de
+  segurança para trocar o roteador.
+- Etapa 2A: roteador mínimo `Http\Router` (método + padrão, `{id}` numérico) e as 16 rotas de conversa
+  em `src/Http/Routes/conversations.php`. O `switch` de ações saiu do `index.php`.
+- Etapa 2B: rotas da equipe (usuários, setores, auditoria, troca de senha) em `src/Http/Routes/team.php`,
+  com método explícito em cada uma. Retrato das rotas ganhou 6 casos da equipe (gravado com o código anterior).
+- Etapa 2C: rotas dos números de WhatsApp em `src/Http/Routes/channels.php`. GET numa ação continua
+  respondendo 405 "Use POST." como antes. Retrato ganhou 5 casos de canais.
+- Etapa 2D: envio em massa e modelos em `src/Http/Routes/campaigns.php`. Iniciar, pausar, retomar e
+  cancelar só por POST (por GET essas URLs devolviam a campanha; agora dão 404, nenhuma tela usava).
+  Retrato ganhou 6 casos com campanha e modelo de verdade no banco.
+- Etapa 2E: o resto da API foi para `src/Http/Routes/inbox.php` (eu, avisos, conversas, busca, fila,
+  contatos, etiquetas, mensagens rápidas, relatórios, Jack) e `settings.php` (agendamentos, horário,
+  feriados). **Toda a API passa pelo roteador**; o `index.php` só cuida de sessão, CSRF, páginas,
+  mídia, SSE, webhooks e simulador. Retrato com 78 casos.
+- Etapa 2F: as 9 telas viraram uma tabela em `src/Http/Routes/pages.php` (caminho → tela → quem pode),
+  no lugar de 9 blocos repetidos de "tem login? tem permissão?". Retrato ganhou o atendente comum
+  (telas de supervisor voltam para `/`) e o destino de cada redirecionamento. 87 casos.
+- Etapa 2G: webhooks, login/logout, SSE, arquivos e simulador em `src/Http/Routes/web.php`.
+  **Etapa 2 concluída:** o `public/index.php` caiu de 634 para 165 linhas e só faz a montagem
+  (sessão, CSRF, respostas, erros) e o despacho; todas as rotas estão em `src/Http/Routes/`. Retrato com 93 casos.
+- Etapa 3A: a ponte com o Help Desk do ERP saiu do `ConversationService` para `Service\TicketBridge`
+  (abrir sozinho, abrir pelo botão, transferir, encerrar, número do chamado). O `ConversationService`
+  mantém a mesma assinatura e delega; os testes de chamado (`OpenTicketTest`, ERP fora do ar) seguem iguais.
+- Etapa 3B: `Service\ConversationStore` com o básico de uma conversa (buscar, travar, resumo para o
+  tempo real, textos do cliente, fila de envio). A consulta dos textos do cliente, que estava em dois
+  lugares da triagem, ficou num só. `ConversationService`: 816 → 751 linhas.
+- Etapa 3C: `Service\Triage` com a triagem da Jack, o roteamento para o setor e o aviso de fora do
+  horário. O aviso, que estava escrito duas vezes, agora é um só (`sayOffHours`). `ConversationService`: 751 → 644 linhas.
+- Etapa 3D: `Service\InboundService` com a entrada do WhatsApp (mensagem do cliente, contato no ERP,
+  resposta da avaliação, status de entrega). O protocolo SAC foi para o `ConversationStore`.
+  `ConversationService`: 644 → 458 linhas, agora só com as ações do atendente e a fachada.
+- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (161 testes passando no MariaDB; o retrato das rotas conta como 1).
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando
