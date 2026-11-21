@@ -98,4 +98,20 @@ final class ConversationStore
         ]);
         return $msgId;
     }
+
+    /**
+     * Protocolo do atendimento: SAC + AAMMDD + sequência do dia com 5 dígitos (ex.: SAC26111600004),
+     * sem colisão entre processos. "SAC" mostra que o número veio do Talk. Os números antigos ficam em
+     * legacy_protocol (migração 018) e continuam achando a conversa na busca.
+     */
+    public function nextProtocol(): string
+    {
+        $day = date('Y-m-d');
+        $this->db->run(
+            'INSERT INTO talk_protocol_seq (day, `last_value`) VALUES (?, 1) ON DUPLICATE KEY UPDATE `last_value` = `last_value` + 1',
+            [$day]
+        );
+        $n = (int) $this->db->one('SELECT `last_value` FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
+        return 'SAC' . date('ymd') . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
+    }
 }
