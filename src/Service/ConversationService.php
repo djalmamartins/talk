@@ -33,15 +33,17 @@ class ConversationService
         private ?Jack $jack = null,
         private ?MediaStore $media = null,
         private bool $askRating = true,
-        private ?BusinessHours $hours = null,
+        ?BusinessHours $hours = null,
         ?TicketBridge $tickets = null,
     ) {
         $this->tickets = $tickets ?? new TicketBridge($db, $helpdesk);
         $this->store = new ConversationStore($db, $events);
+        $this->triage = new Triage($db, $events, $this->store, $this->tickets, $jack, $hours);
     }
 
     private TicketBridge $tickets;
     private ConversationStore $store;
+    private Triage $triage;
 
     // ------------------------------------------------------------------ entrada
 
@@ -100,25 +102,25 @@ class ConversationService
             if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
                 $talk = $this->jack->converse($conv, (string) $in->body);
                 if ($talk !== null && $talk['kind'] === 'identity') {
-                    $this->jackSay($conv, $this->texts->jackIdentity(), 'jack_identity');
+                    $this->triage->jackSay($conv, $this->texts->jackIdentity(), 'jack_identity');
                     return (int) $conv['id'];
                 }
                 if ($talk !== null) {
-                    $this->jackSay($conv, $this->texts->jackOutOfScope($talk['sector']['name']), 'jack_scope');
+                    $this->triage->jackSay($conv, $this->texts->jackOutOfScope($talk['sector']['name']), 'jack_scope');
                     if ($conv['status'] === 'bot') {
                         $this->jack->record($conv, $talk['sector'], 'scope', null);
                         // o texto de "fora do escopo" já avisa a transferência
-                        $this->route($conv, $talk['sector'], $contact);
-                        $this->sayOffHours($conv, $talk['sector'], $contact);
+                        $this->triage->route($conv, $talk['sector'], $contact);
+                        $this->triage->sayOffHours($conv, $talk['sector'], $contact);
                     }
                     return (int) $conv['id'];
                 }
             }
             if ($conv['status'] === 'bot' && ($this->jack === null || $this->jack->mode() === 'off')) {
-                $fallback = $this->fallbackSector();
+                $fallback = $this->triage->fallbackSector();
                 if ($fallback !== null) {
-                    $this->route($conv, $fallback, $contact);
-                    $this->sayOffHours($conv, $fallback, $contact);
+                    $this->triage->route($conv, $fallback, $contact);
+                    $this->triage->sayOffHours($conv, $fallback, $contact);
                 }
             }
             return (int) $conv['id'];
@@ -254,121 +256,12 @@ class ConversationService
         return 'SAC' . date('ymd') . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
     }
 
-    // ------------------------------------------------------------------ triagem (Jack)
+    // ------------------------------------------------------------------ triagem (Jack): ver Triage
 
-    /**
-     * Encaminha as conversas que estão na triagem (status "bot") quando a pessoa parou de escrever.
-     * Roda no worker (e no fim de cada requisição no laboratório). $clockShift só para testes.
-     * @return int quantas conversas foram encaminhadas
-     */
+    /** Encaminha as conversas que estão com a Jack. Roda no worker. Retorna quantas foram para a fila. */
     public function triage(int $clockShift = 0): int
     {
-        if ($this->jack === null) {
-            return 0;
-        }
-        $rows = $this->db->all(
-            "SELECT c.id,
-                    TIMESTAMPDIFF(SECOND, MAX(m.created_at), NOW() + INTERVAL ? SECOND) AS quiet,
-                    TIMESTAMPDIFF(SECOND, c.opened_at, NOW() + INTERVAL ? SECOND) AS age
-               FROM talk_conversations c
-               JOIN talk_messages m ON m.conversation_id = c.id AND m.direction = 'in'
-              WHERE c.status = 'bot'
-              GROUP BY c.id, c.opened_at",
-            [$clockShift, $clockShift]
-        );
-        $routed = 0;
-        foreach ($rows as $r) {
-            // assunto já claro ("estamos sem água") vai para a fila na hora; senão espera a pessoa terminar
-            if (!$this->jack->isDue((int) $r['quiet'], (int) $r['age']) && !$this->jack->isClear(implode("\n", $this->store->inboundTexts((int) $r['id'])))) {
-                continue;
-            }
-            $routed += (int) $this->db->transaction(function () use ($r): bool {
-                $conv = $this->store->lock((int) $r['id']);
-                if ($conv['status'] !== 'bot') {
-                    return false; // outro processo já encaminhou
-                }
-                $texts = $this->store->inboundTexts((int) $conv['id']);
-                // número dedicado a um setor (tela Conexão WhatsApp): vai direto para ele, sem a Jack adivinhar
-                $fixed = $this->db->one(
-                    'SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?',
-                    [$conv['channel_id']]
-                );
-                // resposta a um envio em massa recente: vai para o setor da campanha, com a mensagem enviada como nota
-                $contactRow = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
-                foreach ($texts as $t) {
-                    CampaignReplies::checkOptOut($this->db, (int) $contactRow['id'], (string) $t);
-                }
-                $campaign = $fixed ? null : CampaignReplies::replyTo($this->db, $contactRow);
-                if ($campaign) {
-                    $fixed = $campaign['sector'];
-                    $this->db->insert('talk_messages', [
-                        'conversation_id' => $conv['id'], 'direction' => 'internal', 'type' => 'note', 'ack' => 'received',
-                        'body' => "Resposta ao envio em massa \"{$campaign['campaign']}\". Mensagem enviada:\n{$campaign['text']}",
-                    ]);
-                }
-                $d = $fixed ? ['action' => 'route', 'sector' => $fixed]
-                    : $this->jack->decide($conv, implode("\n", $texts), (int) $r['quiet'], (int) $r['age']);
-                if ($d === null) {
-                    return false; // já perguntou e a pessoa ainda não disse o assunto: espera
-                }
-                $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
-                $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
-                $this->route($conv, $d['sector'], $contact);
-                // ADR 0004: encaminhar é em silêncio. Só fora do horário a Jack avisa quando a equipe volta.
-                $off = $this->offHours($conv, $d['sector'], $first);
-                if ($off !== null) {
-                    $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
-                }
-                return true;
-            });
-        }
-        return $routed;
-    }
-
-    /** Mensagem da Jaqueline: entra na fila com "digitando…" antes, como uma pessoa. */
-    private function jackSay(array $conv, string $text, string $type): int
-    {
-        return $this->queueOutbound($conv, $text, null, $type, $this->jack?->typingSeconds($text) ?? 0);
-    }
-
-    /** Texto de fora do horário (uma vez por conversa), ou null se o setor está atendendo. */
-    private function offHours(array $conv, array $sector, ?string $first): ?string
-    {
-        if ($this->hours === null || !$this->hours->enabled()) {
-            return null;
-        }
-        $conv = $this->get((int) $conv['id']); // já com o número do chamado do Help Desk
-        $text = $this->hours->offHoursMessage((int) $sector['id'], (string) $sector['name'], $first, self::ticketNumber($conv));
-        if ($text === null) {
-            return null;
-        }
-        $n = $this->db->run('UPDATE talk_conversations SET off_hours_at = NOW() WHERE id = ? AND off_hours_at IS NULL', [$conv['id']])->rowCount();
-        return $n > 0 ? $text : null;
-    }
-
-    private function sayOffHours(array $conv, array $sector, array $contact): void
-    {
-        $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
-        $off = $this->offHours($conv, $sector, $first);
-        if ($off !== null) {
-            $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
-        }
-    }
-
-    private function fallbackSector(): ?array
-    {
-        return $this->jack?->fallbackSector()
-            ?? $this->db->one("SELECT id, name FROM talk_sectors WHERE active = 1 ORDER BY menu_key LIMIT 1");
-    }
-
-    /** Coloca a conversa na fila do setor e abre o chamado. Não manda nada para o cliente. */
-    private function route(array $conv, array $sector, array $contact): void
-    {
-        $this->db->run("UPDATE talk_conversations SET sector_id = ?, status = 'pending', queued_at = NOW() WHERE id = ?", [$sector['id'], $conv['id']]);
-        $conv = $this->get((int) $conv['id']);
-        $this->tickets->openAuto($conv, $contact, $sector['name']);
-        $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
-        $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->store->summary($this->get((int) $conv['id'])));
+        return $this->triage->run($clockShift);
     }
 
     /**

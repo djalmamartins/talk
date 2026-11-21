@@ -107,3 +107,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   Próxima: `Triage` (triagem da Jack, horário de atendimento e roteamento para o setor).
 - **2026-11-21 — etapa 3, parte B (feita):** `ConversationStore`, base comum para as próximas partes.
   Próxima: `Triage` (triagem da Jack, horário e roteamento), usando o `ConversationStore`.
+- **2026-11-21 — etapa 3, parte C (feita):** `Triage`. Próxima: `InboundService` (entrada de mensagens,
+  avaliação e status de entrega); depois o que sobra no `ConversationService` são as ações do atendente.

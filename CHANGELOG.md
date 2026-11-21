@@ -44,6 +44,8 @@
 - Etapa 3B: `Service\ConversationStore` com o básico de uma conversa (buscar, travar, resumo para o
   tempo real, textos do cliente, fila de envio). A consulta dos textos do cliente, que estava em dois
   lugares da triagem, ficou num só. `ConversationService`: 816 → 751 linhas.
+- Etapa 3C: `Service\Triage` com a triagem da Jack, o roteamento para o setor e o aviso de fora do
+  horário. O aviso, que estava escrito duas vezes, agora é um só (`sayOffHours`). `ConversationService`: 751 → 644 linhas.
 - Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (161 testes passando no MariaDB; o retrato das rotas conta como 1).
 
 ## [0.22.0] — 2026-11-16
