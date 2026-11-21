@@ -36,7 +36,7 @@ final class RoutesSmokeTest extends DbTestCase
             'DB_HOST' => isset($p['unix_socket']) ? 'localhost' : ($p['host'] ?? '127.0.0.1'),
             'DB_PORT' => $p['port'] ?? '3306', 'DB_DATABASE' => $p['dbname'] ?? 'talk_test',
             'DB_USERNAME' => (string) getenv('TEST_DB_USER'), 'DB_PASSWORD' => (string) getenv('TEST_DB_PASS'),
-            'TALK_STORAGE' => $this->mediaRoot, 'JACK_MODE' => 'off', 'PATH' => (string) getenv('PATH'),
+            'TALK_STORAGE' => $this->mediaRoot, 'TRUST_PROXY' => '1', 'JACK_MODE' => 'off', 'PATH' => (string) getenv('PATH'),
         ];
         $root = dirname(__DIR__, 2);
         $this->server = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', "$root/public", "$root/public/index.php"],
@@ -101,6 +101,8 @@ final class RoutesSmokeTest extends DbTestCase
         // equipe
         $take('GET', '/api/team/users/1');
         $take('POST', '/api/team/users/1', ['name' => 'Sara (Supervisão)', 'email' => 'sara@exemplo.test', 'role' => 'supervisor']);
+        // auditoria grava o IP do cliente (atrás do proxy), não o do proxy
+        $this->assertSame('203.0.113.7', $this->db->one('SELECT ip FROM talk_audit_log ORDER BY id DESC LIMIT 1')['ip'] ?? null);
         $take('GET', '/api/team/sectors/' . $this->sectors['Financeiro']);
         $take('POST', '/api/team/sectors/' . $this->sectors['Financeiro'] . '/deactivate');
         $take('POST', '/api/team/sectors/' . $this->sectors['Financeiro'] . '/activate');
@@ -197,7 +199,7 @@ final class RoutesSmokeTest extends DbTestCase
     private function request(string $method, string $path, array $data = [], bool $withCsrf = true): array
     {
         $ch = curl_init($this->base . $path);
-        $headers = ['Accept: application/json'];
+        $headers = ['Accept: application/json', 'X-Forwarded-For: 203.0.113.7'];
         if ($method === 'POST' && $withCsrf) {
             $headers[] = 'X-CSRF: ' . $this->csrf;
         }

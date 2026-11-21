@@ -114,7 +114,7 @@ return [
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
-    'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
+    'team' => new \ConnectTalk\Service\TeamService($db, $events, static fn (): ?string => $_SERVER['REMOTE_ADDR'] ?? null),
     'login' => new \ConnectTalk\Service\LoginGuard($db),
     'schedules' => new \ConnectTalk\Service\ScheduleService($db, $policy, $conversations),
     'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),

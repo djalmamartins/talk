@@ -7,6 +7,9 @@
   GET não passa pela conferência de CSRF: um link de outro site aberto por um atendente logado podia
   aceitar ou encerrar uma conversa, ou apagar as etiquetas do contato. Agora esses GET dão 404.
   As telas já usavam POST, então nada muda para quem usa o sistema.
+- Auditoria da equipe (`talk_audit_log.ip`) gravava o IP do proxy Caddy, não o de quem fez a ação: o
+  IP era lido na montagem, antes do ajuste do `TRUST_PROXY`. Agora é lido na hora de gravar. O teste de
+  fumaça roda com `TRUST_PROXY=1` e confere o IP (falhava no código anterior).
 ### Interno (sem mudança de comportamento)
 - Revisão de arquitetura em `docs/arquitetura-melhorias.md`, com plano em 5 etapas.
 - Etapa 1: o `public/index.php` deixou de consultar o banco no `/api/me`, no contato da conversa e

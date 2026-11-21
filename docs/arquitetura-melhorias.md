@@ -113,3 +113,6 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   ficou com 458: ações do atendente mais a fachada que delega para `InboundService`, `Triage`,
   `TicketBridge` e `ConversationStore`. Separar as ações em `ConversationActions` não compensa agora
   (seria só mudar o nome); a etapa 3 fica por aqui. Próxima: etapa 4 (classe `App` tipada e `Config`).
+- **2026-11-21 — etapa 4, parte A (feita):** IP fora do construtor do `TeamService` (achado 3 deste
+  documento). Era um bug real: a auditoria gravava o IP do proxy em produção. Próxima: `Config` com as
+  variáveis do `.env` e validação na subida.

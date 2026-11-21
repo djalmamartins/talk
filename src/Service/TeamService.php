@@ -19,7 +19,8 @@ final class TeamService
     public const MIN_PASSWORD = 8;
     private const ROLES = ['agent', 'manager', 'supervisor'];
 
-    public function __construct(private Db $db, private EventBus $events, private ?string $ip = null)
+    /** @param string|\Closure|null $ip IP de quem faz a ação; Closure é lida na hora (depois do ajuste do proxy no index.php) */
+    public function __construct(private Db $db, private EventBus $events, private string|\Closure|null $ip = null)
     {
     }
 
@@ -319,7 +320,7 @@ final class TeamService
     {
         $this->db->insert('talk_audit_log', [
             'user_id' => $u->userId, 'action' => $action, 'target_type' => $type, 'target_id' => $id,
-            'details' => $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null, 'ip' => $this->ip,
+            'details' => $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null, 'ip' => $this->ip instanceof \Closure ? ($this->ip)() : $this->ip,
         ]);
     }
 
