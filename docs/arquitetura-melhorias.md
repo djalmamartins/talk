@@ -130,7 +130,7 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
 ## Resultado
 | | Antes | Depois |
 |---|---|---|
-| `public/index.php` | 634 linhas, 13 consultas SQL, todas as rotas | 166 linhas, 0 SQL, só monta e despacha |
+| `public/index.php` | 634 linhas, 13 consultas SQL, todas as rotas | 165 linhas, 0 SQL, só monta e despacha |
 | `ConversationService` | 863 linhas, 4 responsabilidades | 458 linhas + `InboundService`, `Triage`, `TicketBridge`, `ConversationStore` |
 | Rotas | `if`/`switch` em sequência | `Http\Router` + 8 arquivos em `src/Http/Routes/` |
 | Testes | 151 | 161, incluindo retrato de 93 rotas com o site rodando de verdade |
