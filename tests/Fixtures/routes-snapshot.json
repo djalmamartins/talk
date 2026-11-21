@@ -21,6 +21,32 @@
         404,
         "text/html"
     ],
+    "anon GET /webhook/{id}?hub_mode=subscribe&hub_verify_token=errado&hub_challenge=123": [
+        403,
+        "text/html"
+    ],
+    "anon POST /webhook/{id}": [
+        401,
+        [
+            "processed"
+        ]
+    ],
+    "anon GET /logout": [
+        404,
+        "text/html"
+    ],
+    "anon GET /media/{id}": [
+        401,
+        [
+            "error"
+        ]
+    ],
+    "anon GET /lab/customer?phone=5531900000000": [
+        401,
+        [
+            "error"
+        ]
+    ],
     "anon POST /login": [
         302,
         "→ /"
@@ -580,6 +606,12 @@
         [
             "messages",
             "typing"
+        ]
+    ],
+    "supervisor GET /media/999999": [
+        404,
+        [
+            "error"
         ]
     ],
     "supervisor GET /api/contacts/{id}": [

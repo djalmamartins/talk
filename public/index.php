@@ -6,7 +6,6 @@ declare(strict_types=1);
  * Fala com o ERP só por API REST (ver docs/api-erp.md).
  */
 
-use ConnectTalk\Gateway\CloudApiGateway;
 use ConnectTalk\Http\Router;
 use ConnectTalk\Service\DomainError;
 
@@ -133,94 +132,12 @@ if ($isLab) {
 }
 
 try {
-    // ---------------------------------------------------------------- webhooks (sem login)
-    if (preg_match('#^/webhook/(\d+)$#', $path, $m)) {
-        $channel = (int) $m[1];
-        if ($method === 'GET') {
-            $gw = $app['gateways']->forChannel($channel);
-            $challenge = $gw instanceof CloudApiGateway ? $gw->verifySubscription($_GET) : null;
-            http_response_code($challenge === null ? 403 : 200);
-            echo $challenge ?? 'forbidden';
-            exit;
-        }
-        $headers = function_exists('getallheaders') ? getallheaders() : [];
-        $r = $app['webhook']->handle($channel, (string) file_get_contents('php://input'), $headers);
-        $json(['processed' => $r['processed']], $r['status']);
-    }
-
-    // ---------------------------------------------------------------- login
-    if ($path === '/login') {
-        if ($method === 'POST') {
-            $csrf();
-            $email = mb_strtolower(trim((string) ($_POST['email'] ?? '')));
-            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-            if ($app['login']->blocked($email, $ip)) {
-                http_response_code(429);
-                $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab]);
-            }
-            $u = $app['login']->check($email, (string) ($_POST['password'] ?? ''));
-            if ($u !== null) {
-                $app['login']->succeeded($email);
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = (int) $u['id'];
-                $_SESSION['user_name'] = $u['name'];
-                $_SESSION['auth_at'] = time();
-                header('Location: /');
-                exit;
-            }
-            $app['login']->failed($email, $ip);
-            $view('login', ['error' => 'E-mail ou senha inválidos.', 'isLab' => $isLab]);
-        }
-        $view('login', ['error' => null, 'isLab' => $isLab]);
-    }
-    if ($path === '/logout' && $method === 'POST') {
-        $csrf();
-        session_destroy();
-        header('Location: /login');
-        exit;
-    }
-    // ---------------------------------------------------------------- telas (src/Http/Routes/pages.php)
-    $pages = new Router();
-    (require __DIR__ . '/../src/Http/Routes/pages.php')($pages, $app, $view, $sessionOk, $isLab);
-    $pages->dispatch($method, $path);
-
-    // ---------------------------------------------------------------- tempo real
-    if ($path === '/events') {
-        $me = $user();
-        session_write_close(); // não travar a sessão enquanto o stream está aberto
-        $app['queue']->touch($me->userId); // presença: conectado = online (o stream reconecta a cada ~25 s)
-        $last = (int) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? $_GET['last'] ?? 0);
-        if ($last === 0) {
-            $last = $app['events']->lastId();
-        }
-        // laboratório: sem worker, o próprio stream faz a triagem da Jack e os envios a cada ~2 s
-        $app['sse']->stream($me, $last, tick: $isLab ? static function () use ($app): void {
-            $app['conversations']->triage();
-            $app['worker']->runOnce();
-        } : null);
-        exit;
-    }
-
-    // ---------------------------------------------------------------- arquivos (com conferência de acesso)
-    if (preg_match('#^/media/(\d+)$#', $path, $m)) {
-        $me = $user();
-        session_write_close();
-        $file = $app['inbox']->mediaFor($me, (int) $m[1]);
-        $abs = $app['media']->absolute((string) $file['media_path']);
-        $mime = (string) $file['media_mime'];
-        $inline = preg_match('#^(image/(jpeg|png|webp)|audio/|video/|application/pdf$)#', $mime) === 1;
-        $name = (string) ($file['media_name'] ?: basename($abs));
-        header('Content-Type: ' . $mime);
-        header('Content-Length: ' . filesize($abs));
-        header('X-Content-Type-Options: nosniff');
-        if ($mime !== 'application/pdf') { // o leitor de PDF do navegador não abre com sandbox
-            header("Content-Security-Policy: default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox");
-        }
-        header('Cache-Control: private, max-age=86400');
-        header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . addcslashes(preg_replace('/[^\x20-\x7E]/', '_', $name), '"\\') . "\"; filename*=UTF-8''" . rawurlencode($name));
-        readfile($abs);
-        exit;
-    }
+    // ---------------------------------------------------------------- telas e rotas fora da API
+    $web = new Router();
+    (require __DIR__ . '/../src/Http/Routes/web.php')($web, $app,
+        ['json' => $json, 'view' => $view, 'body' => $body, 'upload' => $upload, 'csrf' => $csrf, 'user' => $user], $isLab);
+    (require __DIR__ . '/../src/Http/Routes/pages.php')($web, $app, $view, $sessionOk, $isLab);
+    $web->dispatch($method, $path);
 
     // ---------------------------------------------------------------- API
     if (str_starts_with($path, '/api/')) {
@@ -236,30 +153,6 @@ try {
         }
         $router->dispatch($method, $path);
         $json(['error' => 'Rota não encontrada.'], 404);
-    }
-
-    // ---------------------------------------------------------------- simulador (só laboratório)
-    if ($isLab && str_starts_with($path, '/lab/')) {
-        $user();
-        if ($path === '/lab/simulate' && $method === 'POST') {
-            $csrf();
-            $b = $body();
-            $text = trim((string) ($b['text'] ?? ''));
-            $file = null;
-            if (!empty($_FILES['file'])) {
-                [$bytes, $mime, $fname] = $upload();
-                $file = $app['media']->save($bytes, $mime, $fname);
-            }
-            if ($text === '' && $file === null) {
-                $json(['error' => 'Escreva a mensagem.'], 422);
-            }
-            $id = $app['lab']->inbound((int) ($b['channel_id'] ?? 0), (string) ($b['phone'] ?? '5531999990001'), $text,
-                ($b['name'] ?? '') ?: null, $file);
-            $json(['conversation_id' => $id]);
-        }
-        if ($path === '/lab/customer') {
-            $json($app['lab']->customerView((string) ($_GET['phone'] ?? '')));
-        }
     }
 
     http_response_code(404);

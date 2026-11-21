@@ -78,6 +78,11 @@ final class RoutesSmokeTest extends DbTestCase
         $take('GET', '/api/me');
         $take('GET', '/');
         $take('GET', '/rota-que-nao-existe');
+        $take('GET', '/webhook/' . $this->channelId . '?hub_mode=subscribe&hub_verify_token=errado&hub_challenge=123');
+        $take('POST', '/webhook/' . $this->channelId, ['x' => '1'], false);
+        $take('GET', '/logout');
+        $take('GET', '/media/1');
+        $take('GET', '/lab/customer?phone=5531900000000');
 
         // login
         $this->request('GET', '/login');
@@ -140,6 +145,7 @@ final class RoutesSmokeTest extends DbTestCase
         $take('POST', "/api/conversations/$id/read");
         $take('POST', "/api/conversations/$id/acao-que-nao-existe");
         $take('GET', '/lab/customer?phone=5531977776666');
+        $take('GET', '/media/999999');
 
         // contatos, etiquetas, mensagens rápidas, relatórios, agendamentos e feriados
         $ct = (int) $this->conv($id)['contact_id'];

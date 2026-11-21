@@ -1,6 +1,6 @@
 # Melhorias de arquitetura do Talk (revisão de 2026-11-20)
 
-Status: **em andamento** — etapa 1 feita; etapa 2 com rede de segurança pronta (ver "Andamento").
+Status: **em andamento** — etapas 1 e 2 feitas; próxima: etapa 3 (ver "Andamento").
 Base analisada: `claude/project-thread-bhzf0c` em `a977898` (0.22.0).
 
 ## Resumo
@@ -100,3 +100,6 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   Próxima: páginas, mídia, SSE, webhooks e simulador também no roteador; com isso a etapa 2 fecha.
 - **2026-11-21 — etapa 2, parte F (feita):** telas em `src/Http/Routes/pages.php`, por tabela.
   Próxima: login/logout, SSE, mídia, webhooks e simulador no roteador; com isso a etapa 2 fecha.
+- **2026-11-21 — etapa 2, parte G (feita, etapa 2 concluída):** rotas fora da API em
+  `src/Http/Routes/web.php`. `index.php` com 165 linhas. Próxima: etapa 3, dividir o
+  `ConversationService` atrás da fachada, começando pelo `TicketBridge` (helpdesk do ERP), a parte mais isolada.

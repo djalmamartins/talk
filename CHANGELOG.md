@@ -35,6 +35,9 @@
 - Etapa 2F: as 9 telas viraram uma tabela em `src/Http/Routes/pages.php` (caminho → tela → quem pode),
   no lugar de 9 blocos repetidos de "tem login? tem permissão?". Retrato ganhou o atendente comum
   (telas de supervisor voltam para `/`) e o destino de cada redirecionamento. 87 casos.
+- Etapa 2G: webhooks, login/logout, SSE, arquivos e simulador em `src/Http/Routes/web.php`.
+  **Etapa 2 concluída:** o `public/index.php` caiu de 634 para 165 linhas e só faz a montagem
+  (sessão, CSRF, respostas, erros) e o despacho; todas as rotas estão em `src/Http/Routes/`. Retrato com 93 casos.
 - Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB; o retrato das rotas conta como 1).
 
 ## [0.22.0] — 2026-11-16
