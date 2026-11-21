@@ -140,6 +140,28 @@ final class RoutesSmokeTest extends DbTestCase
         $take('POST', "/api/conversations/$id/read");
         $take('POST', "/api/conversations/$id/acao-que-nao-existe");
         $take('GET', '/lab/customer?phone=5531977776666');
+
+        // contatos, etiquetas, mensagens rápidas, relatórios, agendamentos e feriados
+        $ct = (int) $this->conv($id)['contact_id'];
+        $take('GET', "/api/contacts/$ct");
+        $take('POST', "/api/contacts/$ct/rename", ['name' => 'Rita Souza']);
+        $take('POST', "/api/contacts/$ct/block", ['reason' => 'teste']);
+        $take('POST', "/api/contacts/$ct/unblock");
+        $take('POST', "/api/contacts/$ct/apagar");
+        $tag = (int) ($take('POST', '/api/tags', ['name' => 'Inadimplente', 'color' => '#c0392b'])['id'] ?? 0);
+        $take('POST', "/api/tags/$tag", ['name' => 'Inadimplente 2026', 'color' => '#c0392b']);
+        $take('POST', "/api/tags/$tag/delete");
+        $qm = (int) ($take('POST', '/api/quick-messages', ['shortcut' => 'boleto', 'body' => 'Segue a segunda via.'])['id'] ?? 0);
+        $take('POST', "/api/quick-messages/$qm/delete");
+        $take('GET', '/api/reports/export.csv?from=2026-11-01&to=2026-11-30');
+        $sch = (int) ($take('POST', '/api/schedules', ['contact_id' => $ct, 'channel_id' => $this->channelId, 'sector_id' => $this->sectors['Financeiro'],
+            'body' => 'Lembrete do boleto', 'send_at' => date('Y-m-d H:i', strtotime('+2 days'))])['id'] ?? 0);
+        $take('GET', "/api/schedules/$sch");
+        $take('POST', "/api/schedules/$sch/cancel");
+        $hol = (int) ($take('POST', '/api/settings/holidays', ['date' => date('Y') . '-12-24', 'name' => 'Véspera de Natal'])['id'] ?? 0);
+        $take('POST', "/api/settings/holidays/$hol/delete");
+        $shot = array_combine(array_map(fn ($k) => preg_replace(['#/contacts/\d+#', '#/tags/\d+#', '#/quick-messages/\d+#', '#/schedules/\d+#', '#/holidays/\d+#'],
+            ['/contacts/{id}', '/tags/{id}', '/quick-messages/{id}', '/schedules/{id}', '/holidays/{id}'], $k), array_keys($shot)), $shot);
         $take('POST', '/api/me', [], false); // POST sem CSRF
         $shot = array_combine(array_map(fn ($k) => str_replace("/$id", '/{id}', $k), array_keys($shot)), $shot);
 

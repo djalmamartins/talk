@@ -96,3 +96,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   GET em ação). Próxima: envios em massa e modelos (`/api/campaigns`, `/api/templates`).
 - **2026-11-21 — etapa 2, parte D (feita):** campanhas e modelos em `src/Http/Routes/campaigns.php`.
   Próxima: agendamentos, configurações, etiquetas, mensagens rápidas e contatos (o que resta da API).
+- **2026-11-21 — etapa 2, parte E (feita):** toda a API em `src/Http/Routes/` (6 arquivos por área).
+  Próxima: páginas, mídia, SSE, webhooks e simulador também no roteador; com isso a etapa 2 fecha.

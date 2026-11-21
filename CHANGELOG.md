@@ -28,7 +28,11 @@
 - Etapa 2D: envio em massa e modelos em `src/Http/Routes/campaigns.php`. Iniciar, pausar, retomar e
   cancelar só por POST (por GET essas URLs devolviam a campanha; agora dão 404, nenhuma tela usava).
   Retrato ganhou 6 casos com campanha e modelo de verdade no banco.
-- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB).
+- Etapa 2E: o resto da API foi para `src/Http/Routes/inbox.php` (eu, avisos, conversas, busca, fila,
+  contatos, etiquetas, mensagens rápidas, relatórios, Jack) e `settings.php` (agendamentos, horário,
+  feriados). **Toda a API passa pelo roteador**; o `index.php` só cuida de sessão, CSRF, páginas,
+  mídia, SSE, webhooks e simulador. Retrato com 78 casos.
+- Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB; o retrato das rotas conta como 1).
 
 ## [0.22.0] — 2026-11-16
 ### Adicionado

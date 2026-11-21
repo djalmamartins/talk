@@ -582,6 +582,209 @@
             "typing"
         ]
     ],
+    "supervisor GET /api/contacts/{id}": [
+        200,
+        [
+            "block_reason",
+            "blocked_at",
+            "blocked_by",
+            "blocked_messages",
+            "can_block",
+            "created_at",
+            "erp_person_id",
+            "erp_snapshot",
+            "history",
+            "id",
+            "name",
+            "notes",
+            "opt_out_at",
+            "phone",
+            "tags",
+            "updated_at"
+        ]
+    ],
+    "supervisor POST /api/contacts/{id}/rename": [
+        200,
+        [
+            "block_reason",
+            "blocked_at",
+            "blocked_by",
+            "blocked_messages",
+            "created_at",
+            "erp_person_id",
+            "erp_snapshot",
+            "id",
+            "name",
+            "opt_out_at",
+            "phone",
+            "updated_at"
+        ]
+    ],
+    "supervisor POST /api/contacts/{id}/block": [
+        200,
+        [
+            "block_reason",
+            "blocked_at",
+            "blocked_by",
+            "blocked_messages",
+            "created_at",
+            "erp_person_id",
+            "erp_snapshot",
+            "id",
+            "name",
+            "opt_out_at",
+            "phone",
+            "updated_at"
+        ]
+    ],
+    "supervisor POST /api/contacts/{id}/unblock": [
+        200,
+        [
+            "block_reason",
+            "blocked_at",
+            "blocked_by",
+            "blocked_messages",
+            "created_at",
+            "erp_person_id",
+            "erp_snapshot",
+            "id",
+            "name",
+            "opt_out_at",
+            "phone",
+            "updated_at"
+        ]
+    ],
+    "supervisor POST /api/contacts/{id}/apagar": [
+        404,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /api/tags": [
+        200,
+        [
+            "color",
+            "id",
+            "name"
+        ]
+    ],
+    "supervisor POST /api/tags/{id}": [
+        200,
+        [
+            "color",
+            "id",
+            "name"
+        ]
+    ],
+    "supervisor POST /api/tags/{id}/delete": [
+        200,
+        [
+            "ok"
+        ]
+    ],
+    "supervisor POST /api/quick-messages": [
+        200,
+        [
+            "body",
+            "id",
+            "sector_id",
+            "shortcut"
+        ]
+    ],
+    "supervisor POST /api/quick-messages/{id}/delete": [
+        200,
+        [
+            "ok"
+        ]
+    ],
+    "supervisor GET /api/reports/export.csv?from=2026-11-01&to=2026-11-30": [
+        200,
+        "text/csv"
+    ],
+    "supervisor POST /api/schedules": [
+        200,
+        [
+            "body",
+            "can_edit",
+            "channel_name",
+            "contact_blocked",
+            "contact_id",
+            "contact_name",
+            "conversation_id",
+            "created_at",
+            "created_by",
+            "created_by_name",
+            "error",
+            "id",
+            "phone",
+            "sector_id",
+            "sector_name",
+            "send_at",
+            "sent_at",
+            "sign",
+            "status"
+        ]
+    ],
+    "supervisor GET /api/schedules/{id}": [
+        200,
+        [
+            "body",
+            "can_edit",
+            "channel_name",
+            "contact_blocked",
+            "contact_id",
+            "contact_name",
+            "conversation_id",
+            "created_at",
+            "created_by",
+            "created_by_name",
+            "error",
+            "id",
+            "phone",
+            "sector_id",
+            "sector_name",
+            "send_at",
+            "sent_at",
+            "sign",
+            "status"
+        ]
+    ],
+    "supervisor POST /api/schedules/{id}/cancel": [
+        200,
+        [
+            "body",
+            "can_edit",
+            "channel_name",
+            "contact_blocked",
+            "contact_id",
+            "contact_name",
+            "conversation_id",
+            "created_at",
+            "created_by",
+            "created_by_name",
+            "error",
+            "id",
+            "phone",
+            "sector_id",
+            "sector_name",
+            "send_at",
+            "sent_at",
+            "sign",
+            "status"
+        ]
+    ],
+    "supervisor POST /api/settings/holidays": [
+        422,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /api/settings/holidays/{id}/delete": [
+        404,
+        [
+            "error"
+        ]
+    ],
     "supervisor POST /api/me": [
         403,
         [
