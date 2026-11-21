@@ -25,6 +25,9 @@
   com método explícito em cada uma. Retrato das rotas ganhou 6 casos da equipe (gravado com o código anterior).
 - Etapa 2C: rotas dos números de WhatsApp em `src/Http/Routes/channels.php`. GET numa ação continua
   respondendo 405 "Use POST." como antes. Retrato ganhou 5 casos de canais.
+- Etapa 2D: envio em massa e modelos em `src/Http/Routes/campaigns.php`. Iniciar, pausar, retomar e
+  cancelar só por POST (por GET essas URLs devolviam a campanha; agora dão 404, nenhuma tela usava).
+  Retrato ganhou 6 casos com campanha e modelo de verdade no banco.
 - Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB).
 
 ## [0.22.0] — 2026-11-16

@@ -346,38 +346,6 @@ try {
                 });
             }
         }
-        if ($path === '/api/templates') {
-            $json($method === 'POST' ? $app['campaigns']->saveTemplate($me, $body()) : $app['campaigns']->templates($me));
-        }
-        if ($path === '/api/templates/sync' && $method === 'POST') {
-            $json($app['campaigns']->syncTemplates($me, (int) ($body()['channel_id'] ?? 0)));
-        }
-        if (preg_match('#^/api/templates/(\d+)(/delete)?$#', $path, $m) && $method === 'POST') {
-            if (!empty($m[2])) {
-                $app['campaigns']->deleteTemplate($me, (int) $m[1]);
-                $json(['ok' => true]);
-            }
-            $json($app['campaigns']->saveTemplate($me, $body(), (int) $m[1]));
-        }
-        if ($path === '/api/campaigns') {
-            $json($method === 'POST' ? $app['campaigns']->save($me, $body()) : $app['campaigns']->list($me));
-        }
-        if ($path === '/api/campaigns/preview' && $method === 'POST') {
-            $json($app['campaigns']->preview($me, $body()));
-        }
-        if (preg_match('#^/api/campaigns/(\d+)(?:/(start|pause|resume|cancel|recipients))?$#', $path, $m)) {
-            $cid = (int) $m[1];
-            $cs = $app['campaigns'];
-            $json(match (true) {
-                ($m[2] ?? '') === 'recipients' => $cs->recipients($me, $cid, (string) ($_GET['status'] ?? '')),
-                $method === 'GET' => $cs->one($me, $cid),
-                ($m[2] ?? '') === 'start' => $cs->start($me, $cid),
-                ($m[2] ?? '') === 'pause' => $cs->pause($me, $cid),
-                ($m[2] ?? '') === 'resume' => $cs->resume($me, $cid),
-                ($m[2] ?? '') === 'cancel' => $cs->cancel($me, $cid),
-                default => $cs->save($me, $body(), $cid),
-            });
-        }
         if ($path === '/api/schedules') {
             $json($method === 'POST' ? $app['schedules']->save($me, $body())
                 : ['items' => $app['schedules']->list($me, $_GET), 'counts' => $app['schedules']->counts($me)]);
@@ -440,7 +408,7 @@ try {
         }
         // rotas por área em src/Http/Routes/ (as que ainda estão acima vão migrando aos poucos)
         $router = new Router();
-        foreach (['conversations', 'team', 'channels'] as $area) {
+        foreach (['conversations', 'team', 'channels', 'campaigns'] as $area) {
             (require __DIR__ . "/../src/Http/Routes/$area.php")($router, $app, $me, $json, $body, $upload);
         }
         $router->dispatch($method, $path);

@@ -104,7 +104,21 @@
     ],
     "supervisor GET /api/templates": [
         200,
-        []
+        [
+            [
+                "body",
+                "category",
+                "channel_id",
+                "channel_name",
+                "id",
+                "language",
+                "name",
+                "status",
+                "synced_at",
+                "used",
+                "variables"
+            ]
+        ]
     ],
     "supervisor GET /api/campaigns": [
         200,
@@ -378,6 +392,84 @@
     ],
     "supervisor POST /api/channels/{id}/acao-que-nao-existe": [
         404,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /api/campaigns/preview": [
+        422,
+        [
+            "error"
+        ]
+    ],
+    "supervisor GET /api/campaigns/{id}": [
+        200,
+        [
+            "audience",
+            "channel_id",
+            "channel_name",
+            "created_at",
+            "created_by_name",
+            "delivered",
+            "failed",
+            "finished_at",
+            "id",
+            "name",
+            "per_minute",
+            "queued",
+            "replied",
+            "sector_id",
+            "sector_name",
+            "seen",
+            "send_at",
+            "sent",
+            "skipped",
+            "started_at",
+            "status",
+            "template_body",
+            "template_id",
+            "template_name",
+            "total",
+            "var_map"
+        ]
+    ],
+    "supervisor GET /api/campaigns/{id}/recipients": [
+        200,
+        []
+    ],
+    "supervisor POST /api/campaigns/{id}/cancel": [
+        200,
+        [
+            "audience",
+            "channel_id",
+            "channel_name",
+            "created_at",
+            "created_by_name",
+            "delivered",
+            "failed",
+            "finished_at",
+            "id",
+            "name",
+            "per_minute",
+            "queued",
+            "replied",
+            "sector_id",
+            "sector_name",
+            "seen",
+            "send_at",
+            "sent",
+            "skipped",
+            "started_at",
+            "status",
+            "template_body",
+            "template_id",
+            "template_name",
+            "total",
+            "var_map"
+        ]
+    ],
+    "supervisor POST /api/templates/{id}/delete": [
+        422,
         [
             "error"
         ]

@@ -111,6 +111,18 @@ final class RoutesSmokeTest extends DbTestCase
         $take('POST', "/api/channels/$lab/acao-que-nao-existe");
         $shot = array_combine(array_map(fn ($k) => preg_replace('#/channels/\d+#', '/channels/{id}', $k), array_keys($shot)), $shot);
 
+        // envio em massa: modelo e campanha em rascunho direto no banco (sem disparar nada)
+        $tpl = $this->db->insert('talk_templates', ['channel_id' => $this->channelId, 'name' => 'aviso_manutencao', 'body' => 'Olá {{1}}, aviso de manutenção.', 'variables' => 1]);
+        $cid = $this->db->insert('talk_campaigns', ['name' => 'Aviso', 'channel_id' => $this->channelId, 'template_id' => $tpl,
+            'sector_id' => $this->sectors['Manutenção'], 'audience' => '{"type":"list","rows":[]}', 'created_by' => 1]);
+        $take('POST', '/api/campaigns/preview', ['template_id' => $tpl, 'audience' => ['type' => 'list', 'rows' => []]]);
+        $take('GET', "/api/campaigns/$cid");
+        $take('GET', "/api/campaigns/$cid/recipients");
+        $take('POST', "/api/campaigns/$cid/cancel");
+        $take('POST', "/api/templates/$tpl/delete");
+        $take('GET', '/api/templates');
+        $shot = array_combine(array_map(fn ($k) => preg_replace('#/campaigns/\d+#', '/campaigns/{id}', $k), array_keys($shot)), $shot);
+
         // uma conversa pelo simulador, e as ações principais nela
         $id = (int) ($take('POST', '/lab/simulate', ['text' => 'Preciso da segunda via do boleto', 'phone' => '5531977776666', 'name' => 'Rita'])['conversation_id'] ?? 0);
         $this->assertGreaterThan(0, $id);

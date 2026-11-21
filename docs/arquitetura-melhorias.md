@@ -94,3 +94,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   não tinha ação por GET. Próxima: canais (`/api/channels`), que tem ações como `connect` e `logout`.
 - **2026-11-21 — etapa 2, parte C (feita):** canais em `src/Http/Routes/channels.php` (já recusavam
   GET em ação). Próxima: envios em massa e modelos (`/api/campaigns`, `/api/templates`).
+- **2026-11-21 — etapa 2, parte D (feita):** campanhas e modelos em `src/Http/Routes/campaigns.php`.
+  Próxima: agendamentos, configurações, etiquetas, mensagens rápidas e contatos (o que resta da API).
