@@ -402,33 +402,6 @@ try {
         if (preg_match('#^/api/settings/holidays/(\d+)/delete$#', $path, $m) && $method === 'POST') {
             $json($app['hours']->deleteHoliday($me, (int) $m[1]));
         }
-        if ($path === '/api/channels') {
-            $json($method === 'POST' ? $app['channels']->save($me, $body()) : $app['channels']->list($me));
-        }
-        if (preg_match('#^/api/channels/(\d+)(?:/(connect|state|logout|default|toggle|delete|simulate-scan))?$#', $path, $m)) {
-            $ch = $app['channels'];
-            $cid = (int) $m[1];
-            $action = $m[2] ?? '';
-            if ($action === '' && $method === 'GET') {
-                $json($ch->one($me, $cid));
-            }
-            if ($method !== 'POST') {
-                $json(['error' => 'Use POST.'], 405);
-            }
-            if ($action === 'delete') {
-                $ch->delete($me, $cid);
-                $json(['ok' => true]);
-            }
-            $json(match ($action) {
-                '' => $ch->save($me, $body(), $cid),
-                'connect' => $ch->connect($me, $cid),
-                'state' => $ch->refresh($me, $cid),
-                'logout' => $ch->logout($me, $cid),
-                'default' => $ch->setDefault($me, $cid),
-                'toggle' => $ch->toggle($me, $cid),
-                'simulate-scan' => $ch->simulateScan($me, $cid),
-            });
-        }
         if ($path === '/api/reports') {
             $json($app['reports']->summary($me, $_GET));
         }
@@ -467,7 +440,7 @@ try {
         }
         // rotas por área em src/Http/Routes/ (as que ainda estão acima vão migrando aos poucos)
         $router = new Router();
-        foreach (['conversations', 'team'] as $area) {
+        foreach (['conversations', 'team', 'channels'] as $area) {
             (require __DIR__ . "/../src/Http/Routes/$area.php")($router, $app, $me, $json, $body, $upload);
         }
         $router->dispatch($method, $path);

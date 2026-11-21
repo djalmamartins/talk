@@ -23,6 +23,8 @@
   em `src/Http/Routes/conversations.php`. O `switch` de ações saiu do `index.php`.
 - Etapa 2B: rotas da equipe (usuários, setores, auditoria, troca de senha) em `src/Http/Routes/team.php`,
   com método explícito em cada uma. Retrato das rotas ganhou 6 casos da equipe (gravado com o código anterior).
+- Etapa 2C: rotas dos números de WhatsApp em `src/Http/Routes/channels.php`. GET numa ação continua
+  respondendo 405 "Use POST." como antes. Retrato ganhou 5 casos de canais.
 - Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (160 testes passando no MariaDB).
 
 ## [0.22.0] — 2026-11-16

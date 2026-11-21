@@ -102,6 +102,15 @@ final class RoutesSmokeTest extends DbTestCase
         $take('POST', '/api/me/password', ['current' => 'errada', 'new' => 'NovaSenha#2026']);
         $shot = array_combine(array_map(fn ($k) => preg_replace('#/sectors/\d+#', '/sectors/{id}', $k), array_keys($shot)), $shot);
 
+        // canais (o simulado criado no setUp é o 2º canal)
+        $lab = (int) $this->db->one("SELECT id FROM talk_channels WHERE kind = 'lab'")['id'];
+        $take('GET', "/api/channels/$lab");
+        $take('GET', "/api/channels/$lab/logout");
+        $take('POST', "/api/channels/$lab/state");
+        $take('POST', "/api/channels/$lab/default");
+        $take('POST', "/api/channels/$lab/acao-que-nao-existe");
+        $shot = array_combine(array_map(fn ($k) => preg_replace('#/channels/\d+#', '/channels/{id}', $k), array_keys($shot)), $shot);
+
         // uma conversa pelo simulador, e as ações principais nela
         $id = (int) ($take('POST', '/lab/simulate', ['text' => 'Preciso da segunda via do boleto', 'phone' => '5531977776666', 'name' => 'Rita'])['conversation_id'] ?? 0);
         $this->assertGreaterThan(0, $id);

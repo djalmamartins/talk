@@ -314,6 +314,74 @@
             "error"
         ]
     ],
+    "supervisor GET /api/channels/{id}": [
+        200,
+        [
+            "active_conversations",
+            "attendants",
+            "config",
+            "connection_state",
+            "conversations",
+            "created_at",
+            "id",
+            "is_default",
+            "kind",
+            "last_error",
+            "name",
+            "phone",
+            "purpose",
+            "sector_id",
+            "sector_name",
+            "simulated",
+            "state_checked_at",
+            "status",
+            "webhook_url"
+        ]
+    ],
+    "supervisor GET /api/channels/{id}/logout": [
+        405,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /api/channels/{id}/state": [
+        200,
+        [
+            "channel",
+            "detail",
+            "state"
+        ]
+    ],
+    "supervisor POST /api/channels/{id}/default": [
+        200,
+        [
+            "active_conversations",
+            "attendants",
+            "config",
+            "connection_state",
+            "conversations",
+            "created_at",
+            "id",
+            "is_default",
+            "kind",
+            "last_error",
+            "name",
+            "phone",
+            "purpose",
+            "sector_id",
+            "sector_name",
+            "simulated",
+            "state_checked_at",
+            "status",
+            "webhook_url"
+        ]
+    ],
+    "supervisor POST /api/channels/{id}/acao-que-nao-existe": [
+        404,
+        [
+            "error"
+        ]
+    ],
     "supervisor POST /lab/simulate": [
         200,
         [

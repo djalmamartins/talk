@@ -92,3 +92,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   agendamentos, configurações) para arquivos por área, uma área por rodada.
 - **2026-11-21 — etapa 2, parte B (feita):** rotas da equipe em `src/Http/Routes/team.php`; esta área
   não tinha ação por GET. Próxima: canais (`/api/channels`), que tem ações como `connect` e `logout`.
+- **2026-11-21 — etapa 2, parte C (feita):** canais em `src/Http/Routes/channels.php` (já recusavam
+  GET em ação). Próxima: envios em massa e modelos (`/api/campaigns`, `/api/templates`).
