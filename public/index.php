@@ -11,7 +11,7 @@ use ConnectTalk\Service\DomainError;
 
 $app = require __DIR__ . '/../bootstrap.php';
 $env = $app['env'];
-$isLab = $env('APP_ENV') === 'lab';
+$isLab = $app['isLab'];
 
 // Atrás do proxy de produção (Caddy no docker-compose): HTTPS e IP do cliente vêm dos cabeçalhos.
 // Só vale com TRUST_PROXY=1 (senão qualquer um forjaria o IP e driblaria o limite de tentativas de login).

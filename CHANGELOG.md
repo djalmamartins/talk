@@ -10,7 +10,11 @@
 - Auditoria da equipe (`talk_audit_log.ip`) gravava o IP do proxy Caddy, não o de quem fez a ação: o
   IP era lido na montagem, antes do ajuste do `TRUST_PROXY`. Agora é lido na hora de gravar. O teste de
   fumaça roda com `TRUST_PROXY=1` e confere o IP (falhava no código anterior).
+### Alterado
+- Sem `DB_DATABASE`, `DB_USERNAME` ou `TALK_KEY` no `.env`, o Talk para na subida dizendo qual falta
+  (antes, dava erro de banco ou de chave sem explicação). Quem já roda não precisa mudar nada.
 ### Interno (sem mudança de comportamento)
+- Etapa 4B: "é laboratório?" calculado uma vez no `bootstrap.php` (estava repetido em 4 lugares).
 - Revisão de arquitetura em `docs/arquitetura-melhorias.md`, com plano em 5 etapas.
 - Etapa 1: o `public/index.php` deixou de consultar o banco no `/api/me`, no contato da conversa e
   no simulador. As consultas foram para `StaffRepository::directory()`, `InboxQuery::contact()` e

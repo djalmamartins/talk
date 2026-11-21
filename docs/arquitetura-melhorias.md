@@ -1,6 +1,6 @@
 # Melhorias de arquitetura do Talk (revisão de 2026-11-20)
 
-Status: **em andamento** — etapas 1 e 2 feitas; próxima: etapa 3 (ver "Andamento").
+Status: **concluída** em 2026-11-21 (ver "Andamento" e "O que ficou de fora").
 Base analisada: `claude/project-thread-bhzf0c` em `a977898` (0.22.0).
 
 ## Resumo
@@ -116,3 +116,23 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
 - **2026-11-21 — etapa 4, parte A (feita):** IP fora do construtor do `TeamService` (achado 3 deste
   documento). Era um bug real: a auditoria gravava o IP do proxy em produção. Próxima: `Config` com as
   variáveis do `.env` e validação na subida.
+- **2026-11-21 — etapa 4, parte B (feita):** `isLab` uma vez só e aviso claro quando falta variável
+  obrigatória no `.env`. As leituras do `.env` já estavam todas no `bootstrap.php`; uma classe `Config`
+  só mudaria o lugar delas.
+
+## O que ficou de fora (de propósito)
+- **Classe `App` tipada no lugar do array `$app[...]`:** mexeria em todos os arquivos de rota e no worker
+  só para trocar `['x']` por `->x`. Vale fazer junto com a próxima mudança grande, não sozinha.
+- **`core.js` no front:** como previsto, junto com a próxima tela.
+- **`ConversationActions`:** o que sobrou no `ConversationService` (458 linhas) são as ações do atendente;
+  separar seria só trocar o nome.
+
+## Resultado
+| | Antes | Depois |
+|---|---|---|
+| `public/index.php` | 634 linhas, 13 consultas SQL, todas as rotas | 166 linhas, 0 SQL, só monta e despacha |
+| `ConversationService` | 863 linhas, 4 responsabilidades | 458 linhas + `InboundService`, `Triage`, `TicketBridge`, `ConversationStore` |
+| Rotas | `if`/`switch` em sequência | `Http\Router` + 8 arquivos em `src/Http/Routes/` |
+| Testes | 151 | 161, incluindo retrato de 93 rotas com o site rodando de verdade |
+
+Achados corrigidos no caminho: ações de conversa por GET pulavam o CSRF; auditoria gravava o IP do proxy.
