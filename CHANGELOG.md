@@ -12,6 +12,11 @@
   protocolo e quem transferiu, e toca o alerta. O aviso some quando alguém do setor aceita, ou quando
   quem recebeu abre a conversa. Migration `022_transfer_alert.sql`.
 
+### Corrigido
+- **`bin/migrate.php` parava com "Duplicate column"** quando uma migration mudou de nome depois de já
+  ter rodado (as da Jack viraram 020–022 ao juntar com o principal). Coluna ou índice que já existe
+  agora é pulado com o aviso "já existe, mantido".
+
 ## [0.25.0] — 2026-11-16
 ### Adicionado
 - **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor
