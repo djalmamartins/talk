@@ -41,6 +41,9 @@
 - Etapa 3A: a ponte com o Help Desk do ERP saiu do `ConversationService` para `Service\TicketBridge`
   (abrir sozinho, abrir pelo botão, transferir, encerrar, número do chamado). O `ConversationService`
   mantém a mesma assinatura e delega; os testes de chamado (`OpenTicketTest`, ERP fora do ar) seguem iguais.
+- Etapa 3B: `Service\ConversationStore` com o básico de uma conversa (buscar, travar, resumo para o
+  tempo real, textos do cliente, fila de envio). A consulta dos textos do cliente, que estava em dois
+  lugares da triagem, ficou num só. `ConversationService`: 816 → 751 linhas.
 - Testes novos: `RouterTest`, `LabAndDirectoryTest`, `RoutesSmokeTest` e a assinatura no `SupportTest` (161 testes passando no MariaDB; o retrato das rotas conta como 1).
 
 ## [0.22.0] — 2026-11-16

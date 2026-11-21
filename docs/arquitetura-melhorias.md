@@ -105,3 +105,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   `ConversationService` atrás da fachada, começando pelo `TicketBridge` (helpdesk do ERP), a parte mais isolada.
 - **2026-11-21 — etapa 3, parte A (feita):** `TicketBridge` (863 → 816 linhas no `ConversationService`).
   Próxima: `Triage` (triagem da Jack, horário de atendimento e roteamento para o setor).
+- **2026-11-21 — etapa 3, parte B (feita):** `ConversationStore`, base comum para as próximas partes.
+  Próxima: `Triage` (triagem da Jack, horário e roteamento), usando o `ConversationStore`.
