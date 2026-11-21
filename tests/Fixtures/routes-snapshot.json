@@ -238,6 +238,82 @@
             "error"
         ]
     ],
+    "supervisor GET /api/team/users/{id}": [
+        200,
+        [
+            "active",
+            "closed_today",
+            "created_at",
+            "email",
+            "erp_user_id",
+            "id",
+            "last_seen_at",
+            "name",
+            "online",
+            "open_count",
+            "role",
+            "sector_ids"
+        ]
+    ],
+    "supervisor POST /api/team/users/{id}": [
+        200,
+        [
+            "active",
+            "closed_today",
+            "created_at",
+            "email",
+            "erp_user_id",
+            "id",
+            "last_seen_at",
+            "name",
+            "online",
+            "open_count",
+            "role",
+            "sector_ids"
+        ]
+    ],
+    "supervisor GET /api/team/sectors/{id}": [
+        200,
+        [
+            "active",
+            "channels",
+            "color",
+            "description",
+            "id",
+            "jack",
+            "name",
+            "open_count",
+            "people",
+            "waiting"
+        ]
+    ],
+    "supervisor POST /api/team/sectors/{id}/deactivate": [
+        422,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /api/team/sectors/{id}/activate": [
+        200,
+        [
+            "active",
+            "channels",
+            "color",
+            "description",
+            "id",
+            "jack",
+            "name",
+            "open_count",
+            "people",
+            "waiting"
+        ]
+    ],
+    "supervisor POST /api/me/password": [
+        422,
+        [
+            "error"
+        ]
+    ],
     "supervisor POST /lab/simulate": [
         200,
         [

@@ -90,3 +90,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   `src/Http/Routes/conversations.php`. Achado de segurança corrigido no caminho: ações por GET
   pulavam o CSRF (ver CHANGELOG). Próxima: mover as demais rotas da API (equipe, canais, envios,
   agendamentos, configurações) para arquivos por área, uma área por rodada.
+- **2026-11-21 — etapa 2, parte B (feita):** rotas da equipe em `src/Http/Routes/team.php`; esta área
+  não tinha ação por GET. Próxima: canais (`/api/channels`), que tem ações como `connect` e `logout`.

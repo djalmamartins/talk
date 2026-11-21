@@ -402,46 +402,6 @@ try {
         if (preg_match('#^/api/settings/holidays/(\d+)/delete$#', $path, $m) && $method === 'POST') {
             $json($app['hours']->deleteHoliday($me, (int) $m[1]));
         }
-        if ($path === '/api/me/password' && $method === 'POST') {
-            $b = $body();
-            $app['team']->changeOwnPassword($me->userId, (string) ($b['current'] ?? ''), (string) ($b['new'] ?? ''));
-            $_SESSION['auth_at'] = time(); // esta sessão continua; as outras caem
-            $json(['ok' => true]);
-        }
-        if ($path === '/api/team/users') {
-            $json($method === 'POST' ? $app['team']->saveUser($me, $body()) : $app['team']->users($me));
-        }
-        if (preg_match('#^/api/team/users/(\d+)(?:/(activate|deactivate))?$#', $path, $m)) {
-            $uid = (int) $m[1];
-            if ($method === 'GET') {
-                $json($app['team']->user($me, $uid));
-            }
-            $r = match ($m[2] ?? '') {
-                '' => $app['team']->saveUser($me, $body(), $uid),
-                'activate' => $app['team']->setActive($me, $uid, true),
-                'deactivate' => $app['team']->setActive($me, $uid, false),
-            };
-            if ($uid === $me->userId) {
-                $_SESSION['auth_at'] = time();
-                $_SESSION['user_name'] = $r['name'];
-            }
-            $json($r);
-        }
-        if ($path === '/api/team/sectors') {
-            $json($method === 'POST' ? $app['team']->saveSector($me, $body()) : $app['team']->sectors($me));
-        }
-        if (preg_match('#^/api/team/sectors/(\d+)(?:/(activate|deactivate))?$#', $path, $m)) {
-            $sid = (int) $m[1];
-            $json(match (true) {
-                $method === 'GET' => $app['team']->sector($me, $sid),
-                ($m[2] ?? '') === 'activate' => $app['team']->setSectorActive($me, $sid, true),
-                ($m[2] ?? '') === 'deactivate' => $app['team']->setSectorActive($me, $sid, false),
-                default => $app['team']->saveSector($me, $body(), $sid),
-            });
-        }
-        if ($path === '/api/team/audit') {
-            $json($app['team']->auditLog($me, (int) ($_GET['limit'] ?? 50)));
-        }
         if ($path === '/api/channels') {
             $json($method === 'POST' ? $app['channels']->save($me, $body()) : $app['channels']->list($me));
         }
@@ -505,9 +465,11 @@ try {
         if ($path === '/api/search') {
             $json($app['inbox']->search($me, $_GET));
         }
-        // conversa: rotas em src/Http/Routes/conversations.php
+        // rotas por área em src/Http/Routes/ (as que ainda estão acima vão migrando aos poucos)
         $router = new Router();
-        (require __DIR__ . '/../src/Http/Routes/conversations.php')($router, $app, $me, $json, $body, $upload);
+        foreach (['conversations', 'team'] as $area) {
+            (require __DIR__ . "/../src/Http/Routes/$area.php")($router, $app, $me, $json, $body, $upload);
+        }
         $router->dispatch($method, $path);
         $json(['error' => 'Rota não encontrada.'], 404);
     }
