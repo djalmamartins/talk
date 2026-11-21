@@ -98,3 +98,5 @@ SSE, toasts) para `core.js` quando a próxima tela precisar, não antes.
   Próxima: agendamentos, configurações, etiquetas, mensagens rápidas e contatos (o que resta da API).
 - **2026-11-21 — etapa 2, parte E (feita):** toda a API em `src/Http/Routes/` (6 arquivos por área).
   Próxima: páginas, mídia, SSE, webhooks e simulador também no roteador; com isso a etapa 2 fecha.
+- **2026-11-21 — etapa 2, parte F (feita):** telas em `src/Http/Routes/pages.php`, por tabela.
+  Próxima: login/logout, SSE, mídia, webhooks e simulador no roteador; com isso a etapa 2 fecha.

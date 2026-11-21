@@ -165,6 +165,21 @@ final class RoutesSmokeTest extends DbTestCase
         $take('POST', '/api/me', [], false); // POST sem CSRF
         $shot = array_combine(array_map(fn ($k) => str_replace("/$id", '/{id}', $k), array_keys($shot)), $shot);
 
+        // atendente comum: telas de supervisor voltam para a caixa de entrada
+        $take('POST', '/logout', ['csrf' => $this->csrf], false);
+        $who = 'anon';
+        $take('GET', '/fila');
+        $this->db->insert('talk_users', ['id' => 2, 'name' => 'Ana (Financeiro)', 'email' => 'ana@exemplo.test',
+            'password_hash' => password_hash('segredo', PASSWORD_DEFAULT)]);
+        $this->db->insert('talk_staff', ['user_id' => 2, 'sector_id' => $this->sectors['Financeiro'], 'role' => 'agent']);
+        $this->request('GET', '/login');
+        $this->request('POST', '/login', ['email' => 'ana@exemplo.test', 'password' => 'segredo', 'csrf' => $this->csrf], false);
+        $who = 'atendente';
+        foreach (['/', '/envios', '/configuracoes', '/equipe', '/conexoes', '/fila'] as $page) {
+            $take('GET', $page);
+        }
+        $take('GET', '/api/jack/stats');
+
         if (getenv('UPDATE_ROUTES_SNAPSHOT') === '1' || !is_file(self::SNAPSHOT)) {
             file_put_contents(self::SNAPSHOT, json_encode($shot, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
             $this->markTestIncomplete('Retrato das rotas gravado em tests/Fixtures/routes-snapshot.json; confira e rode de novo.');
@@ -191,6 +206,9 @@ final class RoutesSmokeTest extends DbTestCase
         $raw = (string) curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        if ($status >= 300 && $status < 400) { // redirecionamento: o destino faz parte do retrato
+            $type = '→ ' . (string) parse_url((string) curl_getinfo($ch, CURLINFO_REDIRECT_URL), PHP_URL_PATH);
+        }
         $body = substr($raw, (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE));
         if (preg_match('/name="csrf" value="([0-9a-f]+)"/', $body, $m) || preg_match('/csrf["\']?\s*[:=]\s*["\']([0-9a-f]{32})/', $body, $m)) {
             $this->csrf = $m[1];

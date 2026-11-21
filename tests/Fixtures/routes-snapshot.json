@@ -15,7 +15,7 @@
     ],
     "anon GET /": [
         302,
-        "text/html"
+        "→ /login"
     ],
     "anon GET /rota-que-nao-existe": [
         404,
@@ -23,7 +23,7 @@
     ],
     "anon POST /login": [
         302,
-        "text/html"
+        "→ /"
     ],
     "supervisor GET /": [
         200,
@@ -786,6 +786,44 @@
         ]
     ],
     "supervisor POST /api/me": [
+        403,
+        [
+            "error"
+        ]
+    ],
+    "supervisor POST /logout": [
+        302,
+        "→ /login"
+    ],
+    "anon GET /fila": [
+        302,
+        "→ /login"
+    ],
+    "atendente GET /": [
+        200,
+        "text/html"
+    ],
+    "atendente GET /envios": [
+        302,
+        "→ /"
+    ],
+    "atendente GET /configuracoes": [
+        302,
+        "→ /"
+    ],
+    "atendente GET /equipe": [
+        302,
+        "→ /"
+    ],
+    "atendente GET /conexoes": [
+        302,
+        "→ /"
+    ],
+    "atendente GET /fila": [
+        200,
+        "text/html"
+    ],
+    "atendente GET /api/jack/stats": [
         403,
         [
             "error"

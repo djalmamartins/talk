@@ -179,86 +179,10 @@ try {
         header('Location: /login');
         exit;
     }
-    if ($path === '/') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $view('inbox', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/contatos') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $view('contacts', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/agendamentos') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $view('schedules', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/envios') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $me = $app['staff']->find((int) $_SESSION['user_id']);
-        if (!$me->supervisor && !$me->managerSectors) {
-            header('Location: /');
-            exit;
-        }
-        $view('campaigns', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/configuracoes') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
-            header('Location: /');
-            exit;
-        }
-        $view('settings', ['isLab' => $isLab, 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/equipe') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
-            header('Location: /');
-            exit;
-        }
-        $view('team', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/conexoes') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        if (!$app['staff']->find((int) $_SESSION['user_id'])->supervisor) {
-            header('Location: /');
-            exit;
-        }
-        $view('channels', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/painel') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $view('reports', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
-    if ($path === '/fila') {
-        if (!$sessionOk()) {
-            header('Location: /login');
-            exit;
-        }
-        $view('queue', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
-    }
+    // ---------------------------------------------------------------- telas (src/Http/Routes/pages.php)
+    $pages = new Router();
+    (require __DIR__ . '/../src/Http/Routes/pages.php')($pages, $app, $view, $sessionOk, $isLab);
+    $pages->dispatch($method, $path);
 
     // ---------------------------------------------------------------- tempo real
     if ($path === '/events') {
