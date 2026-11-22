@@ -7,7 +7,7 @@ declare(strict_types=1);
 //   php bin/simular.php "o elevador parou" [telefone] [nome]
 //   no lab do Mac: docker exec dev-apache php /var/www/html/talk/bin/simular.php "o elevador parou"
 //
-// A Jack decide pelo worker (talk-worker), depois do tempo do setor Geral (JACK_GENERAL_SECONDS).
+// A Jack decide depois do tempo do setor Geral (JACK_GENERAL_SECONDS). No lab não há worker: deixe uma tela do Talk aberta.
 use ConnectTalk\Domain\InboundMessage;
 
 $app = require __DIR__ . '/../bootstrap.php';
