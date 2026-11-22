@@ -71,6 +71,32 @@ longos (CPF, telefone) antes de mandar o texto ao modelo.
 5. **Ligar** (`JACK_AI=on`) quando, no Pi, a IA acertar mais que as regras nos cenários e na sombra, com
    tempo aceitável.
 
+## 3b. Carga de teste (pedido do Djalma em 22/11/2026)
+
+Para ver a Jack atendendo em volume, sem celular e sem risco:
+
+```
+docker exec dev-apache php /var/www/html/talk/bin/jack-carga.php enviar     # 500 mensagens de 60 clientes
+docker exec dev-apache php /var/www/html/talk/bin/jack-carga.php reteste    # o que ela errou volta, de outro cliente
+docker exec dev-apache php /var/www/html/talk/bin/jack-carga.php placar     # placar da última rodada
+```
+
+- As frases são as fixas da JV1.2 (`tests/Fixtures/jack/`, com o setor certo), com variações do jeito do
+  WhatsApp (cumprimento antes, "por favor", sem acento). Às vezes o cliente manda "bom dia" numa mensagem e o
+  assunto na outra. `--mensagens=` e `--clientes=` mudam o tamanho.
+- Cada atendimento passa pela triagem e é encerrado sem avisar ninguém, para o mesmo cliente abrir outro. Os
+  atendimentos aparecem na tela Serviço da Jack com a marca **teste**; o placar mostra o protocolo de cada erro.
+- O reteste manda cada frase errada de novo, igual, por um cliente novo (números 10001 em diante). Com as
+  regras, ela erra igual até alguém ajustar as palavras ou ligar a IA; serve para conferir depois do ajuste.
+
+**Segurança (no código, não só por combinação):**
+1. Só roda com `APP_ENV=lab` e só num número simulado (canal `lab`, que não fala com o WhatsApp).
+2. Todo cliente da carga tem número de teste: DDI 55 com **DDD 00**, que não existe (`Phone::isTest`).
+3. Todo WhatsApp de verdade (QR Code ou API oficial) passa pela trava `TestNumberGuard`: mensagem para
+   número de teste falha na hora e não sai. Campanhas e agendamentos passam pela mesma trava.
+4. O ERP também recusa: conversa de número de teste não abre chamado no SAC (`TestSafeHelpdesk`) e o número
+   não é consultado no cadastro (`TestSafeDirectory`).
+
 ## 4. Como as sugestões ajudam
 
 Cada sugestão na tela Serviço da Jack vira um exemplo:

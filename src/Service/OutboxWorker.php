@@ -55,7 +55,8 @@ final class OutboxWorker
                 $sent++;
             } catch (\Throwable $e) {
                 $attempts = (int) $job['attempts'] + 1;
-                if ($attempts >= self::MAX_ATTEMPTS) {
+                // número de teste da Jack num WhatsApp de verdade: a trava recusa, não adianta tentar de novo
+                if ($attempts >= self::MAX_ATTEMPTS || \ConnectTalk\Support\Phone::isTest((string) $job['to_phone'])) {
                     $this->db->run("UPDATE talk_outbox SET status = 'failed', last_error = ? WHERE id = ?", [$e->getMessage(), $job['id']]);
                     $this->db->run("UPDATE talk_messages SET ack = 'failed' WHERE id = ?", [$job['message_id']]);
                     $this->ack((int) $job['conversation_id'], (int) $job['message_id'], 'failed');

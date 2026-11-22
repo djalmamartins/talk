@@ -33,6 +33,12 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
   `talk_jack_decisions`); os acertos do Painel contam só as decisões reais.
 - `tools/local/jack-ia-lab.sh` (Mac: Ollama + Gemma 3 1B, placar e modo de teste), `bin/jack-cenarios.php --ia`
   e serviço `jack-ia` (perfil `ia`) no compose do Pi, com o modelo em `deploy/ia/modelo.gguf`.
+- **Carga de teste da Jack** (`bin/jack-carga.php enviar | reteste | placar`, só no lab): 500 mensagens fictícias
+  de 60 clientes fictícios, triagem, conferência do setor e reteste do que ela errou com outro cliente. Tabela
+  `talk_jack_carga` (migração 026); marca "teste" na tela Serviço da Jack. Números de teste têm DDD 00 e
+  **nunca saem**: o WhatsApp de verdade recusa (`TestNumberGuard`) e o ERP não abre chamado nem consulta o
+  cadastro deles. Primeira rodada no laboratório da nuvem: 93% no setor certo, nenhum erro grave.
+- `bin/simular.php`: uma mensagem de cliente no número simulado, pelo Terminal.
 - O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
   assinadas por ela).
 

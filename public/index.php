@@ -139,6 +139,7 @@ try {
         $channel = (int) $m[1];
         if ($method === 'GET') {
             $gw = $app['gateways']->forChannel($channel);
+            $gw = $gw instanceof \ConnectTalk\Gateway\TestNumberGuard ? $gw->inner() : $gw;
             $challenge = $gw instanceof CloudApiGateway ? $gw->verifySubscription($_GET) : null;
             http_response_code($challenge === null ? 403 : 200);
             echo $challenge ?? 'forbidden';

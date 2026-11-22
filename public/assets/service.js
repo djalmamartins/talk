@@ -86,7 +86,7 @@ function render(d) {
     const pend = c.pendencias.length ? `<small class="sv-pcount">${c.pendencias.length} pendência(s)</small>` : '';
     const last = c.fazendo || c.procedimento[c.procedimento.length - 1] || '—';
     return `<tr class="sv-row" data-id="${c.conversation_id}" tabindex="0" role="button" aria-label="Ver atendimento de ${esc(c.contato)}">
-      <td>${badge(c.situacao)}${pend}</td><td class="nowrap">${when(c.desde)}</td><td><b>${esc(c.contato)}</b></td>
+      <td>${badge(c.situacao)}${pend}</td><td class="nowrap">${when(c.desde)}</td><td><b>${esc(c.contato)}</b>${c.teste ? ' <span class="sv-test" title="Carga de teste: não sai do Talk">teste</span>' : ''}</td>
       <td class="nowrap">${esc(c.protocolo)}</td><td>${esc(c.ideia.rotulo)}</td><td class="sv-last">${esc(last)}</td><td class="r">${c.respostas}</td></tr>`;
   }).join('') + (list.length >= d.limite ? `<tr><td colspan="7" class="sv-empty">Mostrando os ${d.limite} mais recentes. Use a busca para achar outros.</td></tr>` : '');
 }

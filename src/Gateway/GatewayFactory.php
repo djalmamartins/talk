@@ -41,13 +41,13 @@ class GatewayFactory
         if ($this->isSimulated($ch['kind'], $cfg)) {
             return new LabGateway();
         }
-        return match ($ch['kind']) {
+        // WhatsApp de verdade: com a trava que impede mandar para número de teste da Jack
+        return new TestNumberGuard(match ($ch['kind']) {
             'official' => new CloudApiGateway($cfg, $this->http),
             // com o motor do servidor configurado, todos os números usam ele (um endereço antigo salvo no
             // número, como o do laboratório, não vale mais); sem ele, vale o que o número tiver
             'qrcode' => new EvolutionGateway($this->evolutionReady() ? array_merge($cfg, $this->evolution) : $cfg + $this->evolution, $this->http),
-            'lab' => new LabGateway(),
-        };
+        });
     }
 
     public function channelStatus(int $channelId): ?string

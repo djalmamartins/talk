@@ -6,6 +6,7 @@ namespace ConnectTalk\Jack;
 use ConnectTalk\Domain\StaffMember;
 use ConnectTalk\Service\DomainError;
 use ConnectTalk\Support\Db;
+use ConnectTalk\Support\Phone;
 
 /**
  * Tela "Serviço da Jack" (pedido do Djalma em 22/11/2026): o que a Jack está fazendo agora, o que ela não
@@ -388,7 +389,7 @@ final class Monitor
         foreach ($stuck as $m) {
             $problems[] = ['nivel' => 'erro', 'texto' => 'A mensagem "' . self::short((string) $m['body']) . '" está há mais de 5 min na fila de envio.'];
         }
-        if ($routed && $this->sacOn && $c['helpdesk_ticket_id'] === null) {
+        if ($routed && $this->sacOn && $c['helpdesk_ticket_id'] === null && !Phone::isTest((string) $c['phone'])) { // teste não abre chamado
             $problems[] = ['nivel' => 'erro', 'texto' => 'Encaminhou, mas o chamado não abriu no SAC (o ERP não respondeu). Abra pela conversa, no botão Abrir chamado.'];
         }
         if ($inTriage && (int) $c['age'] > $this->jack->overdueSeconds()) {
@@ -408,6 +409,7 @@ final class Monitor
             'conversation_id' => (int) $c['id'],
             'protocolo' => $c['protocol'],
             'contato' => $c['contact_name'] ?: $c['phone'],
+            'teste' => Phone::isTest((string) $c['phone']), // carga de teste (bin/jack-carga.php)
             'situacao' => $inTriage ? 'agora' : ($problems !== [] && $problems[0]['nivel'] === 'erro' ? 'erro' : ($problems !== [] ? 'aviso' : 'feito')),
             'fazendo' => $inTriage ? $this->doingNow($c, $inbound) : null,
             'desde' => $c['opened_at'],

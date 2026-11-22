@@ -78,6 +78,10 @@ if ($env('ERP_API_URL')) {
     $helpdesk = new NullHelpdesk();
     $charges = new \ConnectTalk\Erp\NullChargeDirectory();
 }
+$sacOn = $helpdesk instanceof HttpHelpdesk;
+// números de teste da Jack (DDD 00, bin/jack-carga.php) nunca vão ao ERP nem saem pelo WhatsApp (GatewayFactory)
+$directory = new \ConnectTalk\Erp\TestSafeDirectory($directory);
+$helpdesk = new \ConnectTalk\Erp\TestSafeHelpdesk($helpdesk);
 $jack = new Jack(
     $db,
     new Classifier(),
@@ -119,7 +123,7 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
-    'jack_monitor' => new \ConnectTalk\Jack\Monitor($db, $jack, $helpdesk instanceof HttpHelpdesk), // tela Serviço da Jack
+    'jack_monitor' => new \ConnectTalk\Jack\Monitor($db, $jack, $sacOn), // tela Serviço da Jack
     'hours' => $hours,
     'reports' => new \ConnectTalk\Service\ReportService($db, $hours),
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),

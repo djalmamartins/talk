@@ -21,6 +21,17 @@ final class Phone
     }
 
     /**
+     * Número fictício da carga de teste da Jack (bin/jack-carga.php): DDI 55 com DDD 00, que não existe no
+     * Brasil, então nunca é o celular de alguém. Mensagem para ele não sai pelo WhatsApp nem vai ao ERP.
+     */
+    public const TEST_PREFIX = '5500';
+
+    public static function isTest(string $raw): bool
+    {
+        return str_starts_with(self::normalize($raw), self::TEST_PREFIX);
+    }
+
+    /**
      * Variações para achar a pessoa no cadastro: com/sem DDI e com/sem o 9º dígito
      * (o WhatsApp às vezes entrega celulares antigos sem o 9).
      * @return list<string>
