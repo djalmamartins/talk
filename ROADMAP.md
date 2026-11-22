@@ -32,7 +32,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
 | U9 | Fila com "com quem está", distribuição automática, Jack conta e consulta o chamado do SAC | pedido de 22/11 | feito (1.1.0) |
 | U10 | Aba Serviço da Jack: lista de atendimentos com janela de detalhe (ideia, procedimento, respostas, o que não fez) e sugestões para ela melhorar | pedido de 22/11 | feito (1.2.0) |
-| IA | Jack com IA: plano em `docs/jack/IA.md` (IA0 sugestões feito; IA1 cenários; IA2 modo sombra) | pedido de 22/11 | aguardando decisão e chave |
+| IA | Jack com IA local (Gemma 3 1B): plano em `docs/jack/IA.md`. IA0 sugestões, IA1 cenários e IA2 adaptador + modo sombra feitos | pedido de 22/11 | falta teste no Mac, depois Pi |
 | v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 

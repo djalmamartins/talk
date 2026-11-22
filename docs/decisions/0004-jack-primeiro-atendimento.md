@@ -194,3 +194,8 @@ seguem aprovados"**. Confirma a fase J4 desta ADR:
   regras nos cenários fixos e na sombra. Se falhar, demorar ou passar do limite, a Jack volta para as regras.
 - Só o texto da mensagem vai para o provedor, sem nome, telefone, CPF ou unidade.
 Rascunho de resposta (opção B) e conversa livre (opção C) continuam fora. Plano em `docs/jack/IA.md`.
+
+Complemento do mesmo dia: o Djalma escolheu **IA local** em vez de um serviço externo. O modelo (Gemma 3 1B)
+roda na própria máquina: primeiro no Mac (Ollama) e depois no Raspberry Pi (serviço `jack-ia`, llama.cpp).
+Nada sai da máquina e não há custo por mensagem. Uma API externa fica só como reserva futura, pelo mesmo
+adaptador (`src/Jack/AiClassifier.php`). Liga com `JACK_AI=shadow` (só registra) e depois `JACK_AI=on`.

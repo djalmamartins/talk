@@ -32,7 +32,12 @@ final class Jack
         private int $typingBaseSeconds = 20,
         private int $generalSeconds = 60,
         private bool $announceTickets = true,
+        private ?AiClassifier $ai = null,
+        private string $aiMode = 'off', // off | shadow (só registra o que a IA faria) | on (IA decide; regras de reserva)
     ) {
+        if (!in_array($aiMode, ['off', 'shadow', 'on'], true) || $ai === null) {
+            $this->aiMode = 'off';
+        }
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
         }
@@ -118,25 +123,62 @@ final class Jack
     {
         $r = $this->classifier->classify($text);
         $sector = $r['sector'] !== null && $r['confident'] ? $this->sectorByKey($r['sector']) : null;
-        if ($sector !== null) {
-            $this->record($conv, $sector, $r['intent'], $r);
-            return ['action' => 'route', 'sector' => $sector];
-        }
-        if ($this->isOnlyGreeting($text) && $ageSeconds < $this->maxWaitSeconds) {
+        if ($sector === null && $this->isOnlyGreeting($text) && $ageSeconds < $this->maxWaitSeconds) {
             return null; // só cumprimentou: espera calada a pessoa contar o assunto
         }
-        $fallback = $this->fallbackSector();
-        if ($fallback === null) {
-            return null;
+        // IA local (ADR 0004, etapa A): só entende o assunto. Em "on", decide quando tem certeza; senão, regras.
+        $ai = $this->aiMode !== 'off' ? $this->ai->classify($text) : null;
+        $aiSector = $ai !== null && $ai['confident'] && $ai['sector'] !== null ? $this->sectorByKey($ai['sector']) : null;
+        if ($this->aiMode === 'on' && $aiSector !== null) {
+            $this->record($conv, $aiSector, $ai['intent'], ['confident' => true, 'scores' => [], 'matched' => []], 'ia', $ai['ms']);
+            return ['action' => 'route', 'sector' => $aiSector];
         }
-        $this->record($conv, $fallback, null, $r);
-        return ['action' => 'fallback', 'sector' => $fallback];
+        $action = 'route';
+        if ($sector === null) {
+            $sector = $this->fallbackSector();
+            if ($sector === null) {
+                return null;
+            }
+            $action = 'fallback';
+        }
+        $this->record($conv, $sector, $action === 'route' ? $r['intent'] : null, $r);
+        if ($this->aiMode !== 'off') {
+            $this->recordAi($conv, $ai, $aiSector, (int) $sector['id']); // o que a IA teria feito (ou que ela falhou)
+        }
+        return ['action' => $action, 'sector' => $sector];
+    }
+
+    public function aiMode(): string
+    {
+        return $this->aiMode;
+    }
+
+    /** Modo sombra: grava a opinião da IA ao lado da decisão real (final_sector_id = onde a conversa foi). */
+    private function recordAi(array $conv, ?array $ai, ?array $aiSector, int $finalSectorId): void
+    {
+        $this->db->insert('talk_jack_decisions', [
+            'conversation_id' => $conv['id'],
+            'message_id' => (int) ($this->db->one("SELECT MAX(id) id FROM talk_messages WHERE conversation_id = ? AND direction = 'in'", [$conv['id']])['id'] ?? 0),
+            'mode' => 'shadow',
+            'source' => 'ia',
+            'model' => mb_substr($this->ai->model(), 0, 60),
+            'intent' => $ai['intent'] ?? null,
+            'suggested_sector_id' => $aiSector['id'] ?? null,
+            'confident' => $ai !== null && $ai['confident'] ? 1 : 0,
+            'matched' => $ai === null ? 'IA não respondeu' : null,
+            'action' => 'none',
+            'final_sector_id' => $finalSectorId,
+            'ai_ms' => $ai['ms'] ?? null,
+        ]);
     }
 
     /** Registra a decisão (gabarito: final_sector_id é atualizado se um humano transferir). */
-    public function record(array $conv, array $sector, ?string $intent, ?array $r): void
+    public function record(array $conv, array $sector, ?string $intent, ?array $r, string $source = 'regras', ?int $aiMs = null): void
     {
         $this->db->insert('talk_jack_decisions', [
+            'source' => $source,
+            'model' => $source === 'ia' ? mb_substr((string) $this->ai?->model(), 0, 60) : null,
+            'ai_ms' => $aiMs,
             'conversation_id' => $conv['id'],
             'message_id' => (int) ($this->db->one("SELECT MAX(id) id FROM talk_messages WHERE conversation_id = ? AND direction = 'in'", [$conv['id']])['id'] ?? 0),
             'mode' => 'auto',
@@ -227,7 +269,7 @@ final class Jack
                     s.name, fs.name AS final_name, c.protocol, ct.name AS contact
                FROM talk_jack_decisions d
                JOIN (SELECT conversation_id, MIN(id) AS id FROM talk_jack_decisions
-                      WHERE confident = 1 AND suggested_sector_id IS NOT NULL AND created_at >= NOW() - INTERVAL ? DAY
+                      WHERE mode = 'auto' AND confident = 1 AND suggested_sector_id IS NOT NULL AND created_at >= NOW() - INTERVAL ? DAY
                       GROUP BY conversation_id) f ON f.id = d.id
                JOIN talk_conversations c ON c.id = d.conversation_id
                JOIN talk_contacts ct ON ct.id = c.contact_id
@@ -238,7 +280,7 @@ final class Jack
             $args
         );
         $total = (int) ($this->db->one(
-            "SELECT COUNT(DISTINCT d.conversation_id) n FROM talk_jack_decisions d WHERE d.created_at >= NOW() - INTERVAL ? DAY$scope",
+            "SELECT COUNT(DISTINCT d.conversation_id) n FROM talk_jack_decisions d WHERE d.mode = 'auto' AND d.created_at >= NOW() - INTERVAL ? DAY$scope",
             $args
         )['n'] ?? 0);
         $hits = $misses = 0;

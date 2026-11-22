@@ -58,6 +58,15 @@ function render(d) {
     kpi(r.respostas, 'Respostas enviadas', 'mensagens dela ao cliente'),
     kpi(r.pendencias, 'Não fez ou deu problema', `${d.sugestoes_novas} sugestão(ões) nova(s)`),
   ].join('');
+  const ia = d.ia;
+  $('#sv-ia').hidden = d.ia_modo === 'off';
+  if (d.ia_modo !== 'off') {
+    const taxa = ia.taxa === null ? '–' : `${Math.round(ia.taxa * 100)}%`;
+    const tempo = ia.ms_medio === null ? '' : ` · tempo médio ${(ia.ms_medio / 1000).toFixed(1).replace('.', ',')} s (máx. ${(ia.ms_max / 1000).toFixed(1).replace('.', ',')} s)`;
+    $('#sv-ia').innerHTML = d.ia_modo === 'shadow'
+      ? `<b>IA em teste (${periodo}):</b> acertaria ${ia.acertaria}, erraria ${ia.erraria}, sem certeza ${ia.sem_certeza}, não respondeu ${ia.falhou} · acerto ${taxa}${tempo}. Ela ainda não decide nada.`
+      : `<b>IA decidindo</b> quando tem certeza; nos outros casos valem as regras.`;
+  }
   document.querySelectorAll('#sv-tabs button').forEach((b) => {
     b.classList.toggle('active', b.dataset.f === state.filter);
     const n = b.dataset.f === 'feedback' ? d.sugestoes_novas : (b.dataset.f === 'problems' ? d.contagem.problems : 0);
@@ -111,6 +120,7 @@ async function openDialog(id) {
     ${c.fazendo ? `<p class="sv-doing"><b>Fazendo agora:</b> ${esc(c.fazendo)}</p>` : ''}
     <dl class="sv-grid">
       <dt>Ideia</dt><dd>${esc(c.ideia.explicacao)}${terms(c.ideia.termos)}</dd>
+      ${c.ia ? `<dt>IA em teste</dt><dd class="sv-ia-${c.ia.situacao}">${esc(c.ia.texto)}</dd>` : ''}
       <dt>Procedimento</dt><dd class="sv-steps">${steps}</dd>
       ${pend ? `<dt>Não fez</dt><dd><ul class="sv-pend">${pend}</ul></dd>` : ''}
     </dl>

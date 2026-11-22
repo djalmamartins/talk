@@ -1,7 +1,7 @@
 # Jack com IA — o que precisa e em que ordem
 
 Pedido do Djalma em 22/11/2026: "vamos partir para ela se transformar numa IA". Este documento é o plano.
-Nada aqui está ligado ainda: hoje a Jack funciona por regras (`src/Jack/Classifier.php`) e só manda textos
+Por padrão a IA fica desligada (`JACK_AI=off`): a Jack funciona por regras (`src/Jack/Classifier.php`) e só manda textos
 aprovados (ADR 0004).
 
 ## 1. Decisão (Djalma)
@@ -17,32 +17,54 @@ Até onde a IA vai na primeira etapa:
 **Decidido em 22/11/2026: opção A** (registrado na ADR 0004). Ela ataca o que mais erra hoje (entender o assunto) sem o risco de a Jack
 dizer algo errado ao cliente. B e C podem vir depois, em cima do mesmo adaptador.
 
-## 2. O que o Djalma precisa providenciar
+## 2. Onde a IA roda (decisão de 22/11/2026)
 
-1. **Conta na Anthropic (Claude Console)** e uma **chave de API** só para o Talk. A chave vai no `.env`
-   do Pi (`JACK_AI_KEY`), nunca no Git.
-2. **Limite de gasto mensal** configurado na própria conta (ex.: US$ 10/mês para começar).
-3. **Modelo**: para só classificar, o mais barato serve (Claude Haiku 5.5, US$ 0,10 por milhão de tokens de
-   entrada e US$ 0,50 de saída; uma mensagem de cliente custa uma fração de centavo). Na opção A a IA não
-   escreve, então não precisa de modelo maior.
-4. **OK de LGPD** (falta): a mensagem do cliente passa a ser enviada a um serviço externo. Proposta: enviar só o
-   texto da mensagem, sem nome, telefone, CPF ou unidade (números com cara de CPF/telefone são mascarados
-   antes), e citar isso na política de privacidade da Connect.
-5. **Internet de saída no Pi** para `api.anthropic.com` (o túnel da Cloudflare não atrapalha).
+O Djalma escolheu **IA local**: o modelo roda na própria máquina, sem serviço externo, sem chave e sem custo
+por mensagem. Modelo escolhido: **Gemma 3 1B** (arquivo de ~1 GB). Qwen3 1.7B e Qwen3 4B ficam só para
+comparar, se o Gemma 3 1B não passar das regras. A API da Anthropic fica como reserva para o futuro, pelo
+mesmo adaptador.
 
-## 3. O que eu faço no código (opção A)
+- **Primeiro no Mac** (pedido do Djalma): Ollama no Mac, `tools/local/jack-ia-lab.sh`.
+- **Depois no Raspberry Pi**: serviço `jack-ia` (llama-server, do llama.cpp) no `deploy/docker-compose.yml`,
+  desligado por padrão. O ideal é Pi 5 de 8 GB com cooler. O tempo medido no Mac é bem menor que no Pi;
+  o que vale para ligar é o tempo medido no Pi.
 
-1. **JV1.2 antes de tudo: cenários fixos de triagem** (testes com frases reais e o setor certo). É a régua
-   para comparar regras e IA. As sugestões da tela Serviço da Jack (`talk_jack_feedback`, com "setor certo")
-   e as transferências feitas pela equipe viram esses cenários.
-2. **Adaptador** `src/Jack/AiClassifier.php`, com a mesma saída do `Classifier` (intenção, setor, confiança).
-   A IA só pode responder uma das intenções da lista; a resposta é validada por código (saída estruturada).
-   Se a IA falhar, demorar mais de 3 s ou passar do limite do dia, a Jack volta para as regras.
-3. **Modo sombra** (1 a 2 semanas): as regras continuam decidindo; a IA só registra o que teria feito
-   (`talk_jack_decisions`, `mode = shadow`, com o modelo usado). A tela Serviço da Jack mostra lado a lado
-   "regras disseram X, IA diria Y" e o Painel mostra a taxa de acerto de cada uma.
-4. **Ligar** (`JACK_AI=on`) quando a IA acertar mais que as regras nos cenários e na sombra.
-5. Limites: chamadas por dia e por conversa, registro de custo por dia na tela.
+Como nada sai da máquina, não precisa de OK de envio externo. Mesmo assim, o Talk mascara e-mails e números
+longos (CPF, telefone) antes de mandar o texto ao modelo.
+
+### Teste no Mac (passo a passo)
+
+1. `brew install ollama` (ou o aplicativo do site ollama.com).
+2. Na pasta do Talk: `tools/local/jack-ia-lab.sh`. Ele inicia o Ollama, baixa o `gemma3:1b`, mostra o
+   placar dos 44 cenários (regras x IA, com o tempo) e pergunta se pode ligar o modo de teste no `.env`
+   (`JACK_AI=shadow`).
+3. Mande mensagens pelo simulador e abra **Serviço da Jack**: cada atendimento mostra "IA em teste" (o que
+   ela diria e se bate com onde a conversa ficou) e o topo mostra o placar do período.
+4. Para comparar outro modelo: `MODEL=qwen3:1.7b tools/local/jack-ia-lab.sh`.
+
+### No Raspberry Pi (depois do Mac)
+
+1. Baixar o Gemma 3 1B em formato `.gguf` (Q4_K_M ou a versão QAT, ~1 GB; no Hugging Face é preciso aceitar
+   a licença do Gemma) e salvar como `deploy/ia/modelo.gguf`.
+2. No `deploy/.env`: `COMPOSE_PROFILES=tunnel,ia` e `JACK_AI=shadow`. `docker compose up -d`.
+3. Rodar o placar lá dentro para medir o tempo real:
+   `docker compose exec app php bin/jack-cenarios.php --ia` (usa `JACK_AI_URL=http://jack-ia:8080`).
+
+## 3. Como funciona no código (opção A)
+
+1. **Cenários fixos** (`src/Jack/Scenarios.php`, 44 frases) e placar `php bin/jack-cenarios.php [--ia]`.
+2. **Adaptador** `src/Jack/AiClassifier.php`: chama `/v1/chat/completions` (formato da OpenAI, que o Ollama e
+   o llama-server entendem), com instruções fixas (o servidor reaproveita o cache), temperatura 0 e resposta
+   em JSON fechado: `{"intencao": boleto|financeiro|cotacao|administrativo|manutencao|nenhuma, "certeza":
+   alta|baixa}`. A resposta é conferida de novo no PHP. Falha, demora acima de `JACK_AI_TIMEOUT` (padrão 4 s
+   no Pi) ou resposta fora da lista: valem as regras.
+3. **`JACK_AI`**: `off` (padrão), `shadow` (as regras decidem; a IA só registra o que faria em
+   `talk_jack_decisions` com `mode = shadow`, modelo e tempo) ou `on` (a IA decide quando tem certeza alta;
+   nos outros casos, regras). Só cumprimento ("bom dia") não chama a IA.
+4. **Tela Serviço da Jack**: "IA em teste" em cada atendimento e o placar do período (acertaria, erraria,
+   sem certeza, não respondeu, tempo médio e máximo). Os acertos do Painel contam só as decisões reais.
+5. **Ligar** (`JACK_AI=on`) quando, no Pi, a IA acertar mais que as regras nos cenários e na sombra, com
+   tempo aceitável.
 
 ## 4. Como as sugestões ajudam
 
@@ -60,8 +82,8 @@ O supervisor marca a sugestão como **aplicada** quando ela entra no código, ou
 |---|---|---|
 | IA0 | Sugestões na tela Serviço da Jack | feito (1.2.0) |
 | IA1 | Cenários fixos (JV1.2): 44 frases em `src/Jack/Scenarios.php`, placar em `php bin/jack-cenarios.php` (inclui as sugestões com setor certo). Regras hoje: 36 de 44 (82%) | feito (1.2.0) |
-| IA2 | Adaptador da IA em modo sombra | chave, limite de gasto, OK de LGPD |
-| IA3 | IA decidindo o setor, regras como reserva | IA2 melhor que as regras |
+| IA2 | Adaptador da IA local e modo sombra (Mac: Ollama; Pi: serviço jack-ia) | feito no código (1.2.0); falta o teste no Mac |
+| IA3 | IA decidindo o setor, regras como reserva (`JACK_AI=on`) | IA2 melhor que as regras, medida no Pi |
 | IA4 | (se escolhido) rascunho de resposta com aprovação do atendente | decisão B ou C e revisão da ADR 0004 |
 
 ## 6. Onde as regras erram hoje (cenários de 22/11/2026)
@@ -69,5 +91,5 @@ O supervisor marca a sugestão como **aplicada** quando ela entra no código, ou
 As regras ficam sem certeza em 8 das 44 frases, todas com uma palavra só de peso 2 (abaixo do mínimo 3):
 "paguei ontem e ainda aparece em aberto", "declaração de quitação de débitos", "vou fazer mudança",
 "atualizar meu cadastro", "regimento interno", "falar com o síndico", "quanto custa a administração" e
-"recebi uma advertência". Hoje essas conversas vão para o Administrativo (setor padrão), então 3 delas
-(as de Financeiro e a da administração por cotação) caem no setor errado. É o primeiro alvo da IA em sombra.
+"recebi uma advertência". Hoje essas conversas vão para o Administrativo (setor padrão), então as 2 de
+Financeiro caem no setor errado; as outras chegam ao setor certo, mas por sorte. É o primeiro alvo da IA em sombra.

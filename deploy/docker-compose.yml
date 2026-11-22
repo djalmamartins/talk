@@ -138,6 +138,19 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on: [app]
 
+  # IA local da Jack (docs/jack/IA.md, ADR 0004 etapa A): só entende o assunto da mensagem, não escreve.
+  # Desligada por padrão: liga com COMPOSE_PROFILES=tunnel,ia e JACK_AI=shadow no .env, com o arquivo do
+  # modelo (Gemma 3 1B, .gguf de ~1 GB) em deploy/ia/modelo.gguf. Só na rede interna; sem internet.
+  jack-ia:
+    image: ${JACK_AI_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    restart: unless-stopped
+    <<: *logs
+    profiles: ["ia"]
+    command: ["-m", "/models/modelo.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "2048", "-np", "1",
+              "-t", "${JACK_AI_THREADS:-4}", "--cache-reuse", "256"]
+    volumes:
+      - ./ia:/models:ro
+
   # cópia de segurança diária do banco e dos arquivos (pasta deploy/backups no PC)
   backup:
     image: mariadb:11.4

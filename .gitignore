@@ -4,3 +4,4 @@ vendor/
 storage/
 deploy/.env
 deploy/backups/
+*.gguf

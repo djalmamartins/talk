@@ -537,6 +537,8 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 .q-table table.attending th:first-child,.q-table table.attending td:first-child{display:none}
 .q-table table.attending th:nth-child(2),.q-table table.attending td:nth-child(2){padding-left:18px}
 /* Serviço da Jack */
+.sv-ia{margin:0;padding:10px 14px;border-radius:10px;background:#efe8fb;color:#4b2a80}
+.sv-ia-erraria{color:#B42318}.sv-ia-acertaria{color:var(--primary-dark)}.sv-ia-falhou{color:#7a5d00}
 .sv-off{margin:0;padding:10px 14px;border-radius:10px;background:#fdf3d6;color:#7a5d00}
 .q-tabs b:not(:empty){background:var(--danger);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;margin-left:4px}
 .sv-table td{vertical-align:middle}.sv-table .nowrap{white-space:nowrap}.sv-table tbody tr.sv-row{cursor:pointer}

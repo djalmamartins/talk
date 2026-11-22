@@ -68,6 +68,8 @@ final class Monitor
             'dias' => $days,
             'desde' => $since,
             'sac_ligado' => $this->sacOn,
+            'ia_modo' => $this->jack->aiMode(),
+            'ia' => self::aiScore(array_values(array_filter(array_column($all, 'ia')))),
             'resumo' => [
                 'conversas' => count($all),
                 'agora' => $counts['now'],
@@ -127,7 +129,12 @@ final class Monitor
             }
         }
         foreach ($this->decisions([$convId])[$convId] ?? [] as $d) {
-            $steps[] = ['quando' => $d['created_at'], 'tipo' => 'ideia', 'titulo' => 'Ideia', 'texto' => $this->idea($d, false)['explicacao'],
+            if ($d['mode'] === 'shadow') {
+                $ia = self::aiView($d);
+                $steps[] = ['quando' => $d['created_at'], 'tipo' => 'ideia', 'titulo' => 'IA em teste (não decide)', 'texto' => $ia['texto']];
+                continue;
+            }
+            $steps[] = ['quando' => $d['created_at'], 'tipo' => 'ideia', 'titulo' => ($d['source'] ?? 'regras') === 'ia' ? 'Ideia (IA)' : 'Ideia', 'texto' => $this->idea($d, false)['explicacao'],
                 'termos' => $d['matched'] ? explode(', ', (string) $d['matched']) : [], 'pontos' => json_decode((string) $d['scores'], true) ?: (object) []];
         }
         if ($acceptedAt !== null && $conv['assigned_user_id'] !== null && $summary['atendente'] !== null) {
@@ -341,6 +348,8 @@ final class Monitor
                 $steps[] = mb_strimwidth($body, 0, 60, '…');
             }
         }
+        $shadow = array_values(array_filter($decisions, static fn ($d) => $d['mode'] === 'shadow'));
+        $decisions = array_values(array_filter($decisions, static fn ($d) => $d['mode'] !== 'shadow'));
         $first = $decisions[0] ?? null;
         foreach ($decisions as $d) {
             if ((int) $d['confident'] === 1) {
@@ -383,6 +392,7 @@ final class Monitor
             'ultima_atividade' => $c['last_message_at'],
             'ultima_do_cliente' => $lastIn ? self::short(self::bodyOf($lastIn), 120) : null,
             'ideia' => $idea,
+            'ia' => $shadow !== [] ? self::aiView($shadow[count($shadow) - 1]) : null,
             'procedimento' => array_values(array_unique($steps)),
             'encaminhou' => $routed,
             'respostas' => count($replies),
@@ -417,6 +427,9 @@ final class Monitor
         $sector = $d['sector_name'] ?? '?';
         if ($d['intent'] === 'scope') {
             $text = "Perguntaram se ela é robô e depois seguiram com um assunto fora do que ela sabe; passou para $sector.";
+        } elseif (($d['source'] ?? 'regras') === 'ia' && $d['intent'] !== null) {
+            $label = self::INTENT[$d['intent']] ?? $d['intent'];
+            $text = "A IA ({$d['model']}) entendeu que é $label" . ($d['ai_ms'] !== null ? ' em ' . self::seconds((int) $d['ai_ms']) : '') . "; mandou para $sector.";
         } elseif ($d['intent'] !== null && (int) $d['confident'] === 1) {
             $label = self::INTENT[$d['intent']] ?? $d['intent'];
             $text = "Entendeu que é $label" . ($terms ? ' pelas palavras "' . implode('", "', $terms) . '"' : '') . "; mandou para $sector.";
@@ -492,6 +505,39 @@ final class Monitor
     {
         $n = trim((string) preg_replace('/\s*\(.*\)$/', '', (string) $name));
         return $n === '' ? '?' : explode(' ', $n)[0];
+    }
+
+    /** Placar do modo sombra no período: quantas a IA acertaria, erraria, não teria certeza ou falhou, e o tempo médio. */
+    private static function aiScore(array $views): array
+    {
+        $n = array_count_values(array_column($views, 'situacao'));
+        $ms = array_values(array_filter(array_column($views, 'ms'), static fn ($v) => $v !== null));
+        $judged = ($n['acertaria'] ?? 0) + ($n['erraria'] ?? 0);
+        return ['total' => count($views), 'acertaria' => $n['acertaria'] ?? 0, 'erraria' => $n['erraria'] ?? 0,
+            'sem_certeza' => $n['sem_certeza'] ?? 0, 'falhou' => $n['falhou'] ?? 0,
+            'taxa' => $judged ? round(($n['acertaria'] ?? 0) / $judged, 3) : null,
+            'ms_medio' => $ms ? (int) round(array_sum($ms) / count($ms)) : null, 'ms_max' => $ms ? max($ms) : null];
+    }
+
+    /** Modo sombra: o que a IA diria e se bate com onde a conversa ficou. */
+    private static function aiView(array $d): array
+    {
+        $ms = $d['ai_ms'] !== null ? self::seconds((int) $d['ai_ms']) : null;
+        if ($d['matched'] === 'IA não respondeu') {
+            return ['situacao' => 'falhou', 'texto' => 'A IA não respondeu a tempo; valeu a regra.', 'setor' => null, 'ms' => $d['ai_ms'], 'modelo' => $d['model']];
+        }
+        $label = $d['intent'] !== null ? (self::INTENT[$d['intent']] ?? $d['intent']) : 'sem assunto';
+        $where = $d['sector_name'] ?? null;
+        $agrees = $where !== null && $d['final_sector_id'] !== null && (int) $d['suggested_sector_id'] === (int) $d['final_sector_id'];
+        $text = 'A IA diria: ' . $label . ((int) $d['confident'] === 1 && $where ? " → $where" : ' (sem certeza)')
+            . ($ms ? " ($ms)" : '') . '. ' . ($where === null || (int) $d['confident'] === 0 ? 'Não decidiria.' : ($agrees ? 'Bate com onde a conversa ficou.' : 'Não bate com onde a conversa ficou (' . ($d['final_name'] ?? '?') . ').'));
+        return ['situacao' => $where === null || (int) $d['confident'] === 0 ? 'sem_certeza' : ($agrees ? 'acertaria' : 'erraria'),
+            'texto' => $text, 'setor' => $where, 'ms' => $d['ai_ms'] !== null ? (int) $d['ai_ms'] : null, 'modelo' => $d['model']];
+    }
+
+    private static function seconds(int $ms): string
+    {
+        return $ms < 1000 ? "$ms ms" : str_replace('.', ',', (string) round($ms / 1000, 1)) . ' s';
     }
 
     private static function minutes(int $s): string

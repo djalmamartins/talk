@@ -26,6 +26,13 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
 - **Cenários fixos de triagem** (IA1/JV1.2): 44 frases fictícias com o setor certo (`src/Jack/Scenarios.php`) e
   o placar `php bin/jack-cenarios.php`, que também usa as sugestões com setor certo. Regras hoje: 36 de 44 (82%);
   o teste trava abaixo de 80%.
+- **IA local da Jack** (escolha do Djalma: Gemma 3 1B na própria máquina, primeiro no Mac): adaptador
+  `src/Jack/AiClassifier.php` (formato OpenAI, Ollama ou llama-server), JSON fechado, dados pessoais mascarados,
+  timeout e volta para as regras. `JACK_AI=off|shadow|on` (padrão off). Em sombra, a tela Serviço da Jack mostra
+  o que a IA diria em cada atendimento e o placar do período. Migração 025 (`source`, `model`, `ai_ms` em
+  `talk_jack_decisions`); os acertos do Painel contam só as decisões reais.
+- `tools/local/jack-ia-lab.sh` (Mac: Ollama + Gemma 3 1B, placar e modo de teste), `bin/jack-cenarios.php --ia`
+  e serviço `jack-ia` (perfil `ia`) no compose do Pi, com o modelo em `deploy/ia/modelo.gguf`.
 - O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
   assinadas por ela).
 

@@ -26,6 +26,7 @@
   <p class="form-error" id="sv-error" role="alert" hidden></p>
   <p class="sv-off" id="sv-off" hidden>A Jack está desligada (JACK_MODE=off): as conversas vão direto para o setor padrão e ela não faz nada.</p>
   <section class="card"><div class="kpis rp-kpis" id="sv-kpis"></div></section>
+  <p class="sv-ia" id="sv-ia" hidden></p>
   <section class="card q-table">
     <header>
       <nav class="q-tabs" id="sv-tabs" aria-label="Mostrar">
