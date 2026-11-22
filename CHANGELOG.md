@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0] — 2026-11-22
+Pedidos do Djalma em 22/11/2026, durante os testes da 1.1.0.
+### Adicionado
+- **Aviso de avaliação** para quem atendeu, no sino e num aviso na tela, assim que o cliente responde a nota:
+  5 estrelas é "Parabéns!", 4 é "Muito bom!", 3 ou menos é "Vamos dar uma olhada?" com convite para rever a conversa.
+  Mostra o comentário do cliente, fica no sino por 12 h e o aviso na tela aparece uma vez por avaliação.
+- Lembrete com som **a cada minuto enquanto houver alguém esperando na fila**.
+- Aviso "Clique aqui para ativar o som dos avisos" quando o navegador ainda não deixou tocar.
+### Alterado
+- **A Fila de atendimento é a página inicial** e o primeiro item do menu. Atendimentos fica em `/atendimentos`;
+  links antigos (`/?c=ID`, `/?aba=`, `/?abrir=`) continuam abrindo Atendimentos.
+- O som toca na hora quando alguém entra na fila, uma conversa é transferida ou distribuída para a pessoa, ou
+  um cliente dela responde, em qualquer tela (antes a tela da Fila só conferia a cada 20 s, com 25 s de folga).
+
 ## [1.1.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.
 ### Adicionado

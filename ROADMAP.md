@@ -31,6 +31,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U7 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.24.0) |
 | U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
 | U9 | Fila com "com quem está", distribuição automática, Jack conta e consulta o chamado do SAC | pedido de 22/11 | feito (1.1.0) |
+| U10 | Fila como página inicial, som sempre que alguém cai na fila, aviso de avaliação para o atendente | pedido de 22/11 | feito (1.2.0) |
 | v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 

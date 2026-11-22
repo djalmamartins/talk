@@ -619,6 +619,7 @@ function connect() {
         if (document.hidden) document.title = '(nova) Connect Talk';
       }
       if (t === 'conversation.created') window.talkAlert?.();
+      if (t.startsWith('conversation.')) window.talkCheck?.(); // fila, transferência: o sino confere na hora
       scheduleRefresh(d.conversation_id);
     }));
 }
@@ -634,7 +635,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo;
   // /?q=... vem da busca do topo em outra tela; /?aba=mine vem das notificações
   const qs = new URLSearchParams(location.search);
-  if (qs.get('aba') === 'pending') { location.replace('/fila'); return; } // a aba Fila saiu: a fila fica em Fila de atendimento
+  if (qs.get('aba') === 'pending') { location.replace('/'); return; } // a aba Fila saiu: a fila fica em Fila de atendimento
   if (['mine', 'open', 'closed'].includes(qs.get('aba'))) {
     state.tab = qs.get('aba');
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
@@ -647,7 +648,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   if (abrir === 'mensagens') $('#nav-quick')?.click();
   if (abrir === 'etiquetas') $('#nav-tags')?.click();
   if (abrir === 'busca') $('#search').focus();
-  if (qs.toString()) history.replaceState(null, '', '/');
+  if (qs.toString()) history.replaceState(null, '', '/atendimentos');
   connect();
 })();
 

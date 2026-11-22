@@ -7,6 +7,7 @@ const ICON = {
   schedules: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v3M12 18.5v.5"/>',
   channels: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   transfer: '<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+  rating: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
 };
 
 // um menu aberto por vez; clique fora ou Esc fecha
@@ -29,8 +30,22 @@ let lastAlert = 0;
 const soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; } };
 function unlockAudio() {
   if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; } }
-  if (audio.state === 'suspended') audio.resume().catch(() => {});
+  if (audio.state === 'suspended') audio.resume().then(renderUnlock).catch(() => {});
+  renderUnlock();
 }
+// o navegador bloqueia o som até o primeiro clique: avisa no topo para a pessoa não ficar sem alerta
+function renderUnlock() {
+  let b = document.getElementById('sound-unlock');
+  const blocked = soundOn() && (!audio || audio.state !== 'running');
+  if (!blocked) { b?.remove(); return; }
+  if (b) return;
+  b = document.createElement('button');
+  b.type = 'button'; b.id = 'sound-unlock'; b.className = 'sound-unlock';
+  b.textContent = '🔔 Clique aqui para ativar o som dos avisos';
+  b.addEventListener('click', () => { unlockAudio(); setTimeout(() => { if (audio?.state === 'running') chime(); renderUnlock(); }, 80); });
+  document.body.appendChild(b);
+}
+setTimeout(renderUnlock, 1500);
 ['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 function chime() {
   if (!audio || audio.state !== 'running') return;
@@ -56,17 +71,31 @@ window.talkAlert = function talkAlert() {
 function renderSound() {
   const on = soundOn();
   $('#sound-toggle').setAttribute('aria-pressed', String(on));
-  $('#sound-state').textContent = on ? 'Ligado: toca quando chega mensagem' : 'Desligado';
+  $('#sound-state').textContent = on ? 'Ligado: toca quando chega mensagem ou alguém entra na fila' : 'Desligado';
 }
 $('#sound-toggle').addEventListener('click', () => {
   try { localStorage.setItem(SOUND_KEY, soundOn() ? 'off' : 'on'); } catch { /* sem armazenamento: fica ligado */ }
-  renderSound(); unlockAudio();
+  renderSound(); unlockAudio(); renderUnlock();
   if (soundOn()) setTimeout(chime, 50); // toca uma vez para a pessoa ouvir como fica
 });
 renderSound();
 
 let failures = 0;
-let lastAttention = null; // fila + clientes que responderam, para tocar quando aumenta (telas sem tempo real)
+// o que já foi avisado, para tocar só quando aparece algo novo (em qualquer tela, com ou sem tempo real)
+let seen = null; // {queue, unread, transfers:Set}
+let queueNow = 0;
+const RATED_KEY = 'talk.rated';
+const ratedSeen = () => { try { return new Set(JSON.parse(localStorage.getItem(RATED_KEY) || '[]')); } catch { return new Set(); } };
+function markRated(ids) { try { localStorage.setItem(RATED_KEY, JSON.stringify([...ids].slice(-50))); } catch { /* sem armazenamento */ } }
+function toastRating(it) {
+  const t = document.createElement('a');
+  t.className = `rating-toast ${it.score >= 4 ? 'good' : 'review'}`;
+  t.href = it.href;
+  t.innerHTML = `<span aria-hidden="true">${'★'.repeat(it.score)}${'☆'.repeat(5 - it.score)}</span><b>${esc(it.title)}</b><small>${esc(it.text)}</small>`;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add('out'), 9000);
+  setTimeout(() => t.remove(), 9600);
+}
 async function loadNotifications() {
   try {
     const res = await fetch('/api/notifications', { headers: { Accept: 'application/json' } });
@@ -76,12 +105,23 @@ async function loadNotifications() {
     const n = $('#tb-notif-n');
     n.hidden = !d.count; n.textContent = d.count > 99 ? '99+' : d.count;
     $('#tb-notif summary').classList.toggle('has', !!d.count);
-    const attention = d.items.filter((it) => ['queue', 'unread', 'transfer'].includes(it.kind)).reduce((a, it) => a + it.count, 0);
+    const count = (k) => d.items.filter((it) => it.kind === k).reduce((a, it) => a + it.count, 0);
     // contador da fila no menu lateral (a aba Fila saiu de Atendimentos)
-    const waiting = d.items.find((it) => it.kind === 'queue')?.count || '';
-    for (const id of ['#badge-nav', '#badge-queue']) { const b = $(id); if (b && !(id === '#badge-queue' && b.dataset.live)) b.textContent = waiting; }
-    if (lastAttention !== null && attention > lastAttention && Date.now() - lastAlert > 25000) window.talkAlert();
-    lastAttention = attention;
+    const waiting = count('queue');
+    queueNow = waiting;
+    for (const id of ['#badge-nav', '#badge-queue']) { const b = $(id); if (b && !(id === '#badge-queue' && b.dataset.live)) b.textContent = waiting || ''; }
+    const now = { queue: waiting, unread: count('unread'),
+      transfers: new Set(d.items.filter((it) => it.kind === 'transfer').map((it) => it.href)) };
+    if (seen !== null && (now.queue > seen.queue || now.unread > seen.unread || [...now.transfers].some((h) => !seen.transfers.has(h)))) window.talkAlert();
+    seen = now;
+    // avaliação nova: aviso na tela uma vez por avaliação (neste navegador)
+    const rated = ratedSeen();
+    const fresh = d.items.filter((it) => it.kind === 'rating' && !rated.has(it.id));
+    if (fresh.length) {
+      fresh.slice(0, 2).forEach(toastRating);
+      window.talkAlert();
+      fresh.forEach((it) => rated.add(it.id)); markRated(rated);
+    }
     $('#tb-notif summary').setAttribute('aria-label', d.count ? `Notificações (${d.count})` : 'Notificações');
     $('#tb-notif-list').innerHTML = d.items.map((it) => `<a class="tb-item" href="${esc(it.href)}">
         <span class="tb-ico k-${esc(it.kind)}"><svg viewBox="0 0 24 24">${ICON[it.kind] || ''}</svg></span>
@@ -97,4 +137,9 @@ async function loadNotifications() {
 }
 loadNotifications();
 setInterval(loadNotifications, 20000);
+// telas com tempo real chamam isto quando muda alguma conversa: o sino confere na hora (com folga para juntar eventos)
+let checkTimer;
+window.talkCheck = function talkCheck() { clearTimeout(checkTimer); checkTimer = setTimeout(loadNotifications, 600); };
+// enquanto houver alguém esperando na fila, lembra com o som a cada minuto
+setInterval(() => { if (queueNow > 0) window.talkAlert(); }, 60000);
 $('#tb-notif').addEventListener('toggle', (e) => { if (e.target.open) loadNotifications(); });

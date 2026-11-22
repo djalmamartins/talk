@@ -180,7 +180,16 @@ try {
         header('Location: /login');
         exit;
     }
-    if ($path === '/') {
+    // a página inicial é a Fila de atendimento (pedido do Djalma, 22/11/2026); Atendimentos fica em
+    // /atendimentos. Links antigos com parâmetros (/?c=ID do chamado no SAC, /?aba=, /?abrir=) seguem abrindo Atendimentos.
+    if ($path === '/' && ($_SERVER['QUERY_STRING'] ?? '') === '') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $view('queue', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
+    if ($path === '/' || $path === '/atendimentos') {
         if (!$sessionOk()) {
             header('Location: /login');
             exit;

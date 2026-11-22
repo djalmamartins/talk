@@ -174,7 +174,7 @@ function connect() {
   es.onopen = () => { $('#live').textContent = '● Online'; $('#live').classList.add('on'); };
   es.onerror = () => { $('#live').dataset.sse = '1'; $('#live').textContent = '● reconectando'; $('#live').classList.remove('on'); };
   ['conversation.created', 'conversation.updated', 'conversation.transferred', 'message.created'].forEach((t) =>
-    es.addEventListener(t, () => { clearTimeout(timer); timer = setTimeout(() => load().catch(() => {}), 400); }));
+    es.addEventListener(t, () => { clearTimeout(timer); timer = setTimeout(() => load().catch(() => {}), 400); window.talkCheck?.(); }));
 }
 load().catch((err) => { $('#q-rows').innerHTML = `<tr><td colspan="6">${esc(err.message)}</td></tr>`; });
 connect();

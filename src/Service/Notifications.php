@@ -12,7 +12,9 @@ use ConnectTalk\Support\Db;
  * - conversas transferidas para ela ou para os setores dela (até aceitar ou abrir);
  * - conversas dela com mensagem do cliente ainda não lida;
  * - agendamentos que falharam nos últimos 7 dias (dos setores dela ou criados por ela);
- * - supervisor: números de WhatsApp ativos que caíram.
+ * - supervisor: números de WhatsApp ativos que caíram;
+ * - avaliações que os clientes deram à pessoa nas últimas 12 h (parabéns com 4 ou 5 estrelas, convite para
+ *   revisar com 3 ou menos), as 3 mais recentes.
  * Cada item some quando o motivo some.
  */
 final class Notifications
@@ -83,6 +85,19 @@ final class Notifications
                 'text' => $plural((int) $m['msgs'], '1 mensagem nova nos seus atendimentos.', '# mensagens novas nos seus atendimentos.')];
         }
 
+        // avaliações recebidas: incentivo para quem atendeu (pedido do Djalma, 22/11/2026)
+        $rated = $this->db->all(
+            "SELECT r.id, r.conversation_id, r.score, r.comment, ct.name AS contact, ct.phone
+               FROM talk_ratings r JOIN talk_contacts ct ON ct.id = r.contact_id
+              WHERE r.user_id = ? AND r.score IS NOT NULL AND r.answered_at >= NOW() - INTERVAL 12 HOUR
+              ORDER BY r.answered_at DESC, r.id DESC LIMIT 3",
+            [$u->userId]
+        );
+        foreach ($rated as $r) {
+            $items[] = ['kind' => 'rating', 'count' => 1, 'id' => (int) $r['id'], 'score' => (int) $r['score'],
+                'href' => '/?c=' . (int) $r['conversation_id']] + self::ratingText((int) $r['score'], self::firstName($r['contact'] ?: null), $r['comment']);
+        }
+
         $sectors = array_map('intval', $u->sectors());
         $scope = $u->supervisor ? '1=1' : '(s.created_by = ' . $u->userId . ($sectors ? ' OR s.sector_id IN (' . implode(',', $sectors) . ')' : '') . ')';
         $f = (int) $this->db->one(
@@ -106,6 +121,25 @@ final class Notifications
         }
 
         return ['count' => array_sum(array_column($items, 'count')), 'items' => $items];
+    }
+
+    /** Texto do aviso de avaliação: celebra 4 e 5 estrelas e convida a revisar de 1 a 3, sem bronca. */
+    public static function ratingText(int $score, ?string $contact, ?string $comment): array
+    {
+        $stars = $score === 1 ? '1 estrela' : "$score estrelas";
+        $from = $contact ? " de $contact" : '';
+        $said = $comment !== null && trim($comment) !== '' ? '"' . mb_strimwidth(trim($comment), 0, 120, '…') . '"' : null;
+        return match (true) {
+            $score >= 5 => ['title' => "Parabéns! Você recebeu $stars$from", 'text' => $said ?? 'Atendimento nota máxima. Continue assim!'],
+            $score === 4 => ['title' => "Muito bom! Você recebeu $stars$from", 'text' => $said ?? 'Ótimo atendimento, faltou pouco para a nota máxima.'],
+            default => ['title' => "Vamos dar uma olhada? Você recebeu $stars$from", 'text' => ($said ? "$said " : '') . 'Reveja a conversa e veja o que dá para melhorar na próxima.'],
+        };
+    }
+
+    private static function firstName(?string $name): ?string
+    {
+        $name = trim((string) preg_replace('/\(.*\)/', '', (string) $name));
+        return $name === '' ? null : explode(' ', $name)[0];
     }
 
     private function duration(int $min): string
