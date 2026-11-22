@@ -50,6 +50,22 @@ final class NotificationsTest extends DbTestCase
         $this->assertSame(2, $all['count']);
     }
 
+    /** O sino pode dispensar um aviso; a `sig` diz quando ele volta (1.4.1). */
+    public function test_chave_e_assinatura_mudam_so_com_novidade(): void
+    {
+        $fin = $this->agent(2, 'Financeiro');
+        $this->routed('quero a segunda via do boleto', '5531911111111');
+        $first = $this->bell($fin)['items'][0];
+        $this->assertSame('queue', $first['key']);
+        $this->assertNotSame('', $first['sig']);
+        $this->assertSame($first['sig'], $this->bell($fin)['items'][0]['sig']); // nada novo: mesma assinatura
+
+        $this->routed('preciso do boleto atualizado', '5531922222222'); // chegou outro cliente na fila
+        $again = $this->bell($fin)['items'][0];
+        $this->assertSame('queue', $again['key']);
+        $this->assertNotSame($first['sig'], $again['sig']);
+    }
+
     public function test_transferencia_avisa_quem_recebe_ate_aceitar_ou_abrir(): void
     {
         $kinds = fn (array $b) => array_column($b['items'], 'count', 'kind');
