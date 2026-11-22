@@ -41,7 +41,7 @@ atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor 
 |---|---|---|---|
 | JV1.0 | Manifesto da Jack; decidir se ela conversa ou só encaminha (registrar na ADR 0004) | Djalma | feito: calada na V1 (16/11) |
 | JV1.1 | Painel de acertos na tela do supervisor | só o Talk | feito (0.23.0): seção no Painel |
-| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | a fazer |
+| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | feito (0.27.0): 105 frases, `php tools/jack-cenarios.php` |
 | JV1.3 | Resumo para o atendente (nota interna com assunto e protocolos anteriores) | só o Talk | a fazer |
 | JV1.4 | Urgência: prioridade alta e aviso ao gerente | só o Talk | a fazer |
 | JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |

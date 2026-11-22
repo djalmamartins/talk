@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0] — 2026-11-22
+### Adicionado
+- **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
+  frases fictícias no jeito do WhatsApp, cada uma com o setor certo. `php tools/jack-cenarios.php` mostra
+  o acerto por setor e lista os erros; o teste `JackScenariosTest` trava se aparecer erro grave ou se o
+  acerto cair. Primeira medição: 70,5% de acerto exato, 87,6% das conversas no setor certo, nenhum erro
+  grave; o Administrativo é o mais fraco (7 de 25).
+
 ## [0.26.0] — 2026-11-16
 ### Alterado
 - **Saiu a aba "Fila" de Atendimentos** (pedido do Djalma). Com o setor Geral ela ficou repetida: a
