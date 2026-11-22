@@ -21,15 +21,27 @@ final class AiClassifier
     /** Intenções que a IA pode responder (as do Classifier) + "nenhuma". */
     public const INTENTS = ['boleto', 'financeiro', 'cotacao', 'administrativo', 'manutencao', 'nenhuma'];
 
+    /**
+     * Base de conhecimento da Jack-IA (docs/jack/IA.md, 3d): o vocabulário de administração de condomínios
+     * (o que cada setor da Connect atende) e exemplos tirados das frases de AJUSTE (tests/Fixtures/jack/triagem.csv).
+     * Nunca usar aqui as frases de conferência: elas medem se a IA entende frases que não viu.
+     */
     private const SYSTEM = <<<'TXT'
-Você faz a triagem das mensagens de WhatsApp de moradores e síndicos para a Connect, uma administradora de condomínios.
+Você é a Jack-IA, da Connect, uma administradora de condomínios. Você faz a triagem das mensagens de WhatsApp de moradores, proprietários, inquilinos e síndicos.
 Leia a mensagem e diga qual é o assunto, escolhendo UMA intenção:
-- boleto: 2ª via, boleto, linha digitável, código de barras, Pix do condomínio.
-- financeiro: pagamento, cobrança, taxa, multa, juros, acordo, parcelamento, débito, quitação, reembolso, valor cobrado.
+- boleto: 2ª via, boleto, linha digitável, código de barras, Pix ou dados para pagar o condomínio.
+- financeiro: dinheiro do condomínio: pagamento, cobrança, taxa condominial, taxa extra, fundo de reserva, rateio, multa, juros, atraso, inadimplência, dívida, acordo, parcelamento, quitação, recibo, reembolso, valor cobrado.
 - cotacao: quer contratar a Connect, orçamento ou preço da administração do condomínio.
-- administrativo: assembleia, ata, reserva de salão ou churrasqueira, mudança, cadastro, documentos, regimento, convenção, síndico, advertência, reclamação de vizinho ou barulho.
-- manutencao: algo quebrado ou com defeito no condomínio: água, luz, vazamento, infiltração, elevador, portão, interfone, lâmpada, esgoto, bomba, cerca elétrica, limpeza, pragas.
-- nenhuma: só cumprimento, agradecimento ou mensagem sem assunto.
+- administrativo: regras e gestão do condomínio: assembleia, ata, edital, eleição ou troca de síndico, convenção, regimento interno, reserva de salão ou churrasqueira, mudança, cadastro de morador ou veículo, tag ou controle de acesso, documentos e declarações, advertência ou multa por infração, reclamação de vizinho, barulho, vaga de garagem, portaria e funcionários.
+- manutencao: algo quebrado, com defeito ou perigoso nas áreas do condomínio: água, falta de luz, vazamento, infiltração, goteira, rachadura, telhado, elevador, portão, interfone, lâmpada, esgoto, ralo entupido, bomba d'água, caixa d'água, cerca elétrica, câmera, limpeza, jardinagem, pragas, dedetização.
+- nenhuma: só cumprimento, agradecimento, pedido para falar com alguém ou mensagem sem assunto.
+Exemplos:
+"me manda a segunda via do condominio por favor" -> boleto, alta
+"quero fazer um acordo das parcelas atrasadas" -> financeiro, alta
+"pagamento em duplicidade" -> financeiro, alta
+"o portão da garagem quebrou" -> manutencao, alta
+"quando vai ser a assembleia?" -> administrativo, alta
+"bom dia, tudo bem?" -> nenhuma, alta
 certeza = "alta" só quando o assunto está claro na mensagem; na dúvida, "baixa".
 Responda só o JSON pedido.
 TXT;
@@ -40,6 +52,12 @@ TXT;
         private string $model,
         private int $maxTokens = 40,
     ) {
+    }
+
+    /** Instruções fixas (a base de conhecimento da Jack-IA), para o teste conferir o que vai ao modelo. */
+    public static function instructions(): string
+    {
+        return self::SYSTEM;
     }
 
     public function model(): string

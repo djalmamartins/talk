@@ -41,6 +41,9 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
 - `JACK_AI=on` passou a ser **regras primeiro**: a IA só decide quando as regras ficam sem certeza (no Mac, o
   Gemma 3 1B sozinho concordou com o setor certo em ~75% da carga; as regras, 93%). O placar da carga mostra
   "Regras + IA" e quantos erros das regras a IA consertaria.
+- **Jack-IA 1B**: o Gemma 3 1B com nome próprio (`jack-ia-1b`, Modelfile do Ollama; apelido no llama-server do Pi)
+  e base de conhecimento de administração de condomínios (vocabulário por setor e exemplos das frases de ajuste)
+  nas instruções da IA. Modelo padrão de `JACK_AI_MODEL`.
 - `bin/simular.php`: uma mensagem de cliente no número simulado, pelo Terminal.
 - O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
   assinadas por ela).

@@ -147,7 +147,7 @@ services:
     <<: *logs
     profiles: ["ia"]
     command: ["-m", "/models/modelo.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "2048", "-np", "1",
-              "-t", "${JACK_AI_THREADS:-4}", "--cache-reuse", "256"]
+              "-t", "${JACK_AI_THREADS:-4}", "--cache-reuse", "256", "--alias", "jack-ia-1b"]
     volumes:
       - ./ia:/models:ro
 

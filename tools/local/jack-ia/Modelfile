@@ -1,0 +1,8 @@
+# Jack-IA 1B: o Gemma 3 1B com nome próprio e ajustes fixos para a triagem da Jack (docs/jack/IA.md, 3d).
+# Criado pelo tools/local/jack-ia-lab.sh:  ollama create jack-ia-1b -f tools/local/jack-ia/Modelfile
+# O "conhecimento" (vocabulário de condomínio e exemplos) vai em cada pergunta, em src/Jack/AiClassifier.php,
+# para valer igual no Mac (Ollama) e no Raspberry Pi (llama-server). Não é treino: o modelo continua o mesmo.
+FROM gemma3:1b
+PARAMETER temperature 0
+PARAMETER num_ctx 2048
+SYSTEM """Você é a Jack-IA, da Connect, uma administradora de condomínios. Ambiente de teste: você só classifica o assunto das mensagens. Não responde clientes."""

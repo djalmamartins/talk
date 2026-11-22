@@ -70,4 +70,18 @@ final class AiClassifierTest extends TestCase
         $this->assertStringEndsWith('/no_think', $sent);
         $this->assertStringContainsString('[email]', $sent);
     }
+
+    public function test_base_de_conhecimento_nao_tem_frases_de_conferencia(): void
+    {
+        $system = \ConnectTalk\Jack\Classifier::normalize(AiClassifier::instructions());
+        foreach (\ConnectTalk\Jack\Scenarios::load(__DIR__ . '/../Fixtures/jack/triagem-conferencia.csv') as $r) {
+            if (str_word_count($r['frase']) < 3) {
+                continue; // "alo", "oi": palavras soltas, não frases
+            }
+            $this->assertStringNotContainsString(\ConnectTalk\Jack\Classifier::normalize($r['frase']), $system, 'frase de conferência na base: o placar perde o valor');
+        }
+        foreach (AiClassifier::INTENTS as $i) {
+            $this->assertStringContainsString("- $i:", AiClassifier::instructions());
+        }
+    }
 }

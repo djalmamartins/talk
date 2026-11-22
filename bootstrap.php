@@ -95,7 +95,7 @@ $jack = new Jack(
     ai: $env('JACK_AI_URL') ? new \ConnectTalk\Jack\AiClassifier(
         new CurlHttpClient(max(1, (int) $env('JACK_AI_TIMEOUT', '4'))),
         (string) $env('JACK_AI_URL'),
-        (string) $env('JACK_AI_MODEL', 'gemma3:1b'),
+        (string) $env('JACK_AI_MODEL', 'jack-ia-1b'),
     ) : null,
     aiMode: (string) $env('JACK_AI', 'off'), // off | shadow (só registra) | on (regras primeiro; IA só quando elas ficam sem certeza)
 );

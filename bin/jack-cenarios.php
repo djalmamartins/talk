@@ -8,7 +8,7 @@ declare(strict_types=1);
 //
 //   php bin/jack-cenarios.php                 regras (frases fixas + sugestões do banco)
 //   php bin/jack-cenarios.php --sem-banco     só as frases fixas, sem precisar do banco
-//   php bin/jack-cenarios.php --ia            também a IA local (JACK_AI_URL, JACK_AI_MODEL; padrão gemma3:1b)
+//   php bin/jack-cenarios.php --ia            também a IA local (JACK_AI_URL, JACK_AI_MODEL; padrão jack-ia-1b)
 //   php bin/jack-cenarios.php --frases=DIR    pasta com triagem.csv e triagem-conferencia.csv (no container do Pi)
 //   ex. no Mac com Ollama: JACK_AI_URL=http://localhost:11434 php bin/jack-cenarios.php --sem-banco --ia
 use ConnectTalk\Http\CurlHttpClient;
@@ -52,7 +52,7 @@ $scorers = ['Regras' => $rules];
 
 if ($withAi) {
     $url = getenv('JACK_AI_URL') ?: 'http://localhost:11434';
-    $model = getenv('JACK_AI_MODEL') ?: 'gemma3:1b';
+    $model = getenv('JACK_AI_MODEL') ?: 'jack-ia-1b';
     $ai = new AiClassifier(new CurlHttpClient(max(1, (int) (getenv('JACK_AI_TIMEOUT') ?: 30))), $url, $model);
     $times = [];
     $failed = 0;

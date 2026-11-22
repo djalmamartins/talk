@@ -105,6 +105,22 @@ Conclusão: o Gemma 3 1B sozinho é pior que as regras. Por isso `JACK_AI=on` pa
 a IA só decide nas conversas em que as regras ficam sem certeza (hoje, todas as que erram: Financeiro e
 Manutenção caindo no Administrativo). Próximo: placar `Regras + IA` no Mac com o Gemma e com o Qwen3 1.7B.
 
+## 3d. Jack-IA 1B e a base de conhecimento (pedido do Djalma em 22/11/2026)
+
+- **Nome próprio:** `jack-ia-1b` é o Gemma 3 1B com nome e ajustes fixos (temperatura 0, contexto 2048), criado
+  no Mac por `tools/local/jack-ia/Modelfile` (`ollama create`, feito pelo `jack-ia-lab.sh`). No Pi, o
+  llama-server responde com o mesmo nome (`--alias jack-ia-1b`). O modelo por dentro é o mesmo Gemma.
+- **Base de conhecimento (o que fizemos):** o vocabulário de administração de condomínios, setor por setor, e
+  exemplos das frases de ajuste vão junto de cada pergunta (`AiClassifier`). Funciona igual no Mac e no Pi, muda
+  na hora e dá para medir. Um teste garante que nenhuma frase de conferência entra na base.
+- **Treinar de verdade (fine-tuning, LoRA):** muda os pesos do modelo com exemplos (frase → setor). Precisa de
+  algumas centenas a milhares de exemplos revisados, horas de máquina e um novo arquivo de modelo para o Pi.
+  Fica para depois que as sugestões da tela Serviço da Jack e a carga de teste juntarem exemplos suficientes.
+- **Código Civil (arts. 1.331 a 1.358, condomínio edilício):** para separar o assunto ele quase não ajuda e deixa
+  o modelo mais lento (o Pi tem contexto curto). Ele serve quando a Jack for **responder** dúvidas (opção B ou C
+  da seção 1), com consulta ao texto da lei (RAG) e revisão de um atendente, o que pede revisar a ADR 0004.
+  Por isso não entrou agora.
+
 ## 4. Como as sugestões ajudam
 
 Cada sugestão na tela Serviço da Jack vira um exemplo:
