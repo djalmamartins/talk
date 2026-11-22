@@ -156,6 +156,7 @@ final class LoadTest
             'certos' => $certos, 'exatos' => $exatos, 'graves' => count($graves),
             'taxa' => $total ? round($certos / $total, 3) : 0.0,
             'retestes_acertados' => $fixed,
+            'ia' => $this->aiScore($rows),
             'por_setor' => $per,
             'erros' => array_map(static fn ($r) => ['protocolo' => $r['protocol'], 'frase' => $r['frase'], 'esperado' => $r['setor_esperado'],
                 'jack' => $r['setor_jack'], 'ficou' => $r['setor_final']], array_values(array_filter($rows, static fn ($r) => (int) $r['certo'] === 0))),
@@ -165,6 +166,59 @@ final class LoadTest
     public function lastRound(): ?string
     {
         return $this->db->one('SELECT rodada FROM talk_jack_carga ORDER BY id DESC LIMIT 1')['rodada'] ?? null;
+    }
+
+    /**
+     * Com JACK_AI=shadow: como teria sido a IA sozinha e "regras primeiro, IA onde elas ficam sem certeza"
+     * (o JACK_AI=on), nas mesmas conversas. Null quando a IA não estava ligada.
+     * @param list<array<string,mixed>> $rows
+     */
+    private function aiScore(array $rows): ?array
+    {
+        $ids = array_values(array_filter(array_map(static fn ($r) => $r['conversation_id'] !== null ? (int) $r['conversation_id'] : null, $rows)));
+        if ($ids === []) {
+            return null;
+        }
+        $ai = [];
+        foreach ($this->db->all(
+            "SELECT d.conversation_id, d.confident, d.matched, d.model, d.ai_ms, s.jack_key, s.name FROM talk_jack_decisions d
+               LEFT JOIN talk_sectors s ON s.id = d.suggested_sector_id
+              WHERE d.mode = 'shadow' AND d.source = 'ia' AND d.conversation_id IN (" . implode(',', $ids) . ') ORDER BY d.id'
+        ) as $d) {
+            $ai[(int) $d['conversation_id']] ??= $d;
+        }
+        if ($ai === []) {
+            return null;
+        }
+        $final = static fn (string $s): string => $s === 'padrao' ? 'administrativo' : $s;
+        $out = ['modelo' => null, 'respondeu' => 0, 'falhou' => 0, 'sozinha_certos' => 0, 'regras_ia_certos' => 0, 'regras_ia_graves' => 0,
+            'consertaria' => 0, 'total' => 0, 'ms' => []];
+        foreach ($rows as $r) {
+            $d = $ai[(int) $r['conversation_id']] ?? null;
+            if ($d === null) {
+                continue;
+            }
+            $out['total']++;
+            $out['modelo'] ??= $d['model'];
+            if ($d['matched'] === 'IA não respondeu') {
+                $out['falhou']++;
+            } else {
+                $out['respondeu']++;
+                $out['ms'][] = (int) $d['ai_ms'];
+            }
+            $iaSaid = (int) $d['confident'] === 1 ? (self::key($d) ?? 'padrao') : 'padrao';
+            $exp = (string) $r['setor_esperado'];
+            $rules = (string) ($r['setor_jack'] ?? 'padrao');
+            $both = $rules !== 'padrao' ? $rules : $iaSaid;
+            $out['sozinha_certos'] += (int) ($final($iaSaid) === $final($exp));
+            $out['regras_ia_certos'] += (int) ($final($both) === $final($exp));
+            $out['regras_ia_graves'] += (int) ($both !== 'padrao' && $both !== $exp);
+            $out['consertaria'] += (int) ((int) $r['certo'] === 0 && $final($both) === $final($exp));
+        }
+        sort($out['ms']);
+        $out['ms_mediana'] = $out['ms'] !== [] ? $out['ms'][intdiv(count($out['ms']), 2)] : null;
+        unset($out['ms']);
+        return $out;
     }
 
     // ------------------------------------------------------------------ apoio

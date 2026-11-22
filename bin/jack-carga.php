@@ -48,6 +48,14 @@ $show = static function (?array $r): void {
     if ($r['retestes_acertados'] > 0) {
         printf("Retestes que agora acertaram: %d\n", $r['retestes_acertados']);
     }
+    if (($ia = $r['ia']) !== null) {
+        printf("\nIA em teste (%s), nos mesmos %d atendimentos: respondeu %d, falhou %d, tempo mediano %s ms\n",
+            $ia['modelo'], $ia['total'], $ia['respondeu'], $ia['falhou'], $ia['ms_mediana'] ?? '-');
+        printf("  IA sozinha:          %3d no setor certo (%.0f%%)\n", $ia['sozinha_certos'], $ia['total'] ? 100 * $ia['sozinha_certos'] / $ia['total'] : 0);
+        printf("  Regras + IA (on):    %3d no setor certo (%.0f%%) · erros graves %d · consertaria %d erros das regras\n",
+            $ia['regras_ia_certos'], $ia['total'] ? 100 * $ia['regras_ia_certos'] / $ia['total'] : 0, $ia['regras_ia_graves'], $ia['consertaria']);
+        echo "  Vale ligar (JACK_AI=on) se Regras + IA passar das regras sem erro grave a mais.\n\n";
+    }
     foreach ($r['por_setor'] as $s => $p) {
         printf("  %-15s %3d de %3d\n", $s === 'padrao' ? 'sem assunto' : $s, $p['certos'], $p['total']);
     }

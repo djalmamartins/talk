@@ -64,8 +64,8 @@ longos (CPF, telefone) antes de mandar o texto ao modelo.
    alta|baixa}`. A resposta é conferida de novo no PHP. Falha, demora acima de `JACK_AI_TIMEOUT` (padrão 4 s
    no Pi) ou resposta fora da lista: valem as regras.
 3. **`JACK_AI`**: `off` (padrão), `shadow` (as regras decidem; a IA só registra o que faria em
-   `talk_jack_decisions` com `mode = shadow`, modelo e tempo) ou `on` (a IA decide quando tem certeza alta;
-   nos outros casos, regras). Só cumprimento ("bom dia") não chama a IA.
+   `talk_jack_decisions` com `mode = shadow`, modelo e tempo) ou `on` (as regras vêm primeiro; a IA
+   decide só quando as regras ficam sem certeza e ela tem certeza alta). Só cumprimento ("bom dia") não chama a IA.
 4. **Tela Serviço da Jack**: "IA em teste" em cada atendimento e o placar do período (acertaria, erraria,
    sem certeza, não respondeu, tempo médio e máximo). Os acertos do Painel contam só as decisões reais.
 5. **Ligar** (`JACK_AI=on`) quando, no Pi, a IA acertar mais que as regras nos cenários e na sombra, com
@@ -97,6 +97,14 @@ docker exec dev-apache php /var/www/html/talk/bin/jack-carga.php placar     # pl
 4. O ERP também recusa: conversa de número de teste não abre chamado no SAC (`TestSafeHelpdesk`) e o número
    não é consultado no cadastro (`TestSafeDirectory`).
 
+## 3c. Primeiro resultado no Mac (22/11/2026)
+
+Carga de 500 mensagens no Mac do Djalma, com `JACK_AI=shadow`: as regras levaram 93% ao setor certo, sem
+erro grave; o Gemma 3 1B, em sombra, concordaria com o setor certo em ~75% (303 certos, 100 errados).
+Conclusão: o Gemma 3 1B sozinho é pior que as regras. Por isso `JACK_AI=on` passou a ser **regras primeiro**:
+a IA só decide nas conversas em que as regras ficam sem certeza (hoje, todas as que erram: Financeiro e
+Manutenção caindo no Administrativo). Próximo: placar `Regras + IA` no Mac com o Gemma e com o Qwen3 1.7B.
+
 ## 4. Como as sugestões ajudam
 
 Cada sugestão na tela Serviço da Jack vira um exemplo:
@@ -114,7 +122,7 @@ O supervisor marca a sugestão como **aplicada** quando ela entra no código, ou
 | IA0 | Sugestões na tela Serviço da Jack | feito (1.2.0) |
 | IA1 | Frases fixas (JV1.2, 0.27.0/0.28.0) e placar regras x IA em `php bin/jack-cenarios.php`. Regras nas 40 de conferência: 60% exato, 77,5% no setor certo, nenhum erro grave | feito |
 | IA2 | Adaptador da IA local e modo sombra (Mac: Ollama; Pi: serviço jack-ia) | feito no código (1.2.0); falta o teste no Mac |
-| IA3 | IA decidindo o setor, regras como reserva (`JACK_AI=on`) | IA2 melhor que as regras, medida no Pi |
+| IA3 | Regras primeiro e IA onde elas ficam sem certeza (`JACK_AI=on`) | IA2 melhor que as regras, medida no Pi |
 | IA4 | (se escolhido) rascunho de resposta com aprovação do atendente | decisão B ou C e revisão da ADR 0004 |
 
 ## 6. Onde as regras erram hoje (frases de conferência, 22/11/2026)
@@ -123,5 +131,5 @@ Depois do ajuste das palavras-chave (0.28.0), as regras acertam 24 das 40 frases
 chegam ao setor certo, sem erro grave. Os erros são todos "sem certeza": a conversa vai para o Administrativo
 (setor padrão), o que erra o setor das de Financeiro e Manutenção. Exemplos: "fiz o pix e nao baixou", "to devendo
 3 meses, tem como negociar?", "a grade da varanda soltou", "quebraram o vidro da portaria". É o primeiro alvo da IA
-em sombra. Para ligar (`JACK_AI=on`), a IA com as regras de reserva precisa ganhar nas 40 de conferência sem
+em sombra. Para ligar (`JACK_AI=on`), "Regras + IA" precisa ganhar nas 40 de conferência sem
 nenhum erro grave a mais.

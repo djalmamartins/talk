@@ -62,7 +62,7 @@ final class JackAiTest extends DbTestCase
     {
         $this->useAi('on');
         $this->says('financeiro');
-        $a = $this->routed('paguei ontem e ainda aparece em aberto', '5531911111111'); // regras: sem certeza
+        $a = $this->routed('fiz o pix e nao baixou', '5531911111111'); // regras: sem certeza
         $this->assertSame($this->sectors['Financeiro'], (int) $this->conv($a)['sector_id']);
         $d = $this->db->one('SELECT source, intent FROM talk_jack_decisions WHERE conversation_id = ?', [$a]);
         $this->assertSame(['ia', 'financeiro'], [$d['source'], $d['intent']]);
@@ -82,5 +82,32 @@ final class JackAiTest extends DbTestCase
         $this->inbound('bom dia');
         $this->triage(10);
         $this->assertSame([], $this->ai->calls);
+    }
+
+    public function test_ligada_nao_passa_por_cima_das_regras_com_certeza(): void
+    {
+        $this->useAi('on');
+        $this->says('financeiro'); // a IA erra; as regras têm certeza de Manutenção
+        $id = $this->routed('vazamento no banheiro');
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($id)['sector_id']);
+        $this->assertSame('regras', $this->db->one("SELECT source FROM talk_jack_decisions WHERE conversation_id = ? AND mode = 'auto'", [$id])['source']);
+    }
+
+    public function test_carga_de_teste_mostra_regras_mais_ia(): void
+    {
+        $this->useAi('shadow');
+        $lab = $this->db->insert('talk_channels', ['name' => 'Lab', 'kind' => 'lab', 'purpose' => 'both', 'config_encrypted' => $this->crypto->encrypt([])]);
+        for ($i = 0; $i < 20; $i++) {
+            $this->says('financeiro'); // a IA sempre diz Financeiro
+        }
+        $load = new \ConnectTalk\Jack\LoadTest($this->db, $this->svc, $lab);
+        $round = $load->run([['frase' => 'fiz o pix e nao baixou', 'setor' => 'financeiro'], ['frase' => 'vazamento no banheiro', 'setor' => 'manutencao']],
+            messages: 8, clients: 4, seed: 3);
+        $r = $load->report($round);
+        $fin = $r['por_setor']['financeiro']['total'];
+        $this->assertGreaterThan(0, $fin);
+        $this->assertSame(0, $r['por_setor']['financeiro']['certos']); // as regras erram o Pix
+        $this->assertEquals(['total' => $r['atendimentos'], 'sozinha_certos' => $fin, 'regras_ia_certos' => $r['atendimentos'], 'regras_ia_graves' => 0, 'consertaria' => $fin],
+            array_intersect_key($r['ia'], array_flip(['total', 'sozinha_certos', 'regras_ia_certos', 'regras_ia_graves', 'consertaria'])));
     }
 }

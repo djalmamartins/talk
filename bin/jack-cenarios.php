@@ -79,7 +79,7 @@ if ($withAi) {
     sort($times);
     $iaOnly = static fn (string $t): ?string => ($a = $answers[$t] ?? null) !== null && $a['confident'] ? $a['sector'] : null;
     $scorers["IA sozinha ($model)"] = $iaOnly;
-    $scorers['IA + regras (como JACK_AI=on)'] = static fn (string $t): ?string => $iaOnly($t) ?? $rules($t);
+    $scorers['Regras + IA (como JACK_AI=on)'] = static fn (string $t): ?string => $rules($t) ?? $iaOnly($t); // IA só onde as regras ficam sem certeza
 }
 
 foreach ($sets as $name => $rows) {

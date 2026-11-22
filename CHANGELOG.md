@@ -38,6 +38,9 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
   `talk_jack_carga` (migração 026); marca "teste" na tela Serviço da Jack. Números de teste têm DDD 00 e
   **nunca saem**: o WhatsApp de verdade recusa (`TestNumberGuard`) e o ERP não abre chamado nem consulta o
   cadastro deles. Primeira rodada no laboratório da nuvem: 93% no setor certo, nenhum erro grave.
+- `JACK_AI=on` passou a ser **regras primeiro**: a IA só decide quando as regras ficam sem certeza (no Mac, o
+  Gemma 3 1B sozinho concordou com o setor certo em ~75% da carga; as regras, 93%). O placar da carga mostra
+  "Regras + IA" e quantos erros das regras a IA consertaria.
 - `bin/simular.php`: uma mensagem de cliente no número simulado, pelo Terminal.
 - O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
   assinadas por ela).

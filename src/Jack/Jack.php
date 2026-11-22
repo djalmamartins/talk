@@ -33,7 +33,7 @@ final class Jack
         private int $generalSeconds = 60,
         private bool $announceTickets = true,
         private ?AiClassifier $ai = null,
-        private string $aiMode = 'off', // off | shadow (só registra o que a IA faria) | on (IA decide; regras de reserva)
+        private string $aiMode = 'off', // off | shadow (só registra o que a IA faria) | on (regras primeiro; IA quando elas ficam sem certeza)
     ) {
         if (!in_array($aiMode, ['off', 'shadow', 'on'], true) || $ai === null) {
             $this->aiMode = 'off';
@@ -133,10 +133,11 @@ final class Jack
         if ($sector === null && $this->isOnlyGreeting($text) && $ageSeconds < $this->maxWaitSeconds) {
             return null; // só cumprimentou: espera calada a pessoa contar o assunto
         }
-        // IA local (ADR 0004, etapa A): só entende o assunto. Em "on", decide quando tem certeza; senão, regras.
+        // IA local (ADR 0004, etapa A): só entende o assunto. Em "on", as regras vêm primeiro; a IA decide só
+        // quando as regras ficam sem certeza e ela tem certeza (no Mac, 22/11, o Gemma 3 1B sozinho errou mais que as regras).
         $ai = $this->aiMode !== 'off' ? $this->ai->classify($text) : null;
         $aiSector = $ai !== null && $ai['confident'] && $ai['sector'] !== null ? $this->sectorByKey($ai['sector']) : null;
-        if ($this->aiMode === 'on' && $aiSector !== null) {
+        if ($this->aiMode === 'on' && $sector === null && $aiSector !== null) {
             $this->record($conv, $aiSector, $ai['intent'], ['confident' => true, 'scores' => [], 'matched' => []], 'ia', $ai['ms']);
             return ['action' => 'route', 'sector' => $aiSector];
         }

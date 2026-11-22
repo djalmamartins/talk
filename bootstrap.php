@@ -97,7 +97,7 @@ $jack = new Jack(
         (string) $env('JACK_AI_URL'),
         (string) $env('JACK_AI_MODEL', 'gemma3:1b'),
     ) : null,
-    aiMode: (string) $env('JACK_AI', 'off'), // off | shadow (só registra) | on (IA decide; regras de reserva)
+    aiMode: (string) $env('JACK_AI', 'off'), // off | shadow (só registra) | on (regras primeiro; IA só quando elas ficam sem certeza)
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
