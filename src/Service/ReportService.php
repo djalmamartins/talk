@@ -235,7 +235,7 @@ final class ReportService
         $sectorWhere = $u->supervisor ? '' : ' AND id IN (' . implode(',', array_map('intval', $u->managerSectors)) . ')';
         $sectors = $this->db->all("SELECT id, name FROM talk_sectors WHERE 1=1 $sectorWhere ORDER BY name");
         $userWhere = $u->supervisor ? '' : ' AND st.sector_id IN (' . implode(',', array_map('intval', $u->managerSectors)) . ')';
-        $users = $this->db->all("SELECT DISTINCT us.id, us.name FROM talk_users us JOIN talk_staff st ON st.user_id = us.id WHERE 1=1 $userWhere ORDER BY us.name");
+        $users = $this->db->all("SELECT DISTINCT us.id, us.name FROM talk_users us JOIN talk_staff st ON st.user_id = us.id WHERE us.is_bot = 0 $userWhere ORDER BY us.name");
         return [
             'sectors' => array_map(fn ($s) => ['id' => (int) $s['id'], 'name' => $s['name']], $sectors),
             'users' => array_map(fn ($s) => ['id' => (int) $s['id'], 'name' => $s['name']], $users),

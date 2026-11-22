@@ -1,5 +1,82 @@
 # Changelog
 
+## [0.29.0] — 2026-11-22
+### Alterado
+- **A Jack só trabalha no horário de funcionamento** (pedido do Djalma). Com o controle de horário
+  ligado, fora do horário geral (e nos feriados) ela não distribui nem responde: as conversas ficam
+  esperando (no Geral, à vista de quem atende o Geral) e a pessoa recebe uma vez o aviso de fora do
+  horário. Quando a empresa abre, ela distribui tudo o que chegou durante a noite, calada.
+- Exceção de plantão: se o assunto é claro de um setor que está atendendo naquela hora (por exemplo, a
+  Manutenção marcada como 24 h) ou chegou num número dedicado a ele, a conversa vai para esse setor na hora.
+- Com o controle de horário desligado, nada muda: ela trabalha o tempo todo.
+
+## [0.28.0] — 2026-11-22
+### Alterado
+- **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
+  (cadastro, síndico, regimento, convenção, mudança, ata, reserva, documentos, certidão, proposta) e
+  alguns do Financeiro e da Manutenção. Nas 105 frases de ajuste: de 70,5% para 99,0%. Nas 40 frases
+  de conferência (escritas depois, não usadas no ajuste): 60% de acerto exato e 77,5% no setor certo.
+  Nenhum erro grave nas duas.
+- Pergunta sobre o síndico agora vai em silêncio para o Administrativo (antes a Jack respondia "fora do
+  meu escopo" e transferia para o mesmo setor).
+
+## [0.27.0] — 2026-11-22
+### Adicionado
+- **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
+  frases fictícias no jeito do WhatsApp, cada uma com o setor certo. `php tools/jack-cenarios.php` mostra
+  o acerto por setor e lista os erros; o teste `JackScenariosTest` trava se aparecer erro grave ou se o
+  acerto cair. Primeira medição: 70,5% de acerto exato, 87,6% das conversas no setor certo, nenhum erro
+  grave; o Administrativo é o mais fraco (7 de 25).
+
+## [0.26.0] — 2026-11-16
+### Alterado
+- **Saiu a aba "Fila" de Atendimentos** (pedido do Djalma). Com o setor Geral ela ficou repetida: a
+  tela abre em "Meus", e quem espera atendimento aparece em **Fila de atendimento** e no sino. O
+  contador no menu lateral passa a vir do sino. Links antigos `/?aba=pending` levam para `/fila`.
+
+### Adicionado
+- **Aviso de transferência no sino.** Quando alguém transfere uma conversa para você ou para a fila
+  de um setor seu, aparece "Conversa transferida para você/para o setor" com o nome do cliente, o
+  protocolo e quem transferiu, e toca o alerta. O aviso some quando alguém do setor aceita, ou quando
+  quem recebeu abre a conversa. Migration `022_transfer_alert.sql`.
+
+### Corrigido
+- **`bin/migrate.php` parava com "Duplicate column"** quando uma migration mudou de nome depois de já
+  ter rodado (as da Jack viraram 020–022 ao juntar com o principal). Coluna ou índice que já existe
+  agora é pulado com o aviso "já existe, mantido".
+
+## [0.25.0] — 2026-11-16
+### Adicionado
+- **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor
+  Geral, como atendente automática "sempre ligada". As mensagens dela saem com o nome dela na
+  conversa. Ela não faz login, não recebe transferência, não aparece entre os atendentes online e não
+  é editada nem desativada pela tela (liga e desliga com `JACK_MODE`). Migration
+  `021_jack_atendente.sql`.
+
+## [0.24.0] — 2026-11-16
+### Adicionado
+- **Setor Geral.** Toda mensagem nova cai na fila do Geral, à vista de quem atende o Geral e do
+  supervisor. Depois de 1 minuto (`JACK_GENERAL_SECONDS`), com a pessoa sem escrever, a Jack lê tudo e
+  distribui calada para Financeiro, Administrativo ou Manutenção. Se alguém aceitar ou transferir no
+  Geral antes, a Jack não mexe mais na conversa e o chamado abre nesse momento. A espera conta desde a
+  chegada. Número dedicado a um setor não passa pelo Geral. A migration `020_jack_geral.sql` cria o
+  setor em quem já tem setores; o `bin/setup.php` cria na primeira instalação.
+
+### Planejado
+- Jack cadastrada como atendente (JV1.8) e boleto pelo WhatsApp com conversa e aviso do aplicativo
+  (JV1.9), no `ROADMAP.md` e na ADR 0004.
+
+## [0.23.0] — 2026-11-16
+### Adicionado
+- **Acertos da Jack no Painel** (Jack V1, etapa JV1.1). Supervisor e gerentes veem a taxa de acerto
+  da Jack no período, por setor sugerido, as palavras que mais levaram a erro e os 20 últimos erros
+  (protocolo, para onde ela mandou e onde a conversa ficou), com link para a conversa. O gerente vê
+  só o que passou pelos setores dele. O texto do cliente não aparece no painel.
+
+### Documentação
+- `docs/jack/MANIFESTO.md`: manifesto e especificação da Jack (V1 e Completa), confrontado com o
+  código da 0.21.0, com a tabela do que está feito, planejado e faltando. Plano da Jack V1 em etapas
+  no `ROADMAP.md`.
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando

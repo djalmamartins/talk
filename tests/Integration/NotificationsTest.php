@@ -50,6 +50,37 @@ final class NotificationsTest extends DbTestCase
         $this->assertSame(2, $all['count']);
     }
 
+    public function test_transferencia_avisa_quem_recebe_ate_aceitar_ou_abrir(): void
+    {
+        $kinds = fn (array $b) => array_column($b['items'], 'count', 'kind');
+        $c = $this->routed('quero a segunda via do boleto', '5531944444444'); // Financeiro
+        $fin = $this->agent(2, 'Financeiro');
+        $man = $this->agent(3, 'Manutenção');
+        $this->svc->accept($c, $fin);
+
+        // para o setor: todo mundo da Manutenção vê, quem transferiu não
+        $this->svc->transfer($c, $fin, $this->sectors['Manutenção'], 'é reparo');
+        $b = $this->bell($man);
+        $this->assertSame(1, $kinds($b)['transfer'] ?? null);
+        $item = array_values(array_filter($b['items'], fn ($i) => $i['kind'] === 'transfer'))[0];
+        $this->assertStringContainsString('Conversa transferida para Manutenção', $item['title']);
+        $this->assertSame('/?c=' . $c, $item['href']);
+        $this->assertArrayNotHasKey('transfer', $kinds($this->bell($fin)));
+
+        // alguém da Manutenção aceita: o aviso some
+        $this->svc->accept($c, $man);
+        $this->assertArrayNotHasKey('transfer', $kinds($this->bell($man)));
+
+        // para uma pessoa: aparece até ela abrir a conversa
+        $this->db->insert('talk_users', ['id' => 2, 'name' => 'Fin', 'email' => 'fin@x.com', 'password_hash' => 'x']);
+        $this->db->insert('talk_staff', ['user_id' => 2, 'sector_id' => $this->sectors['Financeiro'], 'role' => 'agent']);
+        $this->svc->transfer($c, $man, $this->sectors['Financeiro'], null, 2);
+        $this->assertSame(1, $kinds($this->bell($fin))['transfer'] ?? null);
+        $this->assertStringContainsString('transferida para você', $this->bell($fin)['items'][0]['title']);
+        $this->svc->markRead($c, $fin);
+        $this->assertArrayNotHasKey('transfer', $kinds($this->bell($fin)));
+    }
+
     public function test_espera_do_sino_nao_conta_o_setor_fechado(): void
     {
         $id = $this->routed('preciso da segunda via do boleto');

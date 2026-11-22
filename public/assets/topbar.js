@@ -6,6 +6,7 @@ const ICON = {
   unread: '<path d="M4 6h16v12H4zM4 7l8 6 8-6"/>',
   schedules: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v3M12 18.5v.5"/>',
   channels: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  transfer: '<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
 };
 
 // um menu aberto por vez; clique fora ou Esc fecha
@@ -75,7 +76,10 @@ async function loadNotifications() {
     const n = $('#tb-notif-n');
     n.hidden = !d.count; n.textContent = d.count > 99 ? '99+' : d.count;
     $('#tb-notif summary').classList.toggle('has', !!d.count);
-    const attention = d.items.filter((it) => it.kind === 'queue' || it.kind === 'unread').reduce((a, it) => a + it.count, 0);
+    const attention = d.items.filter((it) => ['queue', 'unread', 'transfer'].includes(it.kind)).reduce((a, it) => a + it.count, 0);
+    // contador da fila no menu lateral (a aba Fila saiu de Atendimentos)
+    const waiting = d.items.find((it) => it.kind === 'queue')?.count || '';
+    for (const id of ['#badge-nav', '#badge-queue']) { const b = $(id); if (b && !(id === '#badge-queue' && b.dataset.live)) b.textContent = waiting; }
     if (lastAttention !== null && attention > lastAttention && Date.now() - lastAlert > 25000) window.talkAlert();
     lastAttention = attention;
     $('#tb-notif summary').setAttribute('aria-label', d.count ? `Notificações (${d.count})` : 'Notificações');

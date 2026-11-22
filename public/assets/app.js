@@ -5,7 +5,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hhmm = (d) => (d ? new Date(d.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
-const state = { tab: 'pending', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
+const state = { tab: 'mine', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -45,7 +45,6 @@ async function loadList() {
       <span class="last">${c.status === 'open' && c.stage ? `<span class="stage st-${c.stage}">${c.stage === 'waiting_customer' ? 'Aguardando cliente' : 'Aguardando retorno'}</span> ` : ''}${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
-  if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; if ($('#badge-queue')) $('#badge-queue').textContent = rows.length || ''; }
 }
 
 function searchBar() {
@@ -99,7 +98,7 @@ async function openConversation(id) {
   if (state.attach && $('#reply')) { const f = state.attach; pickAttach(f, draft ? !draft.focus : true); }
   renderContact(contact, c);
   state.ctx = { nome: contact.name || '', protocolo: c.helpdesk_protocol || c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
-  if (c.unread > 0 && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
+  if ((c.unread > 0 || Number(c.transfer_pending)) && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
   document.querySelectorAll('#conversations li').forEach((li) => li.classList.toggle('active', li.dataset.id == id));
 }
 
@@ -605,7 +604,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo;
   // /?q=... vem da busca do topo em outra tela; /?aba=mine vem das notificações
   const qs = new URLSearchParams(location.search);
-  if (['pending', 'mine', 'open', 'closed'].includes(qs.get('aba'))) {
+  if (qs.get('aba') === 'pending') { location.replace('/fila'); return; } // a aba Fila saiu: a fila fica em Fila de atendimento
+  if (['mine', 'open', 'closed'].includes(qs.get('aba'))) {
     state.tab = qs.get('aba');
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
   }

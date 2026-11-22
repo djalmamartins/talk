@@ -147,3 +147,39 @@ Substitui o que vem acima onde for diferente:
   (padrão **30 s**, era 10 min) e então vai para o Administrativo.
 - No laboratório (sem worker), a tela aberta faz a triagem e os envios a cada ~2 s pelo canal de
   tempo real.
+
+## Atualização 16/11/2026 — Jack V1 continua calada (decisão do Djalma)
+
+O manifesto (`docs/jack/MANIFESTO.md`) trouxe definições antigas de uma Jack que conversa e faz
+perguntas. O Djalma decidiu: **na Jack V1 ela só encaminha, calada**, como está desde a 0.18.0.
+Pergunta de desempate e conversa natural ficam para a Jack Completa. Continuam valendo só os três
+casos em que ela fala: apresentação quando perguntam se é robô, fora do escopo e aviso fora do horário.
+
+## Atualização 22/11/2026 — Jack só no horário de funcionamento (pedido do Djalma)
+
+- Com o controle de horário ligado, fora do horário geral e nos feriados a Jack fica desligada: não
+  distribui, não se apresenta, não responde "fora do escopo". A conversa espera (no Geral) e a pessoa
+  recebe uma vez o aviso de fora do horário, com o setor que o texto aponta.
+- Quando a empresa abre, ela distribui o que chegou durante a noite.
+- Plantão: assunto claro de um setor que está atendendo naquela hora (ex.: Manutenção 24 h), ou número
+  dedicado a esse setor, vai para ele mesmo fora do horário geral.
+
+## Atualização 16/11/2026 — setor Geral e Jack como atendente (pedidos do Djalma)
+
+Substitui a "fila instantânea" da 0.20.1 quando o setor Geral existe:
+- **Toda conversa nova entra na fila do setor Geral**, à vista de quem atende o Geral (e do supervisor).
+- Depois de `JACK_GENERAL_SECONDS` (padrão **60 s**), com a pessoa sem escrever há `JACK_WAIT_SECONDS`
+  (ou no dobro do tempo, de qualquer jeito), a Jack lê tudo e **distribui calada** para Financeiro,
+  Administrativo ou Manutenção. Assunto desconhecido ou só "bom dia" → Administrativo, como antes.
+- Se um atendente **aceita ou transfere** a conversa no Geral antes disso, a Jack não mexe mais nela; o
+  chamado abre nesse momento.
+- A espera no relatório conta desde a chegada no Geral.
+- Número de WhatsApp dedicado a um setor não passa pelo Geral. Sem o setor Geral (ou `JACK_MODE=off`)
+  vale o fluxo anterior.
+
+Feito na 0.25.0 (etapa JV1.8): a Jack **cadastrada como atendente** ("Jaqueline (Jack)", `talk_users.is_bot = 1`)
+no setor Geral, sem login, autora das mensagens dela. Não recebe transferência, não aparece como online
+e não é editada nem desativada pela tela; liga e desliga com `JACK_MODE`. É o primeiro passo para o boleto (J3/JV1.9): quando pedirem
+a 2ª via, ela avisa que vai olhar, busca o boleto no ERP, envia linha digitável/Pix e link e lembra
+que dá para achar pelo aplicativo, sempre com textos aprovados e as travas da seção "Boleto só com
+identificação inequívoca".

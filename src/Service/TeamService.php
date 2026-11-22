@@ -29,11 +29,11 @@ final class TeamService
     {
         $this->assertSupervisor($u);
         $rows = $this->db->all(
-            "SELECT u.id, u.name, u.email, u.active, u.erp_user_id, u.last_seen_at, u.created_at,
+            "SELECT u.id, u.name, u.email, u.active, u.is_bot, u.erp_user_id, u.last_seen_at, u.created_at,
                     (u.last_seen_at IS NOT NULL AND u.last_seen_at >= NOW() - INTERVAL 60 SECOND) AS online,
                     (SELECT COUNT(*) FROM talk_conversations c WHERE c.assigned_user_id = u.id AND c.status = 'open') AS open_count,
                     (SELECT COUNT(*) FROM talk_conversations c WHERE c.assigned_user_id = u.id AND c.status = 'closed' AND c.closed_at >= CURDATE()) AS closed_today
-               FROM talk_users u ORDER BY u.active DESC, u.name"
+               FROM talk_users u ORDER BY u.is_bot DESC, u.active DESC, u.name"
         );
         $staff = [];
         foreach ($this->db->all('SELECT user_id, sector_id, role FROM talk_staff') as $s) {
@@ -44,7 +44,7 @@ final class TeamService
             $roles = array_column($rows, 'role');
             $role = in_array('supervisor', $roles, true) ? 'supervisor' : (in_array('manager', $roles, true) ? 'manager' : 'agent');
             return [
-                'id' => (int) $r['id'], 'name' => $r['name'], 'email' => $r['email'], 'active' => (bool) $r['active'],
+                'id' => (int) $r['id'], 'name' => $r['name'], 'email' => $r['email'], 'active' => (bool) $r['active'], 'bot' => (bool) $r['is_bot'],
                 'erp_user_id' => $r['erp_user_id'] !== null ? (int) $r['erp_user_id'] : null,
                 'role' => $role,
                 'sector_ids' => array_values(array_map('intval', array_filter(array_column($rows, 'sector_id'), fn ($v) => $v !== null))),
@@ -58,6 +58,9 @@ final class TeamService
     {
         $this->assertSupervisor($u);
         $old = $id !== null ? $this->findUser($id) : null;
+        if ($old !== null) {
+            $this->assertNotBot($old);
+        }
         $name = trim(preg_replace('/\s+/', ' ', (string) ($in['name'] ?? '')));
         $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
         $role = (string) ($in['role'] ?? 'agent');
@@ -131,7 +134,7 @@ final class TeamService
     public function setActive(StaffMember $u, int $id, bool $active): array
     {
         $this->assertSupervisor($u);
-        $this->findUser($id);
+        $this->assertNotBot($this->findUser($id));
         if (!$active && $id === $u->userId) {
             throw new DomainError('Você não pode desativar a si mesmo.');
         }
@@ -304,6 +307,14 @@ final class TeamService
             throw new DomainError('Atendente não encontrado.', 404);
         }
         return $row;
+    }
+
+    /** A Jack aparece na equipe, mas não é editada nem desativada por aqui (liga e desliga com JACK_MODE). */
+    private function assertNotBot(array $row): void
+    {
+        if ((int) ($row['is_bot'] ?? 0) === 1) {
+            throw new DomainError('A Jack é a atendente automática: não dá para editar nem desativar por aqui.');
+        }
     }
 
     private function findSector(int $id): array

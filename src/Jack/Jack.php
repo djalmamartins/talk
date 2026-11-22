@@ -29,10 +29,20 @@ final class Jack
         private int $maxWaitSeconds = 30,
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
+        private int $generalSeconds = 60,
     ) {
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
         }
+    }
+
+    private ?int $userId = null;
+
+    /** Cadastro da Jack como atendente (talk_users.is_bot = 1), autora das mensagens dela. Null se não existir. */
+    public function userId(): ?int
+    {
+        $this->userId ??= (int) ($this->db->one('SELECT id FROM talk_users WHERE is_bot = 1 AND active = 1 ORDER BY id LIMIT 1')['id'] ?? 0);
+        return $this->userId ?: null;
     }
 
     public function mode(): string
@@ -54,6 +64,28 @@ final class Jack
         }
         $r = $this->classifier->classify($text);
         return $r['sector'] !== null && $r['confident'];
+    }
+
+    /**
+     * Setor Geral (jack_key "geral"): toda conversa nova espera nele, à vista da equipe, até a Jack
+     * distribuir. Sem ele (ou com a Jack desligada) a triagem é a antiga, fora das filas.
+     */
+    public function generalSector(): ?array
+    {
+        return $this->mode === 'off' ? null : $this->sectorByKey('geral');
+    }
+
+    /** No Geral: distribui depois de $generalSeconds com a pessoa calada há $waitSeconds, ou no dobro do tempo de qualquer jeito. */
+    public function isDueInGeneral(int $quietSeconds, int $ageSeconds): bool
+    {
+        return ($ageSeconds >= $this->generalSeconds && $quietSeconds >= $this->waitSeconds) || $ageSeconds >= 2 * $this->generalSeconds;
+    }
+
+    /** Setor que o texto aponta com certeza (sem registrar decisão), ou null. */
+    public function guessSector(string $text): ?array
+    {
+        $r = $this->classifier->classify($text);
+        return $r['sector'] !== null && $r['confident'] ? $this->sectorByKey($r['sector']) : null;
     }
 
     /** A pessoa parou de escrever (ou já esperou demais)? */
@@ -160,22 +192,44 @@ final class Jack
 
     /**
      * Acertos por conversa: compara a primeira sugestão confiante com o setor final.
-     * @return array{conversas:int, com_sugestao:int, acertos:int, erros:int, taxa:?float, por_setor:list<array>}
+     * $sectorIds limita aos setores de um gerente (sugeridos ou finais); null = tudo (supervisor).
+     * @param list<int>|null $sectorIds
+     * @return array{modo:string, dias:int, conversas:int, com_sugestao:int, sem_assunto:int, acertos:int, erros:int,
+     *               taxa:?float, por_setor:list<array>, termos_dos_erros:list<array>, erros_recentes:list<array>}
      */
-    public function stats(int $days = 30): array
+    public function stats(int $days = 30, ?array $sectorIds = null): array
     {
+        $scope = '';
+        $args = [$days];
+        if ($sectorIds !== null) {
+            $sectorIds = array_values(array_map('intval', $sectorIds)) ?: [0];
+            $in = implode(',', array_fill(0, count($sectorIds), '?'));
+            $scope = " AND (d.suggested_sector_id IN ($in) OR d.final_sector_id IN ($in))";
+            $args = [$days, ...$sectorIds, ...$sectorIds];
+        }
         $rows = $this->db->all(
-            "SELECT d.conversation_id, d.suggested_sector_id, d.final_sector_id, s.name
+            "SELECT d.conversation_id, d.suggested_sector_id, d.final_sector_id, d.intent, d.matched, d.created_at,
+                    s.name, fs.name AS final_name, c.protocol, ct.name AS contact
                FROM talk_jack_decisions d
                JOIN (SELECT conversation_id, MIN(id) AS id FROM talk_jack_decisions
                       WHERE confident = 1 AND suggested_sector_id IS NOT NULL AND created_at >= NOW() - INTERVAL ? DAY
                       GROUP BY conversation_id) f ON f.id = d.id
-               LEFT JOIN talk_sectors s ON s.id = d.suggested_sector_id",
-            [$days]
+               JOIN talk_conversations c ON c.id = d.conversation_id
+               JOIN talk_contacts ct ON ct.id = c.contact_id
+               LEFT JOIN talk_sectors s ON s.id = d.suggested_sector_id
+               LEFT JOIN talk_sectors fs ON fs.id = d.final_sector_id
+              WHERE 1 = 1$scope
+              ORDER BY d.id DESC",
+            $args
         );
-        $total = (int) ($this->db->one('SELECT COUNT(DISTINCT conversation_id) n FROM talk_jack_decisions WHERE created_at >= NOW() - INTERVAL ? DAY', [$days])['n'] ?? 0);
+        $total = (int) ($this->db->one(
+            "SELECT COUNT(DISTINCT d.conversation_id) n FROM talk_jack_decisions d WHERE d.created_at >= NOW() - INTERVAL ? DAY$scope",
+            $args
+        )['n'] ?? 0);
         $hits = $misses = 0;
         $per = [];
+        $terms = [];
+        $recent = [];
         foreach ($rows as $r) {
             if ($r['final_sector_id'] === null) {
                 continue; // ainda sem setor final
@@ -184,10 +238,31 @@ final class Jack
             $ok ? $hits++ : $misses++;
             $per[$r['name']] ??= ['setor' => $r['name'], 'acertos' => 0, 'erros' => 0];
             $per[$r['name']][$ok ? 'acertos' : 'erros']++;
+            if ($ok) {
+                continue;
+            }
+            $matched = $r['matched'] === null || $r['matched'] === '' ? [] : explode(', ', (string) $r['matched']);
+            foreach ($matched as $t) {
+                $terms[$t] = ($terms[$t] ?? 0) + 1;
+            }
+            if (count($recent) < 20) {
+                // sem o texto da mensagem: o supervisor abre a conversa pelo protocolo se precisar
+                $recent[] = ['conversation_id' => (int) $r['conversation_id'], 'protocolo' => $r['protocol'], 'contato' => $r['contact'],
+                    'sugerido' => $r['name'], 'final' => $r['final_name'], 'intencao' => $r['intent'], 'termos' => $matched,
+                    'quando' => $r['created_at']];
+            }
         }
+        foreach ($per as &$p) {
+            $p['taxa'] = round($p['acertos'] / max(1, $p['acertos'] + $p['erros']), 3);
+        }
+        unset($p);
+        arsort($terms);
         $judged = $hits + $misses;
-        return ['modo' => $this->mode, 'conversas' => $total, 'com_sugestao' => count($rows), 'acertos' => $hits, 'erros' => $misses,
-            'taxa' => $judged ? round($hits / $judged, 3) : null, 'por_setor' => array_values($per)];
+        return ['modo' => $this->mode, 'dias' => $days, 'conversas' => $total, 'com_sugestao' => count($rows),
+            'sem_assunto' => max(0, $total - count($rows)), 'acertos' => $hits, 'erros' => $misses,
+            'taxa' => $judged ? round($hits / $judged, 3) : null, 'por_setor' => array_values($per),
+            'termos_dos_erros' => array_map(fn ($t, $n) => ['termo' => (string) $t, 'vezes' => $n], array_keys(array_slice($terms, 0, 10, true)), array_slice($terms, 0, 10)),
+            'erros_recentes' => $recent];
     }
 
     private function sectorByKey(string $key): ?array

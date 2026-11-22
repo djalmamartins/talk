@@ -4,7 +4,8 @@ declare(strict_types=1);
 // Aplica migrations/*.sql. Uso: php bin/migrate.php [--lab]
 // Roda comando por comando (assim um erro nunca passa em silêncio) e confere no fim se as
 // tabelas existem. As migrations são idempotentes (CREATE TABLE IF NOT EXISTS): se uma foi
-// registrada mas a tabela sumiu ou não foi criada, ela roda de novo.
+// registrada mas a tabela sumiu ou não foi criada, ela roda de novo. ADD COLUMN/ADD KEY que já existe
+// (erro 1060/1061) é pulado: acontece quando uma migration muda de nome depois de já ter rodado.
 $app = require __DIR__ . '/../bootstrap.php';
 $pdo = $app['db']->pdo();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -35,6 +36,11 @@ foreach (glob(__DIR__ . '/../migrations/*.sql') as $file) {
         try {
             $pdo->exec(rtrim($stmt, ';'));
         } catch (PDOException $e) {
+            // coluna ou índice que já existe (migration renomeada que já tinha rodado com outro nome): segue
+            if (in_array((int) ($e->errorInfo[1] ?? 0), [1060, 1061], true)) {
+                echo '   já existe, mantido: ' . mb_substr(preg_replace('/\s+/', ' ', $stmt), 0, 90) . "\n";
+                continue;
+            }
             fwrite(STDERR, "ERRO em $name, comando " . ($i + 1) . ': ' . $e->getMessage() . "\n" . mb_substr($stmt, 0, 300) . "\n");
             exit(1);
         }

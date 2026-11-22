@@ -28,4 +28,26 @@ empresa só (`docs/porte-atendechat.md`).
 | U4 | Protocolo SAC sem hífen (SAC26111600004, 0.21.1); protocolos da pessoa na lateral, do maior para o menor, 5 por página | pedido de 16/11 | feito (0.20.0) |
 | U5 | Fila instantânea; Jack espera 5 s/30 s; espera não conta fora do horário e feriados | pedidos de 16/11 | feito (0.20.1 e 0.21.0) |
 | U6 | Mudar o status do atendimento (fila, em atendimento, aguardando cliente/retorno interno, encerrado, reabrir) | pedido de 16/11 | feito (0.22.0) |
-| J2+ | Jack: lembrete de espera, boleto pelo WhatsApp, IA na classificação | ADR 0004 | depois do sistema |
+| U7 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.24.0) |
+| U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
+| U9 | Jack só no horário de funcionamento; de manhã distribui o que chegou à noite | pedido de 22/11 | feito (0.29.0) |
+| J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
+
+## Jack V1
+
+Plano consolidado em `docs/jack/MANIFESTO.md` (seção 13), que separa a **Jack V1** (primeiro
+atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor continua sendo a ADR 0004.
+
+| Etapa | Entrega | Depende de | Situação |
+|---|---|---|---|
+| JV1.0 | Manifesto da Jack; decidir se ela conversa ou só encaminha (registrar na ADR 0004) | Djalma | feito: calada na V1 (16/11) |
+| JV1.1 | Painel de acertos na tela do supervisor | só o Talk | feito (0.23.0): seção no Painel |
+| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | feito (0.27.0): 105 frases, `php tools/jack-cenarios.php`; ajuste do classificador na 0.28.0 (conferência: 60% exato, 0 erro grave) |
+| JV1.3 | Resumo para o atendente (nota interna com assunto e protocolos anteriores) | só o Talk | a fazer |
+| JV1.4 | Urgência: prioridade alta e aviso ao gerente | só o Talk | a fazer |
+| JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |
+| JV1.6 | Lembrete de espera com modelos aprovados editáveis | só o Talk | a fazer |
+| JV1.7 | ~~Pergunta de desempate~~ | — | fora da V1 (decisão de 16/11); fica para a Jack Completa |
+| JV1.8 | Jack cadastrada como atendente na Equipe (sem login), autora das mensagens dela | só o Talk | feito (0.25.0) |
+| JV1.9 | Boleto pelo WhatsApp: "só um minuto que vou olhar", busca no ERP, envia e lembra do aplicativo | JV1.8 + rota `talk/charges` no ERP | aguardando ERP |
+| JV1.10 | (Opcional) IA só para classificar, lista fechada, custo limitado | JV1.2 + aprovação | a decidir |
