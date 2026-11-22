@@ -19,6 +19,15 @@ class Texts
             . " Abri o chamado *{$protocol}* e já encaminhei para a equipe de *{$sector}*. Já vamos te atender.";
     }
 
+    /** Menu de setores (Jack desligada): "Oi, Maria! ... 1 - Financeiro". */
+    public function sectorMenu(?string $firstName, array $sectors, bool $retry): string
+    {
+        $lines = array_map(static fn (array $s): string => "*{$s['menu_key']}* - {$s['name']}", $sectors);
+        $head = $retry ? 'Não entendi. Responda só com o *número* do setor:'
+            : ($firstName ? "Oi, {$firstName}!" : 'Oi!') . ' Aqui é a Connect. Para te atender mais rápido, responda com o *número* do setor:';
+        return $head . "\n\n" . implode("\n", $lines);
+    }
+
     public function transferred(string $sector): string
     {
         return "Seu atendimento foi encaminhado para o *{$sector}*. Em instantes alguém continua com você.";

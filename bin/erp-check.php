@@ -38,3 +38,19 @@ if ($r['status'] !== 200 || !is_array($r['data']['data'] ?? null)) {
     exit(1);
 }
 echo "Ligação com o ERP OK: token aceito em $url.\n";
+
+// Login pelo ERP (ADR 0006): o token precisa do escopo staff.login, senão ninguém consegue entrar no Talk.
+if ($app['erp_login']->enabled()) {
+    try {
+        $me = (new ErpApi(new CurlHttpClient(10), $url, $token))->call('GET', '/talk/me');
+        $scopes = (array) ($me['data']['data']['scopes'] ?? []);
+    } catch (\Throwable $e) {
+        $scopes = [];
+    }
+    if (!in_array('staff.login', $scopes, true)) {
+        fwrite(STDERR, "O token não tem o escopo \"Entrar no Talk com o usuário do ERP\" (staff.login): ninguém vai conseguir entrar.\n"
+            . "No ERP, em Configurações > Integrações, crie um token novo com esse escopo marcado e troque o ERP_API_TOKEN.\n");
+        exit(1);
+    }
+    echo "Login pelo ERP OK: entra quem tem a permissão \"Atendimento por WhatsApp\" no ERP.\n";
+}

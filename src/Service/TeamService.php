@@ -19,7 +19,7 @@ final class TeamService
     public const MIN_PASSWORD = 8;
     private const ROLES = ['agent', 'manager', 'supervisor'];
 
-    public function __construct(private Db $db, private EventBus $events, private ?string $ip = null)
+    public function __construct(private Db $db, private EventBus $events, private ?string $ip = null, private bool $erpLogin = false)
     {
     }
 
@@ -65,7 +65,8 @@ final class TeamService
         $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
         $role = (string) ($in['role'] ?? 'agent');
         $sectors = array_values(array_unique(array_map('intval', (array) ($in['sector_ids'] ?? []))));
-        $password = (string) ($in['password'] ?? '');
+        // login pelo ERP (ErpLogin): senha do Talk não existe; o cadastro aqui só prepara papel e setores pelo e-mail do ERP
+        $password = $this->erpLogin ? '' : (string) ($in['password'] ?? '');
         $erp = isset($in['erp_user_id']) && $in['erp_user_id'] !== '' && $in['erp_user_id'] !== null ? (int) $in['erp_user_id'] : null;
 
         if ($name === '' || mb_strlen($name) > 100) {
@@ -90,7 +91,7 @@ final class TeamService
                 throw new DomainError('Setor não encontrado.');
             }
         }
-        if ($old === null || $password !== '') {
+        if (!$this->erpLogin && ($old === null || $password !== '')) {
             $this->checkPassword($password);
         }
         if ($old !== null && $id === $u->userId && $role !== 'supervisor') {
@@ -103,7 +104,7 @@ final class TeamService
         $id = $this->db->transaction(function () use ($old, $id, $name, $email, $password, $erp, $role, $sectors): int {
             if ($old === null) {
                 $id = $this->db->insert('talk_users', [
-                    'name' => $name, 'email' => $email, 'password_hash' => password_hash($password, PASSWORD_DEFAULT), 'erp_user_id' => $erp,
+                    'name' => $name, 'email' => $email, 'password_hash' => password_hash($password !== '' ? $password : bin2hex(random_bytes(24)), PASSWORD_DEFAULT), 'erp_user_id' => $erp,
                 ]);
             } else {
                 $this->db->run('UPDATE talk_users SET name = ?, email = ?, erp_user_id = ?, updated_at = NOW() WHERE id = ?', [$name, $email, $erp, $id]);
@@ -165,6 +166,9 @@ final class TeamService
     /** Qualquer pessoa troca a própria senha, confirmando a atual. */
     public function changeOwnPassword(int $userId, string $current, string $new): void
     {
+        if ($this->erpLogin) {
+            throw new DomainError('A senha é a do Connect ERP: troque por lá.', 403);
+        }
         $row = $this->findUser($userId);
         if (!password_verify($current, $row['password_hash'])) {
             throw new DomainError('Senha atual incorreta.');

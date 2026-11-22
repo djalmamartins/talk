@@ -74,13 +74,19 @@ sem ela, um backup restaurado não abre os tokens dos números.
    ERP_API_TOKEN=ctk_...
    ERP_WEB_URL=https://erp.connectcondominios.com.br
    ```
-4. Aplique e confira: `cd ~/talk/deploy && sudo docker compose up -d && sudo docker compose exec app php bin/erp-check.php`
+4. **Login pelo ERP** (ADR 0006): o token do passo 2 precisa do escopo "Entrar no Talk com o usuário do ERP"
+   (`staff.login`). O jeito mais simples é criar o token na tela **Configurações › Integrações** do ERP, com os escopos de
+   leitura marcados (já vêm) e o de chamados. No `.env` do **ERP**, ponha o endereço do Talk:
+   `TALK_URL=https://talk.connectcondominios.com.br`.
+   Depois, em **Studio › Usuários**, dê a permissão "Atendimento por WhatsApp (Connect Talk)" a cada funcionário que vai
+   atender (pelo papel ou liberando no cadastro da pessoa). Só esses entram no Talk.
+5. Aplique e confira: `cd ~/talk/deploy && sudo docker compose up -d && sudo docker compose exec app php bin/erp-check.php`
 
 Com o ERP ligado, o Talk mostra o nome, o condomínio e a unidade de quem escreve, abre o chamado no Help Desk e busca
 a 2ª via do boleto do proprietário na conversa.
 
 ## 6. Ler o QR Code
-No Talk, entre com o supervisor e vá em **Conexões → Novo número → QR Code**. Leia com o celular do número.
+No Talk, clique em **Entrar pelo Connect ERP** com o usuário do supervisor e vá em **Conexões → Novo número → QR Code**. Leia com o celular do número.
 
 ## Dia a dia
 - **Faltou luz ou internet:** tudo volta sozinho quando o Pi religa.

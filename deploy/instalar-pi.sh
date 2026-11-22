@@ -97,7 +97,7 @@ say "6/7 Primeiro supervisor e setores"
 if dc exec -T app php -r '$a = require "bootstrap.php"; exit($a["db"]->one("SELECT 1 AS ok FROM talk_staff WHERE role = \"supervisor\" LIMIT 1") ? 0 : 1);' >/dev/null 2>&1; then
   echo "Já existe supervisor; mantido."
 else
-  read -r -p "E-mail do primeiro supervisor: " email
+  read -r -p "E-mail do primeiro supervisor (o mesmo do Connect ERP): " email
   read -r -p "Nome: " name
   dc exec -T app php bin/setup.php --email="$email" --name="$name"
 fi

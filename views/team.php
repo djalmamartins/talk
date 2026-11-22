@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/assets/app.css?v=<?= TALK_ASSET_V ?>">
 <?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
-<body data-lab="<?= $isLab ? '1' : '0' ?>">
+<body data-lab="<?= $isLab ? '1' : '0' ?>" data-erp-login="<?= !empty($erpLoginOn) ? '1' : '0' ?>">
 <div class="shell">
 <?php $active = 'team'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
@@ -54,7 +54,7 @@
     <div class="ch-grid">
       <label>Nome<input name="name" maxlength="100" required></label>
       <label>E-mail (login)<input name="email" type="email" maxlength="150" required autocomplete="off"></label>
-      <label><span id="u-pw-label">Senha inicial</span><input name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password"></label>
+      <label id="u-pw-field"><span id="u-pw-label">Senha inicial</span><input name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password"></label>
       <label>Usuário no ERP (opcional)<input name="erp_user_id" inputmode="numeric" placeholder="nº do usuário no Connect ERP"></label>
     </div>
     <fieldset class="u-roles">

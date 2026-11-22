@@ -66,7 +66,10 @@ function openUser(u = null) {
   $('#u-error').hidden = true;
   $('#u-title').textContent = u ? `Editar ${u.name}` : 'Novo atendente';
   $('#u-pw-label').textContent = u ? 'Nova senha (em branco: mantém)' : 'Senha inicial';
-  f.elements.namedItem('password').required = !u;
+  const erpLogin = document.body.dataset.erpLogin === '1'; // login pelo Connect ERP: sem senha aqui
+  $('#u-pw-field').hidden = erpLogin;
+  f.elements.namedItem('password').required = !u && !erpLogin;
+  if (erpLogin) $('#u-pw-hint').textContent = 'A pessoa entra com o e-mail e a senha do Connect ERP, se lá tiver a permissão "Atendimento por WhatsApp". Quem entra pela primeira vez aparece aqui sem setor: escolha o papel e os setores.';
   $('#u-sectors').innerHTML = '<legend>Setores</legend>' + state.sectors.filter((s) => s.active || (u && u.sector_ids.includes(s.id)))
     .map((s) => `<label><input type="checkbox" name="sector" value="${s.id}"${u && u.sector_ids.includes(s.id) ? ' checked' : ''}><span class="chip" style="--c:${esc(s.color)}">${esc(s.name)}</span></label>`).join('');
   if (u) {

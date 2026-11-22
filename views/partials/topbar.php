@@ -22,7 +22,9 @@ $onInbox = ($active ?? '') === 'inbox';
       <summary class="tb-user" aria-label="Menu do usuário"><span class="avatar xs"><?= htmlspecialchars($initials) ?></span><span class="tb-user-txt"><b><?= htmlspecialchars($userName) ?></b><small class="live" id="live">● conectando</small></span><svg class="tb-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></summary>
       <div class="tb-panel">
         <h2><?= htmlspecialchars($userName) ?><small><?= htmlspecialchars($userEmail ?? '') ?></small><small><?= htmlspecialchars($roleLabel ?? '') ?></small></h2>
+<?php if (empty($erpLoginOn)): ?>
         <button type="button" class="tb-item" id="my-password"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg><span>Trocar senha</span></button>
+        <?php endif ?>
         <button type="button" class="tb-item" id="sound-toggle" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg><span><b>Som de alerta</b><small id="sound-state">Ligado: toca quando chega mensagem</small></span></button>
         <div class="tb-sep"></div>
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button class="tb-item"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg><span>Sair</span></button></form>

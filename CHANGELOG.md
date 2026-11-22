@@ -1,6 +1,20 @@
 # Changelog
 
-## [Não publicado] — protocolo único com o SAC (22/11/2026)
+## [1.4.0] — 2026-11-22 — primeira versão de produção
+Pedido do Djalma em 22/11/2026: versão de produção sem a Jack, com entrada só para os funcionários do ERP (ADR 0006).
+### Adicionado
+- **Login só pelo Connect ERP** (`TALK_LOGIN=erp`): botão "Entrar pelo Connect ERP", mesmo e-mail, senha e 2FA do ERP, e só
+  para quem tem no ERP a permissão "Atendimento por WhatsApp (Connect Talk)", por papel ou liberada no cadastro do usuário
+  (ADR 0643 do ERP). O Talk confere a cada 10 minutos se o acesso continua. Senha do Talk, "Trocar senha" e a senha em
+  Equipe deixam de existir nesse modo.
+- **Menu de setores no WhatsApp** no lugar da Jack (`TALK_MENU=on`): "responda com o número do setor", aceita número,
+  emoji ou nome, repete uma vez e, sem escolha, vai para o setor padrão.
+- `bin/erp-check.php` avisa quando o token não tem o escopo `staff.login`.
+### Alterado
+- **Jack desligada** por padrão (`JACK_MODE=off`); volta numa versão seguinte.
+- O instalador pede o e-mail do supervisor "o mesmo do Connect ERP".
+
+### Protocolo único com o SAC (22/11/2026)
 ### Alterado
 - **Protocolo sem "SAC" na frente** (ex.: `26112200403`), o mesmo número no Talk e no SAC (ADR 0637 do ERP). A migração
   027 tira o prefixo dos números antigos; a busca e a consulta pelo WhatsApp aceitam os dois jeitos.

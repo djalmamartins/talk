@@ -68,7 +68,10 @@ $sessionOk = static function () use ($app): bool {
     if (empty($_SESSION['user_id'])) {
         return false;
     }
-    if (!$app['login']->sessionValid((int) $_SESSION['user_id'], (int) ($_SESSION['auth_at'] ?? 0))) {
+    $checked = (int) ($_SESSION['erp_checked_at'] ?? 0);
+    $erpOk = $app['erp_login']->revalidate((int) $_SESSION['user_id'], $checked); // tirou talk.access no ERP: sai em minutos
+    $_SESSION['erp_checked_at'] = $checked;
+    if (!$erpOk || !$app['login']->sessionValid((int) $_SESSION['user_id'], (int) ($_SESSION['auth_at'] ?? 0))) {
         $_SESSION = [];
         session_regenerate_id(true);
         $_SESSION['csrf'] = bin2hex(random_bytes(16));
@@ -113,6 +116,7 @@ $view = static function (string $name, array $vars = []) use ($app): never {
     $vars['roleLabel'] = $sm === null ? '' : ($sm->supervisor ? 'Supervisor' : ($sm->managerSectors ? 'Gerente de setor' : 'Atendente'));
     $vars['userEmail'] = $sm !== null ? (string) ($app['db']->one('SELECT email FROM talk_users WHERE id = ?', [$sm->userId])['email'] ?? '') : '';
     $vars['systems'] = $app['systems'];
+    $vars['erpLoginOn'] = $app['erp_login']->enabled(); // login pelo ERP: sem senha do Talk (Trocar senha some)
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
     require __DIR__ . "/../views/$name.php";
@@ -151,6 +155,45 @@ try {
     }
 
     // ---------------------------------------------------------------- login
+    // Login pelo ERP (ADR 0006): o ERP confere senha, 2FA e talk.access e devolve o código de uso único para cá.
+    if (preg_match('#^/ambiente/entrar/talk/([a-f0-9]{64})$#', $path, $m) && $method === 'GET') {
+        header('Cache-Control: no-store, private');
+        header('Referrer-Policy: no-referrer'); // o código está na URL
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if (!$app['erp_login']->enabled()) {
+            header('Location: /login');
+            exit;
+        }
+        if ($app['login']->blocked('erp-sso', $ip)) {
+            http_response_code(429);
+            $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab, 'erpLogin' => $app['erp_web_url'] . '/ambiente/talk']);
+        }
+        try {
+            $who = $app['erp_login']->exchange($m[1], $ip);
+        } catch (\Throwable $e) {
+            error_log('[talk] login pelo ERP: ' . $e->getMessage());
+            http_response_code(502);
+            $view('login', ['error' => 'Não foi possível falar com o Connect ERP agora. Tente de novo em instantes.', 'isLab' => $isLab, 'erpLogin' => $app['erp_web_url'] . '/ambiente/talk']);
+        }
+        if ($who === null) {
+            $app['login']->failed('erp-sso', $ip);
+            http_response_code(403);
+            $view('login', ['error' => 'Seu usuário do ERP não tem acesso ao Talk, ou o link venceu. Peça a permissão "Atendimento por WhatsApp" ao administrador e entre de novo.',
+                'isLab' => $isLab, 'erpLogin' => $app['erp_web_url'] . '/ambiente/talk']);
+        }
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $who['id'];
+        $_SESSION['user_name'] = $who['name'];
+        $_SESSION['auth_at'] = time();
+        $_SESSION['erp_checked_at'] = time();
+        $_SESSION['csrf'] = bin2hex(random_bytes(16));
+        header('Location: /');
+        exit;
+    }
+    if ($path === '/login' && $app['erp_login']->enabled()) {
+        // só o botão "Entrar pelo Connect ERP"; senha do Talk não vale
+        $view('login', ['error' => $method === 'POST' ? 'Entre pelo Connect ERP.' : null, 'isLab' => $isLab, 'erpLogin' => $app['erp_web_url'] . '/ambiente/talk']);
+    }
     if ($path === '/login') {
         if ($method === 'POST') {
             $csrf();

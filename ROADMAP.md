@@ -34,6 +34,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U10 | Aba Serviço da Jack: lista de atendimentos com janela de detalhe (ideia, procedimento, respostas, o que não fez) e sugestões para ela melhorar | pedido de 22/11 | feito (1.2.0) |
 | IA | Jack com IA local (Gemma 3 1B): plano em `docs/jack/IA.md`. IA0 sugestões, IA1 cenários e IA2 adaptador + modo sombra feitos | pedido de 22/11 | falta teste no Mac, depois Pi |
 | U11 | Fila como página inicial, som sempre que alguém cai na fila, aviso de avaliação para o atendente | pedido de 22/11 | feito (1.3.0) |
+| P1 | Primeira versão de produção: login só pelo ERP (talk.access por usuário), Jack desligada com menu de setores, protocolo único com o SAC | pedido de 22/11, ADR 0006 | feito (1.4.0) |
 | v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 

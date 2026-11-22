@@ -163,6 +163,17 @@ Talk) quando o morador pede o boleto pelo WhatsApp. O Talk trata `404` como "nen
   PDF por id.
 - Sem boleto em aberto: `200 {"data": []}`.
 
+## 6b. Login pelo ERP — `POST /api/v1/talk/staff/login` e `GET /api/v1/talk/staff/{id}` (ADR 0006; ADR 0643 do ERP)
+Escopo `staff.login`. O navegador chega em `/ambiente/entrar/talk/{code}` vindo de `ERP/ambiente/talk`.
+```
+POST /talk/staff/login  {"code": "<64 hex>"}
+200 {"data": {"id": 41, "name": "Ana Lima", "email": "ana@connect.com.br"}}
+404 código inválido, vencido, já usado ou pessoa sem talk.access
+
+GET /talk/staff/41
+200 {"data": {"id": 41, "name": "Ana Lima", "email": "ana@connect.com.br", "active": true}}
+```
+
 ## 7. Erros (padrão do ERP)
 
 `{"error": {"code": "...", "message": "...", "fields": {}}}`, com `401 unauthenticated`,

@@ -79,6 +79,10 @@ if ($env('ERP_API_URL')) {
     $charges = new \ConnectTalk\Erp\NullChargeDirectory();
 }
 $sacOn = $helpdesk instanceof HttpHelpdesk;
+// Login (ADR 0006): com o ERP ligado, só pelo Connect ERP (talk.access por usuário). TALK_LOGIN=senha volta às senhas do Talk.
+$erpLoginOn = strtolower((string) $env('TALK_LOGIN', ($env('ERP_API_URL') && $env('ERP_WEB_URL')) ? 'erp' : 'senha')) === 'erp'
+    && isset($erp) && $env('ERP_WEB_URL');
+$erpLogin = new \ConnectTalk\Service\ErpLogin($db, $erp ?? null, (bool) $erpLoginOn, (int) $env('TALK_LOGIN_RECHECK_SECONDS', '600'));
 // números de teste da Jack (DDD 00, bin/jack-carga.php) nunca vão ao ERP nem saem pelo WhatsApp (GatewayFactory)
 $directory = new \ConnectTalk\Erp\TestSafeDirectory($directory);
 $helpdesk = new \ConnectTalk\Erp\TestSafeHelpdesk($helpdesk);
@@ -105,7 +109,9 @@ $hours = new \ConnectTalk\Service\BusinessHours($db);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
     askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours,
     autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off', // só uma pessoa online para o setor: a conversa vai direto para ela
-    autoTicket: $env('SAC_AUTO_TICKET', 'off') === 'on'); // chamado no SAC só pelo botão Abrir chamado (ADR 0005)
+    autoTicket: $env('SAC_AUTO_TICKET', 'off') === 'on', // chamado no SAC só pelo botão Abrir chamado (ADR 0005)
+    sectorMenu: $env('TALK_MENU', 'on') !== 'off', // com JACK_MODE=off: menu numerado de setores no WhatsApp (1.0)
+    menuTimeoutSeconds: (int) $env('TALK_MENU_TIMEOUT_SECONDS', '600'));
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');
@@ -132,7 +138,9 @@ return [
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
     'second_copy' => new \ConnectTalk\Service\SecondCopy($db, $policy, $conversations, $charges),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
-    'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
+    'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null, $erpLogin->enabled()),
+    'erp_login' => $erpLogin,
+    'erp_web_url' => rtrim((string) $env('ERP_WEB_URL', ''), '/'),
     'login' => new \ConnectTalk\Service\LoginGuard($db),
     'schedules' => new \ConnectTalk\Service\ScheduleService($db, $policy, $conversations),
     'campaigns' => new \ConnectTalk\Service\CampaignService($db, $gateways, $env('APP_ENV') === 'lab'),

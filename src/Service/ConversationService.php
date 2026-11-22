@@ -38,7 +38,105 @@ class ConversationService
         // chamado no SAC sozinho em toda conversa encaminhada (antes da 1.0). Desde 22/11/2026 o Djalma decidiu: só pelo
         // botão Abrir chamado, com o mesmo protocolo da conversa (ADR 0005). SAC_AUTO_TICKET=on volta o comportamento antigo.
         private bool $autoTicket = false,
+        // Jack desligada (1.0, escolha do Djalma em 22/11/2026): menu de setores numerado no WhatsApp (TALK_MENU=on).
+        // Sem resposta válida depois de 2 menus, ou calado por $menuTimeoutSeconds, vai para o setor padrão.
+        private bool $sectorMenu = false,
+        private int $menuTimeoutSeconds = 600,
     ) {
+    }
+
+    /** Menu de setores no lugar da Jack? (Jack desligada e TALK_MENU=on) */
+    private function menuMode(): bool
+    {
+        return $this->sectorMenu && ($this->jack === null || $this->jack->mode() === 'off');
+    }
+
+    /** Setores do menu: os ativos com número (menu_key), sem o Geral da Jack. */
+    private function menuSectors(): array
+    {
+        return $this->db->all(
+            "SELECT id, name, menu_key FROM talk_sectors
+              WHERE active = 1 AND menu_key <> '0' AND (jack_key IS NULL OR jack_key <> 'geral')
+              ORDER BY CAST(menu_key AS UNSIGNED), menu_key"
+        );
+    }
+
+    /** O que a pessoa respondeu ao menu: número ("2", "2️⃣", "opção 2") ou o nome do setor. */
+    public static function menuPick(string $text, array $sectors): ?array
+    {
+        $norm = static fn (string $t): string => trim(preg_replace('/\s+/', ' ', mb_strtolower(
+            strtr($t, ['á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'é' => 'e', 'ê' => 'e', 'í' => 'i', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o', 'ú' => 'u', 'ç' => 'c',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ç' => 'c', 'Ã' => 'a', 'Õ' => 'o', 'Â' => 'a', 'Ê' => 'e', 'Ô' => 'o'])
+        )));
+        $t = $norm($text);
+        if (preg_match('/^(?:op(?:cao|ção)?\.?\s*)?(\d{1,2})(?:\x{FE0F}?\x{20E3})?[\s.)!-]*$/u', $t, $m)) {
+            foreach ($sectors as $sec) {
+                if ((string) $sec['menu_key'] === (string) (int) $m[1]) {
+                    return $sec;
+                }
+            }
+            return null;
+        }
+        foreach ($sectors as $sec) {
+            if ($t !== '' && $t === $norm((string) $sec['name'])) {
+                return $sec;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Conversa em "bot" com o menu ligado: manda o menu, ou encaminha para o setor escolhido.
+     * Retorna o setor para encaminhar, ou null para esperar a resposta.
+     */
+    private function menuStep(array $conv, array $contact, InboundMessage $in, bool $isNew): ?array
+    {
+        $sectors = $this->menuSectors();
+        if (count($sectors) < 2) {
+            return $this->fallbackSector();
+        }
+        $sent = (int) $this->db->one(
+            "SELECT COUNT(*) n FROM talk_messages WHERE conversation_id = ? AND direction = 'out' AND type = 'sector_menu'", [$conv['id']]
+        )['n'];
+        if ($sent > 0 && $in->type === 'text' && ($pick = self::menuPick((string) $in->body, $sectors)) !== null) {
+            return $pick;
+        }
+        if ($sent >= 2) {
+            $this->jackNote((int) $conv['id'], 'Não escolheu o setor no menu: foi para o setor padrão.');
+            return $this->fallbackSector();
+        }
+        $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
+        $this->queueOutbound($conv, $this->texts->sectorMenu($first, $sectors, $sent > 0), null, 'sector_menu');
+        return null;
+    }
+
+    /** Menu sem resposta por $menuTimeoutSeconds: vai para o setor padrão (a pessoa não fica esquecida). */
+    private function menuTimeouts(int $clockShift): int
+    {
+        $rows = $this->db->all(
+            "SELECT c.id FROM talk_conversations c
+               JOIN talk_messages m ON m.conversation_id = c.id
+              WHERE c.status = 'bot'
+              GROUP BY c.id
+             HAVING TIMESTAMPDIFF(SECOND, MAX(m.created_at), NOW() + INTERVAL ? SECOND) >= ?",
+            [$clockShift, $this->menuTimeoutSeconds]
+        );
+        $n = 0;
+        foreach ($rows as $r) {
+            $n += (int) $this->db->transaction(function () use ($r): bool {
+                $conv = $this->lock((int) $r['id']);
+                $fallback = $this->fallbackSector();
+                if ($conv['status'] !== 'bot' || $fallback === null) {
+                    return false;
+                }
+                $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+                $this->jackNote((int) $conv['id'], 'Sem resposta ao menu de setores: foi para o setor padrão.');
+                $this->route($conv, $fallback, $contact);
+                $this->sayOffHours($conv, $fallback, $contact);
+                return true;
+            });
+        }
+        return $n;
     }
 
     // ------------------------------------------------------------------ entrada
@@ -130,6 +228,12 @@ class ConversationService
             }
             if ($conv['status'] === 'bot' && ($this->jack === null || $this->jack->mode() === 'off')) {
                 $fallback = $this->fallbackSector();
+                if ($this->menuMode()) {
+                    // número dedicado a um setor e resposta a envio em massa não passam pelo menu
+                    $fixed = $this->db->one('SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?', [$conv['channel_id']]);
+                    $campaign = $fixed ? null : CampaignReplies::replyTo($this->db, $contact);
+                    $fallback = $fixed ?: ($campaign['sector'] ?? null) ?: $this->menuStep($conv, $contact, $in, $isNew);
+                }
                 if ($fallback !== null) {
                     $this->route($conv, $fallback, $contact);
                     $this->sayOffHours($conv, $fallback, $contact);
@@ -277,6 +381,9 @@ class ConversationService
      */
     public function triage(int $clockShift = 0): int
     {
+        if ($this->menuMode()) {
+            return $this->menuTimeouts($clockShift) + $this->autoAssignWaiting();
+        }
         if ($this->jack === null) {
             return $this->autoAssignWaiting();
         }
