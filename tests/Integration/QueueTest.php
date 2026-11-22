@@ -94,7 +94,8 @@ final class QueueTest extends DbTestCase
         $q->touch(4);
         $this->db->run('UPDATE talk_users SET last_seen_at = NOW() - INTERVAL 5 MINUTE WHERE id = 4');
         $a = $this->routed('preciso da segunda via do boleto');
-        $this->svc->accept($a, $this->agent(2, 'Financeiro'));
+        // Ana é a única online no Financeiro: a conversa vai direto para ela (distribuição automática)
+        $this->assertSame(2, (int) $this->conv($a)['assigned_user_id']);
 
         $people = array_column($q->attendants(new StaffMember(1, true)), null, 'id');
         $this->assertSame(['busy', 'offline', 'offline'], [$people[2]['status'], $people[3]['status'], $people[4]['status']]);
@@ -102,5 +103,28 @@ final class QueueTest extends DbTestCase
         $this->svc->close($a, new StaffMember(1, true), 'ok');
         $this->assertSame('available', array_column($q->attendants(new StaffMember(1, true)), null, 'id')[2]['status']);
         $this->assertSame([2, 3], array_column($q->attendants($this->agent(2, 'Financeiro')), 'id'), 'Financeiro só vê a própria equipe');
+    }
+
+    public function test_quem_e_com_quem_esta_e_por_onde_passou(): void
+    {
+        $this->db->run('UPDATE talk_contacts SET erp_snapshot = ? WHERE phone = ?', ['{"vinculo":"owner","condominio":"Residencial Jardins","unidade":"Bloco A 101"}', '5531900000001']);
+        $a = $this->routed('preciso da segunda via do boleto', '5531900000001');
+        $this->db->run('UPDATE talk_contacts SET erp_snapshot = ? WHERE phone = ?', ['{"vinculo":"owner","condominio":"Residencial Jardins","unidade":"Bloco A 101"}', '5531900000001']);
+        $b = $this->routed('o portão da garagem quebrou', '5531900000002');
+        $this->user(4, 'Caio (Manutenção)', 'Manutenção');
+        $this->svc->accept($b, $this->agent(4, 'Manutenção'));
+
+        $o = $this->q()->overview(new StaffMember(1, true));
+        $w = $o['waiting'][0];
+        $this->assertSame($a, (int) $w['id']);
+        $this->assertSame('Proprietário · Residencial Jardins · Bloco A 101', $w['who']);
+        $this->assertSame(['kind' => 'none', 'name' => null], $w['handler']);
+        $this->assertSame('Jack encaminhou para Financeiro.', $w['last_move']['text']);
+
+        $this->assertSame([$b], array_map('intval', array_column($o['attending'], 'id')));
+        $this->assertSame(['kind' => 'agent', 'name' => 'Caio'], $o['attending'][0]['handler']);
+        $this->assertSame('Não identificado no ERP', $o['attending'][0]['who']);
+        $this->assertNotNull($o['attending'][0]['since']);
+        $this->assertSame([], $this->q()->overview($this->agent(2, 'Financeiro'))['attending'], 'o Financeiro não vê o atendimento da Manutenção');
     }
 }

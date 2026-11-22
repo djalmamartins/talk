@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0] — 2026-11-22
+Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.
+### Adicionado
+- **Distribuição automática** (`AUTO_ASSIGN=on`, padrão): quando só uma pessoa está online para o setor (atendente
+  do setor ou supervisor), a conversa vai direto para ela, aparece no sino e fica uma nota interna. Quem mandou a
+  conversa para a fila de propósito não a recebe de volta. Quem entra depois pega a fila parada.
+- **Fila de atendimento**: mostra quem é a pessoa no ERP (vínculo, condomínio e unidade), o setor de destino, o
+  assunto, a espera e **com quem está** (atendente, Jack ou ninguém), com o último movimento ("Jack encaminhou para
+  Manutenção", "Distribuída para Ana"). Nova visão **Em atendimento**, com o tempo desde o aceite.
+- **A Jack conta o chamado** (`JACK_TICKET_NOTICE=on`, padrão): ao encaminhar, cumprimenta pela hora, diz o número
+  do chamado do SAC, a equipe, quem já está com a conversa e o link de acompanhamento, com três variações de texto.
+- **Consulta pelo número**: o cliente manda o número do chamado (ou o protocolo do Talk) no WhatsApp e a Jack
+  responde a situação, a última resposta da equipe e o link. Só mostra chamados do mesmo contato; a consulta não
+  entra na fila de ninguém.
+- O chamado no SAC leva contato, condomínio e unidade, setor, início e a conversa até ali (últimas 40 mensagens).
+- `talk_conversations.helpdesk_url` (migração 023) e o link "acompanhar" no painel do contato.
+### Alterado
+- "Help Desk" virou **SAC** nas telas e mensagens. O erro de "SAC não ligado" explica o que configurar.
+- Aba **Meus**: mostra também as conversas na fila que a pessoa pode atender.
+### Corrigido
+- Conversa encaminhada para um setor não aparecia para o supervisor em Meus nem em Em atendimento.
+- `bin/seed-lab.php` num laboratório novo: a migração 021 criava a Jack com o id 1, o mesmo do supervisor.
+
 ## [1.0.0] — 2026-11-18
 Fecha o primeiro roteiro (S1 a S8 e U1 a U6). O Talk fica separado do ERP, instalado num Raspberry Pi no escritório,
 e busca os dados do ERP pela API (ADR 0005).

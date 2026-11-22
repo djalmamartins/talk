@@ -22,7 +22,7 @@ final class JackGeneralTest extends DbTestCase
         parent::setUp();
         $this->general = $this->db->insert('talk_sectors', ['name' => 'Geral', 'jack_key' => 'geral', 'menu_key' => '0']);
         $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(),
-            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto', generalSeconds: 60));
+            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto', generalSeconds: 60, announceTickets: false));
     }
 
     private function outs(int $convId): int

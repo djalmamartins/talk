@@ -54,7 +54,7 @@ final class Notifications
         // transferidas para a pessoa, ou para a fila de um setor dela, por outra pessoa
         $mine = array_map('intval', $u->sectors());
         $t = $this->db->all(
-            "SELECT c.id, c.protocol, ct.name AS contact, ct.phone, s.name AS sector, c.status, u.name AS by_name
+            "SELECT c.id, c.protocol, ct.name AS contact, ct.phone, s.name AS sector, c.status, u.name AS by_name, COALESCE(u.is_bot, 0) AS by_bot
                FROM talk_conversations c
                JOIN talk_contacts ct ON ct.id = c.contact_id
                LEFT JOIN talk_sectors s ON s.id = c.sector_id
@@ -68,8 +68,9 @@ final class Notifications
         foreach ($t as $r) {
             $who = $r['contact'] ?: $r['phone'];
             $items[] = ['kind' => 'transfer', 'count' => 1, 'href' => '/?c=' . (int) $r['id'],
-                'title' => $r['status'] === 'open' ? "Conversa transferida para você: $who" : "Conversa transferida para {$r['sector']}: $who",
-                'text' => 'Protocolo ' . $r['protocol'] . ($r['by_name'] ? ', por ' . $r['by_name'] : '') . '.'];
+                // a Jack entregou porque a pessoa era a única online (distribuição automática)
+                'title' => $r['status'] === 'open' ? ((int) $r['by_bot'] === 1 ? "Conversa nova para você: $who" : "Conversa transferida para você: $who") : "Conversa transferida para {$r['sector']}: $who",
+                'text' => 'Protocolo ' . $r['protocol'] . ((int) $r['by_bot'] === 1 ? ', distribuída pela Jack (você era a única pessoa online).' : ($r['by_name'] ? ', por ' . $r['by_name'] . '.' : '.'))];
         }
 
         $m = $this->db->one(

@@ -25,7 +25,7 @@ final class JackStaffTest extends DbTestCase
         parent::setUp();
         $this->jackId = (int) $this->db->one('SELECT id FROM talk_users WHERE is_bot = 1')['id']; // criada pela migration 021
         $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(),
-            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto'));
+            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto', announceTickets: false));
     }
 
     public function test_migration_cria_a_jack_sem_senha_valida(): void

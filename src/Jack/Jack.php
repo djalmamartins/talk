@@ -9,8 +9,9 @@ use ConnectTalk\Support\Db;
  * Jack (Jaqueline): faz a triagem de toda conversa nova, sem menu de números.
  *  - Assunto claro na mensagem → vai para a fila do setor na hora (sem esperar).
  *  - Assunto ainda não claro → espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
- *  - Assunto claro → abre o chamado no setor certo, EM SILÊNCIO (ADR 0004: direcionar não gera
- *    mensagem ao cliente). Quem fala com a pessoa é o atendente do setor.
+ *  - Assunto claro → abre o chamado no setor certo e conta ao cliente o número e o link de
+ *    acompanhamento, com um texto aprovado (ADR 0004, revisão de 22/11/2026). O resto é com o atendente.
+ *  - Cliente manda o número do chamado → ela responde como ele está.
  *  - Só cumprimentou ("bom dia") → não responde; espera a pessoa dizer o assunto.
  *  - Falou algo que ela não reconhece, ou passou $maxWaitSeconds → setor padrão (Administrativo).
  *  - mode "off": sem triagem; tudo cai direto no setor padrão.
@@ -30,6 +31,7 @@ final class Jack
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
         private int $generalSeconds = 60,
+        private bool $announceTickets = true,
     ) {
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
@@ -48,6 +50,12 @@ final class Jack
     public function mode(): string
     {
         return $this->mode;
+    }
+
+    /** Ela avisa o cliente quando abre o chamado (número e link)? JACK_TICKET_NOTICE=off volta a encaminhar calada. */
+    public function announcesTickets(): bool
+    {
+        return $this->mode !== 'off' && $this->announceTickets;
     }
 
     /** Quanto tempo ela "digita" antes de mandar: base + o tamanho do texto, até 90 s. */

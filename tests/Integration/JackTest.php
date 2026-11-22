@@ -23,7 +23,7 @@ final class JackTest extends DbTestCase
 
     private function withJack(string $mode): void
     {
-        $this->jack = new Jack($this->db, mode: $mode);
+        $this->jack = new Jack($this->db, mode: $mode, announceTickets: false);
         $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(), new NullHelpdesk(), new Texts(), $this->jack);
     }
 

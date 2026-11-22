@@ -5,7 +5,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const SECTOR_COLORS = ['#12804A', '#2F6FDE', '#C9A227', '#7A3EC8', '#C2410C', '#0E7490'];
 const PRIO = { high: 'Alta prioridade', normal: 'Prioridade normal', low: 'Baixa prioridade' };
 const PRIO_RANK = { high: 0, normal: 1, low: 2 };
-const state = { data: null, sector: '', order: 'oldest', search: '', loadedAt: 0, tags: [], menuFor: null };
+const state = { data: null, sector: '', order: 'oldest', search: '', loadedAt: 0, tags: [], menuFor: null, view: 'waiting' };
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json', 'X-CSRF': csrf }, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -21,6 +21,16 @@ const initials = (n) => (n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[
 const fmtPhone = (p) => { const m = String(p).match(/^55(\d{2})(\d{4,5})(\d{4})$/); return m ? `(${m[1]}) ${m[2]}-${m[3]}` : p; };
 const elapsed = () => (Date.now() - state.loadedAt) / 1000; // o relógio anda entre uma atualização e outra
 const level = (s) => { const t = state.data.thresholds; return s >= t.late_minutes * 60 ? 'late' : s >= t.warn_minutes * 60 ? 'warn' : 'ok'; };
+const sinceSeconds = (t) => (t ? (Date.now() - new Date(t.replace(' ', 'T') + '-03:00').getTime()) / 1000 : 0);
+// "Com quem está": Jack (no Geral), o atendente ou ninguém, e por onde a conversa passou por último
+function handlerCell(w) {
+  const h = w.handler;
+  const who = h.kind === 'agent' ? `<span class="hd agent"><span class="avatar xs">${esc(initials(h.name))}</span>${esc(h.name)}</span>`
+    : h.kind === 'jack' ? '<span class="hd jack"><span class="avatar xs">J</span>Jack</span>'
+    : '<span class="hd none">Aguardando atendente</span>';
+  const move = w.last_move ? `<small class="move" title="${esc(w.last_move.text)}">${esc(w.last_move.text)} · ${hhmm(w.last_move.at)}</small>` : '';
+  return who + move;
+}
 const sectorColor = (id) => SECTOR_COLORS[state.data.distribution.findIndex((d) => d.sector_id == id) % SECTOR_COLORS.length] || '#5F6B66';
 
 async function load() {
@@ -30,9 +40,10 @@ async function load() {
 }
 
 function rows() {
-  let list = state.data.waiting.filter((w) => !state.sector || w.sector_id == state.sector);
+  const src = state.view === 'attending' ? (state.data.attending || []) : state.data.waiting;
+  let list = src.filter((w) => !state.sector || w.sector_id == state.sector);
   const q = state.search.toLowerCase();
-  if (q) list = list.filter((w) => `${w.contact_name} ${w.phone} ${w.subject} ${w.protocol}`.toLowerCase().includes(q));
+  if (q) list = list.filter((w) => `${w.contact_name} ${w.phone} ${w.subject} ${w.protocol} ${w.ticket} ${w.who} ${w.handler?.name || ''}`.toLowerCase().includes(q));
   if (state.order === 'priority') list = [...list].sort((a, b) => PRIO_RANK[a.priority] - PRIO_RANK[b.priority] || b.wait_seconds - a.wait_seconds);
   if (state.order === 'newest') list = [...list].reverse();
   return list;
@@ -55,22 +66,32 @@ function render() {
   $('#q-tabs').innerHTML = tabs.map((t) => `<button type="button" role="tab" aria-selected="${state.sector == t.id}" data-sector="${t.id}" class="${state.sector == t.id ? 'active' : ''}">${t.id !== '' ? `<i class="dot" style="--c:${esc(t.c || '#6a756f')}"></i>` : ''}${esc(t.name)}<span class="n${t.n ? ' has' : ''}">${t.n}</span></button>`).join('');
 
   const list = rows();
+  const attending = state.view === 'attending';
+  const nAtt = (d.attending || []).length;
+  $('#v-waiting').textContent = s.waiting || ''; $('#v-attending').textContent = nAtt || '';
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
+  $('#h-wait').textContent = attending ? 'Em atendimento há' : 'Tempo de espera';
+  $('#q-rows').closest('table').classList.toggle('attending', attending); // sem posição em atendimento
   const tagName = (id) => state.tags.find((t) => t.id == id);
   $('#q-rows').innerHTML = list.map((w) => {
-    const wait = w.wait_seconds + (w.paused ? 0 : elapsed());
+    const wait = attending ? 0 : w.wait_seconds + (w.paused ? 0 : elapsed());
     const tags = (w.tag_ids || '').split(',').filter(Boolean).map(tagName).filter(Boolean)
       .map((t) => `<span class="chip" style="--c:${esc(t.color)}">${esc(t.name)}</span>`).join('');
+    const timeCell = attending
+      ? `<b class="wait ok" data-since="${esc(w.since || '')}">${mmss(sinceSeconds(w.since))}</b><small class="since">desde ${hhmm(w.since)}</small>`
+      : `<b class="wait ${level(wait)}"${w.paused ? '' : ` data-wait="${w.wait_seconds}"`}>${mmss(wait)}</b>${w.paused ? '<small class="paused" title="Fora do horário do setor a espera não conta">⏸ fora do horário</small>' : ''}<small class="prio prio-${w.priority}">${PRIO[w.priority]}</small><small class="since">na fila desde ${hhmm(w.queued_at)}</small>`;
     return `<tr data-id="${w.id}">
-      <td><span class="pos">${w.position}</span></td>
+      <td>${attending ? '<span class="pos off">—</span>' : `<span class="pos">${w.position}</span>`}</td>
       <td><div class="who"><span class="avatar sm" style="background:${sectorColor(w.sector_id)}">${esc(initials(w.contact_name || w.phone))}</span>
-        <div><b>${esc(w.contact_name || fmtPhone(w.phone))}</b><small>${esc(fmtPhone(w.phone))}</small>${tags ? `<div class="chips">${tags}</div>` : ''}</div></div></td>
-      <td><span class="sec"><i style="background:${sectorColor(w.sector_id)}"></i>${esc(w.sector_name || '—')}</span></td>
-      <td class="subj"><b>${esc(w.protocol)}</b><small>${esc(w.subject || '—')}</small></td>
-      <td><b class="wait ${level(wait)}"${w.paused ? '' : ` data-wait="${w.wait_seconds}"`}>${mmss(wait)}</b>${w.paused ? '<small class="paused" title="Fora do horário do setor a espera não conta">⏸ fora do horário</small>' : ''}<small class="prio prio-${w.priority}">${PRIO[w.priority]}</small><small class="since">na fila desde ${hhmm(w.queued_at)}</small></td>
-      <td class="r"><button type="button" class="ghost sm" data-accept="${w.id}">Atender</button><button type="button" class="dots" data-menu="${w.id}" aria-label="Mais ações">⋮</button></td>
+        <div><b>${esc(w.contact_name || fmtPhone(w.phone))}</b><small>${esc(fmtPhone(w.phone))}</small><small class="${w.identified ? 'erp' : 'erp none'}">${esc(w.who)}</small>${tags ? `<div class="chips">${tags}</div>` : ''}</div></div></td>
+      <td><span class="sec"><i style="background:${sectorColor(w.sector_id)}"></i>${esc(w.sector_name || '—')}</span>${w.handler.kind === 'jack' ? '<small class="since">a Jack vai encaminhar</small>' : ''}</td>
+      <td class="subj"><b>${esc(w.ticket)}</b><small>${esc(w.ticket_subject || w.subject || '—')}</small></td>
+      <td>${timeCell}</td>
+      <td class="handler">${handlerCell(w)}</td>
+      <td class="r">${attending ? `<button type="button" class="ghost sm" data-open-id="${w.id}">Abrir</button>` : `<button type="button" class="ghost sm" data-accept="${w.id}">Atender</button><button type="button" class="dots" data-menu="${w.id}" aria-label="Mais ações">⋮</button>`}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" class="empty-row">${s.waiting ? 'Ninguém com esse filtro.' : 'Ninguém esperando. 🎉'}</td></tr>`;
-  $('#q-foot').textContent = `Mostrando ${list.length} de ${s.waiting} na fila`;
+  }).join('') || `<tr><td colspan="7" class="empty-row">${attending ? (nAtt ? 'Ninguém com esse filtro.' : 'Nenhuma conversa em atendimento agora.') : (s.waiting ? 'Ninguém com esse filtro.' : 'Ninguém esperando. 🎉')}</td></tr>`;
+  $('#q-foot').textContent = attending ? `Mostrando ${list.length} de ${nAtt} em atendimento` : `Mostrando ${list.length} de ${s.waiting} na fila`;
 
   // distribuição (rosca)
   const total = d.distribution.reduce((a, x) => a + x.waiting, 0);
@@ -103,6 +124,7 @@ setInterval(() => {
   document.querySelectorAll('.wait[data-wait]').forEach((el) => {
     const s = Number(el.dataset.wait) + elapsed(); el.textContent = mmss(s); el.className = `wait ${level(s)}`;
   });
+  document.querySelectorAll('.wait[data-since]').forEach((el) => { el.textContent = mmss(sinceSeconds(el.dataset.since)); });
   const s = state.data.stats;
   if (s.waiting && s.ticking) {
     $('#k-avg').textContent = mmss(s.avg_wait_seconds + elapsed());
@@ -114,6 +136,10 @@ setInterval(() => load().catch(() => {}), 30000); // presença e números do dia
 document.addEventListener('click', async (e) => {
   const tab = e.target.closest('[data-sector]');
   if (tab) { state.sector = tab.dataset.sector; render(); return; }
+  const view = e.target.closest('[data-view]');
+  if (view) { state.view = view.dataset.view; render(); return; }
+  const openId = e.target.dataset.openId;
+  if (openId) { location.href = `/?c=${openId}`; return; }
   if (e.target.closest('#q-refresh')) { load(); return; }
   const acc = e.target.dataset.accept;
   if (acc) {

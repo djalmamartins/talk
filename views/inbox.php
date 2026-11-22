@@ -91,8 +91,8 @@
 </dialog>
 <dialog id="ticket-dialog">
   <form method="dialog" id="ticket-form">
-    <h3>Abrir chamado no Help Desk</h3>
-    <p class="meta">O chamado cai no Help Desk do Connect ERP, na área do setor desta conversa, com o nome e o telefone do cliente.</p>
+    <h3>Abrir chamado no SAC</h3>
+    <p class="meta">O chamado cai no SAC do Connect ERP, na área do setor desta conversa, com o nome, o telefone, o condomínio e a conversa até agora.</p>
     <label>Assunto<input id="ticket-subject" maxlength="200" required></label>
     <label>Descrição<textarea id="ticket-desc" rows="5" maxlength="5000"></textarea></label>
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Abrir chamado</button></menu>

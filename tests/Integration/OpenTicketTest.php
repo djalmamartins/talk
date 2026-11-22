@@ -23,6 +23,7 @@ final class OpenTicketTest extends DbTestCase
             }
             public function transfer(int $t, string $s, int $u, ?string $n): void {}
             public function close(int $t, int $u, ?string $r): void {}
+            public function status(int $t): ?array { return null; }
         };
     }
 

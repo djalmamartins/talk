@@ -174,3 +174,11 @@ e não é editada nem desativada pela tela; liga e desliga com `JACK_MODE`. É o
 a 2ª via, ela avisa que vai olhar, busca o boleto no ERP, envia linha digitável/Pix e link e lembra
 que dá para achar pelo aplicativo, sempre com textos aprovados e as travas da seção "Boleto só com
 identificação inequívoca".
+
+## Atualização 22/11/2026 — a Jack conta o chamado (pedido do Djalma)
+
+Muda a regra "calada" só neste caso: ao encaminhar, a Jack manda uma mensagem natural com cumprimento, número do
+chamado do SAC, equipe, quem já está com a conversa e o link de acompanhamento (ADR 0636 do ERP). Os textos
+são aprovados e variam entre três modelos (`Texts::jackTicketOpened`). Quando o cliente manda só o número do
+chamado, ela responde a situação (`Texts::jackTicketStatus`), apenas para chamados do mesmo contato. Desliga com
+`JACK_TICKET_NOTICE=off`, voltando ao comportamento calado.

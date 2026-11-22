@@ -516,3 +516,23 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 /* 2ª via do boleto */
 .charges-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; min-width: min(460px, 80vw); }
 .charges-list .charge { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--line, #dfe5e2); border-radius: 8px; }
+/* Fila: na fila × em atendimento, quem é e com quem está (0.27.0) */
+.q-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.q-view{display:inline-flex;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.q-view button{border:0;background:none;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+.q-view button.active{background:#e3f1e8;color:var(--primary-dark);font-weight:600}
+.q-view b{font-size:11px;margin-left:4px}
+.pos.off{background:#eef1ef;color:var(--muted)}
+.who small.erp{color:var(--primary-dark)}.who small.erp.none{color:var(--muted);font-style:italic}
+.handler{min-width:150px}.handler .hd{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.handler .hd.none{color:#b45309;font-weight:500}.handler .hd.jack .avatar{background:#7A3EC8;color:#fff}
+.avatar.xs{width:20px;height:20px;font-size:10px;display:inline-grid;place-items:center;border-radius:50%;background:var(--ink);color:var(--accent)}
+.handler .move{display:block;color:var(--muted);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.items li.group{display:block;cursor:default;background:#f4f6f5;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:6px 12px}
+.items li.queued{border-left:3px solid #C9A227}
+.q-table .who small.erp{white-space:normal;max-width:180px;line-height:1.3}
+.q-table .subj{max-width:180px}
+.handler .move{white-space:normal;max-width:190px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.q-table .who small.erp{max-width:150px}
+.q-table table.attending th:first-child,.q-table table.attending td:first-child{display:none}
+.q-table table.attending th:nth-child(2),.q-table table.attending td:nth-child(2){padding-left:18px}

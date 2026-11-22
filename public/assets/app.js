@@ -36,15 +36,19 @@ const sectorName = (id) => state.sectors.find((s) => s.id == id)?.name || '—';
 async function loadList() {
   if (state.search) return runSearch();
   searchBar();
-  const rows = await api(`/api/conversations?tab=${state.tab}&sector=${state.sector}&tag=${state.tagFilter || ''}`);
-  $('#conversations').innerHTML = rows.map((c) => `
-    <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}">
+  const q = `&sector=${state.sector}&tag=${state.tagFilter || ''}`;
+  // "Meus" mostra em cima quem espera na fila dos seus setores (supervisor: de todos), para ninguém ficar sem ver
+  const [rows, waiting] = await Promise.all([api(`/api/conversations?tab=${state.tab}${q}`), state.tab === 'mine' ? api(`/api/conversations?tab=pending${q}`) : []]);
+  const item = (c) => `
+    <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}${c.status === 'pending' ? ' queued' : ''}">
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
       <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
       <span class="last">${c.status === 'open' && c.stage ? `<span class="stage st-${c.stage}">${c.stage === 'waiting_customer' ? 'Aguardando cliente' : 'Aguardando retorno'}</span> ` : ''}${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
-    </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
+    </li>`;
+  const queued = waiting.length ? `<li class="group">Na fila, esperando alguém atender (${waiting.length})</li>${waiting.map(item).join('')}<li class="group">Meus atendimentos</li>` : '';
+  $('#conversations').innerHTML = queued + (rows.map(item).join('') || '<li class="meta">Nada por aqui.</li>');
 }
 
 function searchBar() {
@@ -75,7 +79,7 @@ async function openConversation(id) {
   if (can_act && c.status !== 'bot') actions.push(statusSelect(c));
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
-  if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no Help Desk do Connect ERP">Abrir chamado</button>');
+  if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no SAC do Connect ERP">Abrir chamado</button>');
   if (can_act && (c.status === 'open' || c.status === 'pending') && contact.erp_person_id) actions.push('<button data-act="charges" title="Boletos em aberto do morador no Connect ERP">2ª via</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
   if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
@@ -167,7 +171,7 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b></dd>` : ''}<dt>Protocolo</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
+      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b>${c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}</dd>` : ''}<dt>Protocolo</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
     <section><h4>Protocolos desta pessoa</h4><div id="cp-hist-box">${histHtml(panel)}</div></section>
@@ -387,7 +391,7 @@ $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;
   try {
     const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value } });
-    toast(`Chamado ${c.helpdesk_protocol || c.protocol} aberto no Help Desk.`);
+    toast(`Chamado ${c.helpdesk_protocol || c.protocol} aberto no SAC.`);
     await openConversation(state.current); loadList();
   } catch (err) { toast(err.message); }
 });

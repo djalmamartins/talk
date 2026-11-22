@@ -109,6 +109,11 @@ O `protocol` devolvido é o número do chamado no Help Desk (no ERP, `CH` + data
 `talk_conversations.helpdesk_protocol` e é ele que o cliente vê nas mensagens (fora do horário, encerramento).
 Sem `protocol` na resposta, o cliente vê o protocolo do Talk.
 
+Desde 22/11/2026 (ADR 0636 do ERP) a resposta traz também `tracking_url`, o link público de acompanhamento
+(`/suporte/chamado/{protocolo}?c={código}`), que o Talk guarda em `helpdesk_url` e a Jack manda ao cliente. Para
+responder "como está o chamado", o Talk lê `GET /api/v1/talk/tickets/{id}` (situação, mensagens públicas e
+`tracking_url`).
+
 ## 4. Transferir — `POST /api/v1/talk/tickets/{id}/transfer`
 
 ```json

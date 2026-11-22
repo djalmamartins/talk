@@ -57,7 +57,7 @@ final class ErpApiTest extends TestCase
         $hd->transfer(500, 'Financeiro', 2, 'cobrança do reparo');
         $hd->close(500, 2, 'resolvido');
 
-        $this->assertSame(['id' => 500, 'protocol' => 'TK2611140001'], $id);
+        $this->assertSame(['id' => 500, 'protocol' => 'TK2611140001', 'url' => null], $id);
         [$open, $tr, $cl] = $this->http->calls;
         $this->assertSame('https://erp.connect.lab/api/talk/tickets', $open['url']);
         $this->assertSame('20261114-00001', $open['body']['talk_protocol']);
@@ -70,6 +70,40 @@ final class ErpApiTest extends TestCase
         $this->assertSame('financial', $tr['body']['area']);
         $this->assertSame('https://erp.connect.lab/api/talk/tickets/500/close', $cl['url']);
         $this->assertSame('resolvido', $cl['body']['resolution']);
+    }
+
+    public function test_chamado_leva_quem_e_e_a_conversa_e_devolve_o_link(): void
+    {
+        $this->http->responses[] = ['status' => 201, 'body' => '{"data":{"id":501,"protocol":"CH2611220A0B","tracking_url":"https://erp.connect.lab/suporte/chamado/CH2611220A0B?c=ab12"}}'];
+        $hd = new HttpHelpdesk($this->api, 'https://talk.connect.com.br');
+        $t = $hd->open(['id' => 12, 'protocol' => 'SAC26112200001', 'opened_at' => '2026-11-22 09:05:00', 'transcript' => "[22/11 09:05] Cliente: o portão quebrou"],
+            ['erp_person_id' => '77', 'phone' => '5531999998888', 'name' => 'João', 'details' => ['condominio' => 'Res. Jardins', 'unidade' => 'Bloco A 101']], 'Manutenção');
+        $this->assertSame('https://erp.connect.lab/suporte/chamado/CH2611220A0B?c=ab12', $t['url']);
+        $msg = $this->http->calls[0]['body']['message'];
+        $this->assertStringContainsString('Contato: João (5531999998888)', $msg);
+        $this->assertStringContainsString('Condomínio: Res. Jardins, unidade Bloco A 101', $msg);
+        $this->assertStringContainsString('Setor no Talk: Manutenção', $msg);
+        $this->assertStringContainsString('Início da conversa: 22/11/2026 09:05', $msg);
+        $this->assertStringContainsString("Conversa até agora:\n[22/11 09:05] Cliente: o portão quebrou", $msg);
+
+        // link que não é http(s) não vai para o cliente
+        $this->http->responses[] = ['status' => 201, 'body' => '{"data":{"id":502,"protocol":"CH2611220A0C","tracking_url":"javascript:alert(1)"}}'];
+        $this->assertNull($hd->open(['id' => 13, 'protocol' => 'SAC26112200002'], ['erp_person_id' => null, 'phone' => '1', 'name' => ''], null)['url']);
+    }
+
+    public function test_situacao_do_chamado_com_a_ultima_resposta_da_equipe(): void
+    {
+        $this->http->responses[] = ['status' => 200, 'body' => json_encode(['data' => ['id' => 501, 'protocol' => 'CH2611220A0B', 'status' => 'in_progress',
+            'tracking_url' => 'https://erp.connect.lab/suporte/chamado/CH2611220A0B?c=ab12',
+            'messages' => [['from_talk' => true, 'created_at' => '2026-11-22 09:05:00'], ['from_talk' => false, 'created_at' => '2026-11-22 10:15:00'], ['from_talk' => true, 'created_at' => '2026-11-22 10:20:00']]]])];
+        $this->http->responses[] = ['status' => 404, 'body' => '{"error":{"code":"not_found"}}'];
+        $hd = new HttpHelpdesk($this->api, '');
+        $s = $hd->status(501);
+        $this->assertSame('GET', $this->http->calls[0]['method']);
+        $this->assertSame('https://erp.connect.lab/api/talk/tickets/501', $this->http->calls[0]['url']);
+        $this->assertSame(['status' => 'in_progress', 'label' => 'em atendimento', 'last_reply_at' => '2026-11-22 10:15:00',
+            'url' => 'https://erp.connect.lab/suporte/chamado/CH2611220A0B?c=ab12'], $s);
+        $this->assertNull($hd->status(999));
     }
 
     public function test_erro_do_erp_vira_excecao(): void

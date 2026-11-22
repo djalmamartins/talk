@@ -34,6 +34,7 @@ class ConversationService
         private ?MediaStore $media = null,
         private bool $askRating = true,
         private ?BusinessHours $hours = null,
+        private bool $autoAssign = true,
     ) {
     }
 
@@ -90,6 +91,21 @@ class ConversationService
                 'message_id' => $msgId, 'direction' => 'in', 'type' => $in->type, 'body' => $in->body,
             ]);
 
+            // O cliente mandou o número do chamado: a Jack conta como está (só chamados deste mesmo número)
+            if ($this->jack !== null && $this->jack->mode() !== 'off' && $in->type === 'text' && $conv['assigned_user_id'] === null
+                && ($code = self::ticketCode((string) $in->body)) !== null) {
+                $this->answerTicketStatus($conv, $contact, $code);
+                if ($isNew && self::onlyTicketCode((string) $in->body)) {
+                    // só a consulta: não entra na fila de ninguém
+                    $this->db->run(
+                        "UPDATE talk_conversations SET status = 'closed', jack_pending = 0, unread = 0, closed_at = NOW(), closed_by = ? WHERE id = ?",
+                        [$this->jack->userId(), $conv['id']]
+                    );
+                    $this->events->publish('conversation.updated', (int) $conv['id'], $this->sector($conv), null, $this->summary($this->get((int) $conv['id'])));
+                    return (int) $conv['id'];
+                }
+            }
+
             // Sem menu: a Jack lê em silêncio e encaminha depois que a pessoa termina de escrever (triage()).
             // Ela só fala quando perguntam se é robô, ou quando o assunto sai do que ela sabe.
             if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
@@ -103,7 +119,7 @@ class ConversationService
                     if (self::inTriage($conv)) {
                         $this->jack->record($conv, $talk['sector'], 'scope', null);
                         // o texto de "fora do escopo" já avisa a transferência
-                        $this->route($conv, $talk['sector'], $contact);
+                        $this->route($conv, $talk['sector'], $contact, 'jack');
                         $this->sayOffHours($conv, $talk['sector'], $contact);
                     }
                     return (int) $conv['id'];
@@ -259,7 +275,7 @@ class ConversationService
     public function triage(int $clockShift = 0): int
     {
         if ($this->jack === null) {
-            return 0;
+            return $this->autoAssignWaiting();
         }
         $rows = $this->db->all(
             "SELECT c.id,
@@ -318,16 +334,145 @@ class ConversationService
                 }
                 $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
                 $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
-                $this->route($conv, $d['sector'], $contact);
-                // ADR 0004: encaminhar é em silêncio. Só fora do horário a Jack avisa quando a equipe volta.
+                $this->route($conv, $d['sector'], $contact, 'jack');
+                // Fora do horário a Jack avisa quando a equipe volta (o texto já traz o número do chamado).
+                // No horário, ela conta que abriu o chamado, com o número e o link (ADR 0004, revisão de 22/11/2026).
+                $conv = $this->get((int) $conv['id']);
                 $off = $this->offHours($conv, $d['sector'], $first);
                 if ($off !== null) {
-                    $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
+                    $url = $conv['helpdesk_url'] ?? null;
+                    $this->jackSay($conv, $off . ($url ? "\n\n" . $this->texts->trackLink($url) : ''), 'off_hours');
+                } elseif ($this->jack->announcesTickets()) {
+                    $this->announceTicket($conv, $d['sector'], $first);
                 }
                 return true;
             });
         }
-        return $routed;
+        return $routed + $this->autoAssignWaiting();
+    }
+
+    /** "Bom dia, Maria! Já abri o chamado CH… com o Administrativo…" (Texts::jackTicketOpened). */
+    private function announceTicket(array $conv, array $sector, ?string $first): void
+    {
+        $who = null;
+        if ($conv['status'] === 'open' && $conv['assigned_user_id'] !== null) {
+            $name = (string) ($this->db->one('SELECT name FROM talk_users WHERE id = ?', [$conv['assigned_user_id']])['name'] ?? '');
+            $who = trim(explode(' ', trim((string) preg_replace('/\s*\(.*\)$/', '', $name)))[0]) ?: null;
+        }
+        $text = $this->texts->jackTicketOpened($first, self::ticketNumber($conv), (string) $sector['name'], $conv['helpdesk_url'] ?? null, $who, (int) $conv['id'], (int) date('G'));
+        $this->jackSay($conv, $text, 'jack_ticket');
+    }
+
+    // ------------------------------------------------------------------ consulta de chamado pelo WhatsApp
+
+    /** Número de chamado na mensagem: o do SAC (CH2611220A1B) ou o protocolo do Talk (SAC26112200004). */
+    public static function ticketCode(string $text): ?string
+    {
+        return preg_match('/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|SAC\d{11})(?![A-Z0-9])/i', $text, $m) ? strtoupper($m[1]) : null;
+    }
+
+    /** A mensagem é só a consulta ("CH2611220A1B", "status do chamado CH…?"), sem outro assunto. */
+    public static function onlyTicketCode(string $text): bool
+    {
+        $rest = (string) preg_replace('/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|SAC\d{11})(?![A-Z0-9])/i', ' ', $text);
+        $rest = \ConnectTalk\Jack\Classifier::normalize($rest);
+        $rest = (string) preg_replace('/\b(oi|ola|bom dia|boa tarde|boa noite|meu|minha|o|a|do|da|de|e|qual|como|esta|ta|status|situacao|andamento|chamado|protocolo|numero|n|no|por favor|pf|obrigad[oa])\b/u', ' ', $rest);
+        return trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', $rest)) === '';
+    }
+
+    /** Responde a situação do chamado; só acha chamado do mesmo contato (o número de WhatsApp é a identificação). */
+    private function answerTicketStatus(array $conv, array $contact, string $code): void
+    {
+        $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
+        $found = $this->db->one(
+            'SELECT c.*, s.name AS sector_name FROM talk_conversations c LEFT JOIN talk_sectors s ON s.id = c.sector_id
+              WHERE c.contact_id = ? AND (c.helpdesk_protocol = ? OR c.protocol = ? OR c.legacy_protocol = ?) ORDER BY c.id DESC LIMIT 1',
+            [$contact['id'], $code, $code, $code]
+        );
+        if ($found === null) {
+            $this->jackSay($conv, $this->texts->jackTicketNotFound($first, $code), 'jack_status');
+            $this->jackNote((int) $conv['id'], "Consulta do chamado $code: não é deste número de WhatsApp (nada foi mostrado).");
+            return;
+        }
+        $remote = $found['helpdesk_ticket_id'] ? $this->safeHelpdesk(fn () => $this->helpdesk->status((int) $found['helpdesk_ticket_id'])) : null;
+        if (is_array($remote)) {
+            $label = $remote['label'];
+            $url = $remote['url'] ?? $found['helpdesk_url'];
+            $lastReply = $remote['last_reply_at'];
+        } else {
+            $label = match ($found['status']) {
+                'closed' => 'encerrado',
+                'open' => 'em atendimento',
+                default => 'na fila, aguardando um atendente',
+            };
+            $url = $found['helpdesk_url'];
+            $lastReply = null;
+        }
+        $this->jackSay($conv, $this->texts->jackTicketStatus($first, self::ticketNumber($found), $label, $found['sector_name'], $lastReply, $url), 'jack_status');
+        $this->jackNote((int) $conv['id'], "Consulta do chamado $code pelo WhatsApp: a Jack respondeu \"$label\".");
+    }
+
+    private function jackNote(int $convId, string $text): void
+    {
+        $this->db->insert('talk_messages', [
+            'conversation_id' => $convId, 'direction' => 'internal', 'author_user_id' => $this->jack?->userId(),
+            'type' => 'note', 'body' => $text, 'ack' => 'received',
+        ]);
+    }
+
+    // ------------------------------------------------------------------ distribuição automática
+
+    /**
+     * Só uma pessoa online pode atender o setor: a conversa vai direto para ela, sem o cliente esperar
+     * na fila (pedido do Djalma em 22/11/2026). Online = Talk aberto no último minuto. Quem pôs a conversa
+     * na fila (transferência ou "Na fila") não a recebe de volta. Desliga com AUTO_ASSIGN=off.
+     */
+    private function autoAssign(array $conv): bool
+    {
+        if (!$this->autoAssign || $conv['status'] !== 'pending' || $conv['assigned_user_id'] !== null
+            || (int) ($conv['jack_pending'] ?? 0) === 1 || $conv['sector_id'] === null) {
+            return false;
+        }
+        $online = $this->db->all(
+            "SELECT DISTINCT u.id, u.name FROM talk_users u JOIN talk_staff s ON s.user_id = u.id
+              WHERE u.active = 1 AND u.is_bot = 0 AND u.last_seen_at >= NOW() - INTERVAL " . QueueQuery::ONLINE_SECONDS . " SECOND
+                AND (s.sector_id = ? OR s.role = 'supervisor')",
+            [$conv['sector_id']]
+        );
+        if (count($online) !== 1 || ($conv['transferred_by'] !== null && (int) $online[0]['id'] === (int) $conv['transferred_by'])) {
+            return false;
+        }
+        $to = $online[0];
+        $jackId = $this->jack?->userId();
+        $n = $this->db->run(
+            "UPDATE talk_conversations SET status = 'open', assigned_user_id = ?, accepted_at = COALESCE(accepted_at, NOW()),
+                    transfer_pending = 1, transferred_by = ? WHERE id = ? AND status = 'pending' AND assigned_user_id IS NULL",
+            [$to['id'], $jackId, $conv['id']]
+        )->rowCount();
+        if ($n === 0) {
+            return false;
+        }
+        $sector = $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]);
+        $this->db->insert('talk_messages', [
+            'conversation_id' => $conv['id'], 'direction' => 'internal', 'author_user_id' => $jackId, 'type' => 'transfer', 'ack' => 'received',
+            'body' => sprintf('Distribuída para %s (única pessoa online para %s).', $to['name'], $sector['name'] ?? 'o setor'),
+        ]);
+        $conv = $this->get((int) $conv['id']);
+        $this->events->publish('conversation.updated', (int) $conv['id'], $this->sector($conv), (int) $to['id'], $this->summary($conv));
+        return true;
+    }
+
+    /** Fila parada e alguém entrou: confere de novo quem está esperando (roda junto com a triagem). */
+    public function autoAssignWaiting(): int
+    {
+        if (!$this->autoAssign) {
+            return 0;
+        }
+        $n = 0;
+        foreach ($this->db->all("SELECT id FROM talk_conversations WHERE status = 'pending' AND assigned_user_id IS NULL AND jack_pending = 0 AND sector_id IS NOT NULL ORDER BY COALESCE(queued_at, opened_at) LIMIT 50") as $r) {
+            $n += (int) $this->db->transaction(fn (): bool => $this->autoAssign($this->lock((int) $r['id'])));
+        }
+        return $n;
     }
 
     /** Mensagem da Jaqueline: entra na fila com "digitando…" antes, como uma pessoa. */
@@ -342,7 +487,7 @@ class ConversationService
         if ($this->hours === null || !$this->hours->enabled()) {
             return null;
         }
-        $conv = $this->get((int) $conv['id']); // já com o número do chamado do Help Desk
+        $conv = $this->get((int) $conv['id']); // já com o número do chamado do SAC
         $text = $this->hours->offHoursMessage((int) $sector['id'], (string) $sector['name'], $first, self::ticketNumber($conv));
         if ($text === null) {
             return null;
@@ -387,10 +532,13 @@ class ConversationService
         if ($fixed) {
             return;
         }
-        $this->db->run(
+        $n = $this->db->run(
             "UPDATE talk_conversations SET sector_id = ?, status = 'pending', jack_pending = 1, queued_at = NOW() WHERE id = ? AND status = 'bot'",
             [$general['id'], $conv['id']]
-        );
+        )->rowCount();
+        if ($n > 0) {
+            $this->jackNote((int) $conv['id'], 'Jack assumiu a conversa no Geral e vai encaminhar para o setor certo.');
+        }
     }
 
     private function openTicketIfMissing(array $conv): void
@@ -402,8 +550,11 @@ class ConversationService
         $this->openTicket($conv, $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]), $sector['name'] ?? null);
     }
 
-    /** Coloca a conversa na fila do setor e abre o chamado. Não manda nada para o cliente. */
-    private function route(array $conv, array $sector, array $contact): void
+    /**
+     * Coloca a conversa na fila do setor, abre o chamado e, se só uma pessoa pode atender agora, entrega
+     * direto para ela. Não manda nada para o cliente. $by = 'jack' deixa marcado que foi a Jack.
+     */
+    private function route(array $conv, array $sector, array $contact, ?string $by = null): void
     {
         // vindo do Geral, a espera continua contando de quando a mensagem chegou
         $this->db->run(
@@ -413,7 +564,14 @@ class ConversationService
         $conv = $this->get((int) $conv['id']);
         $this->openTicket($conv, $contact, $sector['name']);
         $this->jack?->settle((int) $conv['id'], (int) $sector['id']);
+        if ($by === 'jack') {
+            $this->db->insert('talk_messages', [
+                'conversation_id' => $conv['id'], 'direction' => 'internal', 'author_user_id' => $this->jack?->userId(), 'type' => 'transfer', 'ack' => 'received',
+                'body' => 'Jack encaminhou para ' . $sector['name'] . '.',
+            ]);
+        }
         $this->events->publish('conversation.updated', (int) $conv['id'], (int) $sector['id'], null, $this->summary($this->get((int) $conv['id'])));
+        $this->autoAssign($this->get((int) $conv['id']));
     }
 
     /**
@@ -536,8 +694,8 @@ class ConversationService
                 $note = 'Atendimento reaberto.';
             } elseif ($status === 'pending') {
                 $this->db->run(
-                    "UPDATE talk_conversations SET status = 'pending', stage = NULL, assigned_user_id = NULL, queued_at = NOW() WHERE id = ?",
-                    [$convId]
+                    "UPDATE talk_conversations SET status = 'pending', stage = NULL, assigned_user_id = NULL, transferred_by = ?, queued_at = NOW() WHERE id = ?",
+                    [$u->userId, $convId]
                 );
                 $note = 'Status alterado para Na fila (voltou para a fila do setor).';
             } else {
@@ -692,6 +850,9 @@ class ConversationService
             // avisa o setor de origem (some da lista) e o de destino (aparece na fila)
             $this->events->publish('conversation.transferred', $convId, $fromSector, $u->userId, $this->summary($conv) + ['from_sector_id' => $fromSector]);
             $this->events->publish('conversation.updated', $convId, $toSectorId, $u->userId, $this->summary($conv));
+            if (!$toUser && $this->autoAssign($conv)) {
+                $conv = $this->get($convId);
+            }
             return $conv;
         });
     }
@@ -737,7 +898,7 @@ class ConversationService
     }
 
     /**
-     * Botão "Abrir chamado": abre na hora o chamado no Help Desk do ERP com o assunto e a descrição
+     * Botão "Abrir chamado": abre na hora o chamado no SAC do ERP com o assunto e a descrição
      * escritos pelo atendente. Diferente da abertura automática, aqui o erro aparece para a pessoa.
      */
     public function openTicketNow(int $convId, StaffMember $u, string $subject, string $description): array
@@ -761,20 +922,24 @@ class ConversationService
         $contact = $this->ticketContact($this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]));
         $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
         try {
-            $t = $this->helpdesk->open($conv + ['subject' => $subject, 'ticket_message' => $description], $contact, $sector['name'] ?? null);
+            $t = $this->helpdesk->open($conv + ['subject' => $subject, 'ticket_message' => $description, 'transcript' => $this->transcript($convId)], $contact, $sector['name'] ?? null);
         } catch (\Throwable $e) {
             error_log('[talk] abrir chamado: ' . $e->getMessage());
-            throw new DomainError('O Help Desk do ERP não respondeu. Tente de novo em instantes.', 502);
+            throw new DomainError('O SAC do ERP não respondeu. Tente de novo em instantes.', 502);
         }
         if (!is_array($t) || !isset($t['id'])) {
-            throw new DomainError('O Help Desk do ERP ainda não está ligado ao Talk (falta ERP_API_URL no .env).', 409);
+            throw new DomainError(
+                'O SAC do ERP ainda não está ligado ao Talk. O supervisor precisa preencher ERP_API_URL e ERP_API_TOKEN no .env do Talk '
+                . '(token criado no ERP em Integrações, com o escopo tickets.write) e conferir com php bin/erp-check.php.',
+                409
+            );
         }
         $this->db->run(
-            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, subject = ? WHERE id = ?',
-            [(int) $t['id'], $t['protocol'] ?? null, $subject, $convId]
+            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, helpdesk_url = ?, subject = ? WHERE id = ?',
+            [(int) $t['id'], $t['protocol'] ?? null, $t['url'] ?? null, $subject, $convId]
         );
         $conv = $this->get($convId);
-        $this->addNote($convId, $u, 'Chamado ' . self::ticketNumber($conv) . ' aberto no Help Desk: ' . $subject);
+        $this->addNote($convId, $u, 'Chamado ' . self::ticketNumber($conv) . ' aberto no SAC: ' . $subject);
         $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
         return $conv;
     }
@@ -807,17 +972,35 @@ class ConversationService
     // ------------------------------------------------------------------ apoio
 
     /** O ERP fora do ar não pode travar o atendimento: registra o erro e segue. */
-    /** Abre o chamado no Help Desk e guarda o id e o número dele (o número que o cliente vê). */
+    /** Abre o chamado no SAC e guarda o id e o número dele (o número que o cliente vê). */
     private function openTicket(array $conv, array $contact, ?string $sectorName): void
     {
         $contact = $this->ticketContact($contact);
-        $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv, $contact, $sectorName));
+        $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv + ['transcript' => $this->transcript((int) $conv['id'])], $contact, $sectorName));
         if (is_array($t) && isset($t['id'])) {
             $this->db->run(
-                'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ? WHERE id = ?',
-                [(int) $t['id'], $t['protocol'] ?? null, $conv['id']]
+                'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, helpdesk_url = ? WHERE id = ?',
+                [(int) $t['id'], $t['protocol'] ?? null, $t['url'] ?? null, $conv['id']]
             );
         }
+    }
+
+    /** O que o cliente e a equipe já disseram (sem notas internas), para o chamado no SAC. Até 40 mensagens. */
+    private function transcript(int $convId): string
+    {
+        $rows = array_reverse($this->db->all(
+            "SELECT m.direction, m.type, m.body, m.created_at, u.name AS author, u.is_bot
+               FROM talk_messages m LEFT JOIN talk_users u ON u.id = m.author_user_id
+              WHERE m.conversation_id = ? AND m.direction IN ('in','out') ORDER BY m.id DESC LIMIT 40",
+            [$convId]
+        ));
+        $kinds = ['image' => '[foto]', 'audio' => '[áudio]', 'video' => '[vídeo]', 'document' => '[documento]'];
+        return implode("\n", array_map(static function (array $m) use ($kinds): string {
+            $who = $m['direction'] === 'in' ? 'Cliente' : ((int) ($m['is_bot'] ?? 0) === 1 ? 'Jack' : ($m['author'] ? trim((string) preg_replace('/\s*\(.*\)$/', '', (string) $m['author'])) : 'Connect'));
+            $body = trim((string) $m['body']);
+            $body = $body !== '' ? $body : ($kinds[$m['type']] ?? '[arquivo]');
+            return '[' . date('d/m H:i', strtotime((string) $m['created_at'])) . "] $who: " . mb_substr(str_replace("\n", ' ', $body), 0, 500);
+        }, $rows));
     }
 
     private function inboundText(int $convId): string
@@ -837,7 +1020,7 @@ class ConversationService
         return $contact;
     }
 
-    /** Número do chamado para o cliente: o do Help Desk, quando houver; senão, o protocolo do Talk. */
+    /** Número do chamado para o cliente: o do SAC, quando houver; senão, o protocolo do Talk. */
     public static function ticketNumber(array $conv): string
     {
         return (string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']);
@@ -919,6 +1102,7 @@ class ConversationService
             'id' => (int) $conv['id'],
             'protocol' => $conv['protocol'],
             'ticket' => self::ticketNumber($conv),
+            'ticket_url' => $conv['helpdesk_url'] ?? null,
             'status' => $conv['status'],
             'stage' => $conv['stage'] ?? null,
             'sector_id' => $this->sector($conv),

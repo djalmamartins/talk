@@ -20,4 +20,9 @@ final class NullHelpdesk implements Helpdesk
     public function close(int $ticketId, int $byUserId, ?string $resolution): void
     {
     }
+
+    public function status(int $ticketId): ?array
+    {
+        return null;
+    }
 }

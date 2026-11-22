@@ -86,12 +86,14 @@ $jack = new Jack(
     (int) $env('JACK_MAX_WAIT_SECONDS', '30'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
     generalSeconds: (int) $env('JACK_GENERAL_SECONDS', '60'),   // tempo no setor Geral antes de ela distribuir
+    announceTickets: $env('JACK_TICKET_NOTICE', 'on') !== 'off', // avisa o número e o link do chamado ao cliente
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
 $hours = new \ConnectTalk\Service\BusinessHours($db);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
-    askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours);
+    askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours,
+    autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off'); // só uma pessoa online para o setor: a conversa vai direto para ela
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');
