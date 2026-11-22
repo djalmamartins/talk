@@ -161,4 +161,37 @@ final class JackMonitorTest extends DbTestCase
         $this->assertSame(2, $o['contagem']['all']);
         $this->assertNotNull($this->find($this->monitor()->overview($this->boss), $b));
     }
+
+    public function test_sugestao_fica_na_conversa_e_o_supervisor_marca_aplicada(): void
+    {
+        $this->db->run("INSERT INTO talk_users (id, name, email, password_hash) VALUES (10, 'Djalma (Supervisor)', 'sup@x', 'x'), (11, 'Gil Gerente', 'g@x', 'x')");
+        $this->boss = new StaffMember(10, true);
+        $id = $this->routed('a cerca elétrica desligou');
+        $m = $this->monitor();
+        $f = $m->suggest($this->boss, $id, 'ideia', 'Cerca elétrica é Manutenção.', $this->sectors['Manutenção']);
+        $this->assertSame('nova', $f['situacao']);
+        $this->assertSame('Manutenção', $f['setor_certo']);
+        $this->assertSame('Djalma', $f['autor']);
+        $this->assertSame([$f['id']], array_column($m->detail($this->boss, $id)['sugestoes'], 'id'));
+        $this->assertSame(1, $m->overview($this->boss)['sugestoes_novas']);
+
+        $this->assertSame('aplicada', $m->review($this->boss, $f['id'], 'aplicada')['situacao']);
+        $this->assertSame([], $m->suggestions($this->boss, 'nova'));
+        $this->assertCount(1, $m->suggestions($this->boss, 'aplicada'));
+
+        // gerente de outro setor não sugere nem marca; texto vazio é recusado
+        $finance = new StaffMember(11, false, [], [$this->sectors['Financeiro']]);
+        try {
+            $m->suggest($finance, $id, 'ideia', 'x');
+            $this->fail('gerente de outro setor sugeriu');
+        } catch (\DomainException) {
+        }
+        try {
+            $m->review($finance, $f['id'], 'descartada');
+            $this->fail('gerente marcou sugestão');
+        } catch (\DomainException) {
+        }
+        $this->expectException(\InvalidArgumentException::class);
+        $m->suggest($this->boss, $id, 'ideia', '   ');
+    }
 }

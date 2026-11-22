@@ -14,7 +14,15 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
   reconheceu (foi para o setor padrão) e setor que a equipe corrigiu depois.
 - API `GET /api/jack/service` e `GET /api/jack/service/{id}` (mesma regra de acesso). Gerente vê só o que passou
   pelos setores dele.
-- Só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas assinadas por ela). Sem migração.
+- **Lista de atendimentos**: cada linha é um atendimento da Jack; clicar abre uma janela com a ideia, o
+  procedimento, o que ela não fez e o passo a passo (pedido do Djalma às 11h07 de 22/11).
+- **Sugestões para a Jack melhorar**: na janela do atendimento, quem acompanha diz o que ela devia ter
+  entendido, respondido ou feito, e qual seria o setor certo. Aba **Sugestões** com Novas, Aplicadas e
+  Descartadas; só o supervisor marca. Tabela `talk_jack_feedback` (migração 024). API
+  `POST /api/jack/service/{id}/feedback`, `GET /api/jack/feedback` e `POST /api/jack/feedback/{id}/status`.
+- `docs/jack/IA.md`: plano para a Jack passar a usar IA (o que decidir, o que providenciar e a ordem).
+- O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
+  assinadas por ela).
 
 ## [1.1.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.

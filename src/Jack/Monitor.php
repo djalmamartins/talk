@@ -78,6 +78,8 @@ final class Monitor
             ],
             'contagem' => $counts,
             'conversas' => array_slice($list, 0, self::LIMIT),
+            'setores' => $this->db->all("SELECT id, name FROM talk_sectors WHERE active = 1 AND (jack_key IS NULL OR jack_key <> 'geral') ORDER BY name"),
+            'sugestoes_novas' => (int) ($this->db->one("SELECT COUNT(*) n FROM talk_jack_feedback WHERE status = 'nova'" . ($u->supervisor ? '' : ' AND author_user_id = ?'), $u->supervisor ? [] : [$u->userId])['n'] ?? 0),
             'limite' => self::LIMIT,
         ];
     }
@@ -144,7 +146,85 @@ final class Monitor
             unset($s['_k']);
             return $s;
         }, $steps);
-        return $summary + ['passos' => $steps];
+        return $summary + ['passos' => $steps, 'sugestoes' => $this->feedbackRows('f.conversation_id = ?', [$convId])];
+    }
+
+    // ------------------------------------------------------------------ sugestões para a Jack melhorar
+
+    public const FEEDBACK_KINDS = ['ideia' => 'O que ela entendeu', 'resposta' => 'A resposta dela', 'procedimento' => 'O que ela fez', 'outro' => 'Outra coisa'];
+
+    /**
+     * Sugestão sobre o atendimento de uma conversa. Quem pode ver a conversa nesta tela pode sugerir.
+     * @throws \InvalidArgumentException texto vazio/longo, tipo ou setor inválido; \DomainException conversa fora do alcance
+     */
+    public function suggest(StaffMember $u, int $convId, string $kind, string $text, ?int $expectedSectorId = null): array
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > 1000) {
+            throw new \InvalidArgumentException('Escreva a sugestão (até 1.000 caracteres).');
+        }
+        if (!isset(self::FEEDBACK_KINDS[$kind])) {
+            throw new \InvalidArgumentException('Tipo de sugestão inválido.');
+        }
+        if ($expectedSectorId !== null && !$this->db->one('SELECT id FROM talk_sectors WHERE id = ? AND active = 1', [$expectedSectorId])) {
+            throw new \InvalidArgumentException('Setor inválido.');
+        }
+        if ($this->touchedIds($u, '1970-01-01 00:00:00', '', $convId) === []) {
+            throw new \DomainException('Conversa não encontrada.');
+        }
+        $id = $this->db->insert('talk_jack_feedback', ['conversation_id' => $convId, 'author_user_id' => $u->userId, 'kind' => $kind,
+            'expected_sector_id' => $expectedSectorId, 'body' => $text]);
+        return $this->feedbackRows('f.id = ?', [$id])[0];
+    }
+
+    /** Sugestões (supervisor vê todas; gerente, as dele). $status: nova | aplicada | descartada | '' (todas). */
+    public function suggestions(StaffMember $u, string $status = 'nova'): array
+    {
+        $where = ['1 = 1'];
+        $args = [];
+        if (in_array($status, ['nova', 'aplicada', 'descartada'], true)) {
+            $where[] = 'f.status = ?';
+            $args[] = $status;
+        }
+        if (!$u->supervisor) {
+            $where[] = 'f.author_user_id = ?';
+            $args[] = $u->userId;
+        }
+        return $this->feedbackRows(implode(' AND ', $where), $args, 200);
+    }
+
+    /** Supervisor marca a sugestão como aplicada (virou regra ou texto) ou descartada. */
+    public function review(StaffMember $u, int $id, string $status): array
+    {
+        if (!$u->supervisor) {
+            throw new \DomainException('Só o supervisor marca as sugestões.');
+        }
+        if (!in_array($status, ['nova', 'aplicada', 'descartada'], true)) {
+            throw new \InvalidArgumentException('Situação inválida.');
+        }
+        $this->db->run('UPDATE talk_jack_feedback SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?', [$status, $u->userId, $id])->rowCount();
+        $row = $this->feedbackRows('f.id = ?', [$id])[0] ?? null;
+        if ($row === null) {
+            throw new \DomainException('Sugestão não encontrada.');
+        }
+        return $row;
+    }
+
+    private function feedbackRows(string $where, array $args, int $limit = 50): array
+    {
+        return array_map(static fn (array $r): array => [
+            'id' => (int) $r['id'], 'conversation_id' => $r['conversation_id'] !== null ? (int) $r['conversation_id'] : null,
+            'protocolo' => $r['protocol'], 'contato' => $r['contact'], 'tipo' => $r['kind'], 'tipo_rotulo' => self::FEEDBACK_KINDS[$r['kind']] ?? $r['kind'],
+            'setor_certo' => $r['sector_name'], 'texto' => $r['body'], 'situacao' => $r['status'],
+            'autor' => self::firstName($r['author']), 'quando' => $r['created_at'],
+        ], $this->db->all(
+            "SELECT f.*, u.name AS author, s.name AS sector_name, c.protocol, COALESCE(ct.name, ct.phone) AS contact
+               FROM talk_jack_feedback f JOIN talk_users u ON u.id = f.author_user_id
+               LEFT JOIN talk_sectors s ON s.id = f.expected_sector_id
+               LEFT JOIN talk_conversations c ON c.id = f.conversation_id LEFT JOIN talk_contacts ct ON ct.id = c.contact_id
+              WHERE $where ORDER BY f.id DESC LIMIT $limit",
+            $args
+        ));
     }
 
     // ------------------------------------------------------------------ montagem
