@@ -253,6 +253,18 @@ try {
         }
         $view('reports', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/servico') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $me = $app['staff']->find((int) $_SESSION['user_id']);
+        if (!$me->supervisor && !$me->managerSectors) {
+            header('Location: /');
+            exit;
+        }
+        $view('service', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/fila') {
         if (!$sessionOk()) {
             header('Location: /login');
@@ -338,6 +350,17 @@ try {
             }
             // gerente vê só o que passou pelos setores dele; supervisor vê tudo
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30))), $me->supervisor ? null : $me->managerSectors));
+        }
+        // Serviço da Jack: o que ela faz, o que não fez, respostas, ideia e procedimento (só leitura)
+        if ($path === '/api/jack/service' || preg_match('#^/api/jack/service/(\d+)$#', $path, $m)) {
+            if (!$me->supervisor && $me->managerSectors === []) {
+                $json(['error' => 'Só supervisor e gerentes acompanham o serviço da Jack.'], 403);
+            }
+            if ($path === '/api/jack/service') {
+                $json($app['jack_monitor']->overview($me, (int) ($_GET['days'] ?? 1), (string) ($_GET['filter'] ?? 'all'), mb_substr((string) ($_GET['q'] ?? ''), 0, 60)));
+            }
+            $d = $app['jack_monitor']->detail($me, (int) $m[1]);
+            $d === null ? $json(['error' => 'Conversa não encontrada.'], 404) : $json($d);
         }
         if ($path === '/api/contacts') {
             $json($app['contactbook']->list($me, $_GET));

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0] — 2026-11-22
+Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Jack.
+### Adicionado
+- **Serviço da Jack** (`/servico`, menu lateral, para supervisor e gerentes): o que a Jack está fazendo agora, o que
+  ela não fez ou deu problema, as respostas que mandou ao cliente (com a situação da entrega), a **ideia** (o que
+  ela entendeu e por quais palavras) e o **procedimento** (assumiu no Geral, encaminhou, abriu o chamado no SAC,
+  entregou para alguém, respondeu a situação do chamado). Filtros Hoje/7/30 dias, abas Tudo, Fazendo agora,
+  Não fez ou deu problema e Respostas enviadas, busca por protocolo, chamado ou contato, e o **passo a passo** de
+  cada conversa em linha do tempo. Atualiza sozinha a cada 15 s.
+- Problemas que a tela aponta: mensagem da Jack que falhou ou está presa na fila de envio, chamado que não abriu no
+  SAC (só com o ERP ligado), conversa parada com a Jack além do tempo (worker parado), assunto que ela não
+  reconheceu (foi para o setor padrão) e setor que a equipe corrigiu depois.
+- API `GET /api/jack/service` e `GET /api/jack/service/{id}` (mesma regra de acesso). Gerente vê só o que passou
+  pelos setores dele.
+- Só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas assinadas por ela). Sem migração.
+
 ## [1.1.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.
 ### Adicionado

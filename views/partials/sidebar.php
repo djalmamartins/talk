@@ -1,5 +1,5 @@
 <?php
-/** Menu lateral comum. $active: 'inbox' | 'queue' | 'contacts' | 'channels' | 'team' | 'schedules' | 'campaigns' | 'reports' | 'settings'. Fora da caixa de entrada, os diálogos abrem nela. */
+/** Menu lateral comum. $active: 'inbox' | 'queue' | 'contacts' | 'channels' | 'team' | 'schedules' | 'campaigns' | 'reports' | 'service' | 'settings'. Fora da caixa de entrada, os diálogos abrem nela. */
 $active ??= 'inbox';
 $onInbox = $active === 'inbox';
 $initials = mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), array_slice(preg_split('/\s+/', trim(preg_replace('/\(.*\)/', '', $userName))), 0, 2))));
@@ -24,6 +24,7 @@ $initials = mb_strtoupper(implode('', array_map(fn ($w) => mb_substr($w, 0, 1), 
   <a class="nav<?= $active === 'reports' ? ' active' : '' ?>" href="/painel"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Painel</a>
   <a class="nav<?= $active === 'schedules' ? ' active' : '' ?>" href="/agendamentos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v3l2 1"/></svg>Agendamentos <b id="badge-schedules"></b></a>
 <?php if (!empty($canBulk)): ?>
+  <a class="nav<?= $active === 'service' ? ' active' : '' ?>" href="/servico"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9.5 16.5h5M3 13v2M21 13v2"/></svg>Serviço da Jack</a>
   <a class="nav<?= $active === 'campaigns' ? ' active' : '' ?>" href="/envios"><svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2zM16 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/></svg>Envio em massa</a>
 <?php endif; ?>
   <a class="nav<?= $active === 'contacts' ? ' active' : '' ?>" href="/contatos"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Contatos</a>

@@ -89,6 +89,21 @@ final class Jack
         return ($ageSeconds >= $this->generalSeconds && $quietSeconds >= $this->waitSeconds) || $ageSeconds >= 2 * $this->generalSeconds;
     }
 
+    /** Só cumprimentou ("bom dia", "oi")? Então a Jack espera calada a pessoa contar o assunto. */
+    public function isOnlyGreeting(string $text): bool
+    {
+        return (bool) preg_match(self::GREETING, Classifier::normalize($text));
+    }
+
+    /**
+     * Passou deste tempo (segundos) com a Jack e ela ainda não distribuiu: tem algo parado
+     * (normalmente o worker). Tela Serviço da Jack.
+     */
+    public function overdueSeconds(): int
+    {
+        return max(2 * $this->generalSeconds, $this->maxWaitSeconds) + 120;
+    }
+
     /** A pessoa parou de escrever (ou já esperou demais)? */
     public function isDue(int $quietSeconds, int $ageSeconds): bool
     {
@@ -107,8 +122,7 @@ final class Jack
             $this->record($conv, $sector, $r['intent'], $r);
             return ['action' => 'route', 'sector' => $sector];
         }
-        $onlyGreeting = (bool) preg_match(self::GREETING, Classifier::normalize($text));
-        if ($onlyGreeting && $ageSeconds < $this->maxWaitSeconds) {
+        if ($this->isOnlyGreeting($text) && $ageSeconds < $this->maxWaitSeconds) {
             return null; // só cumprimentou: espera calada a pessoa contar o assunto
         }
         $fallback = $this->fallbackSector();

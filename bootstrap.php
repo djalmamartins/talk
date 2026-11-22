@@ -112,6 +112,7 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'jack_monitor' => new \ConnectTalk\Jack\Monitor($db, $jack, $helpdesk instanceof HttpHelpdesk), // tela Serviço da Jack
     'hours' => $hours,
     'reports' => new \ConnectTalk\Service\ReportService($db, $hours),
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),
