@@ -38,7 +38,8 @@ longos (CPF, telefone) antes de mandar o texto ao modelo.
 2. Na pasta do Talk: `tools/local/jack-ia-lab.sh`. Ele inicia o Ollama, baixa o `gemma3:1b`, mostra o
    placar regras x IA nas frases fixas (com o tempo) e pergunta se pode ligar o modo de teste no `.env`
    (`JACK_AI=shadow`).
-3. Mande mensagens pelo simulador e abra **Serviço da Jack**: cada atendimento mostra "IA em teste" (o que
+3. Mande mensagens pelo WhatsApp do lab ou pelo simulador de cliente
+   (`docker exec dev-apache php /var/www/html/talk/bin/simular.php "o elevador parou"`) e abra **Serviço da Jack**: cada atendimento mostra "IA em teste" (o que
    ela diria e se bate com onde a conversa ficou) e o topo mostra o placar do período.
 4. Para comparar outro modelo: `MODEL=qwen3:1.7b tools/local/jack-ia-lab.sh`.
 

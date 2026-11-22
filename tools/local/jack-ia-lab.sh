@@ -61,7 +61,8 @@ elif confirm "Ligar a IA em modo de teste (só registra, não decide) no .env do
     echo "JACK_AI_MODEL=$model"
     echo "JACK_AI_TIMEOUT=10"
   } >>"$envf"
-  echo "  Pronto. Mande mensagens pelo simulador e veja \"IA em teste\" na tela Serviço da Jack."
+  echo "  Pronto. Mande uma mensagem de teste (ex.: docker exec dev-apache php /var/www/html/talk/bin/simular.php \"o elevador parou\")"
+  echo "  e veja \"IA em teste\" na tela Serviço da Jack."
 else
   echo "  Nada alterado no .env."
 fi
