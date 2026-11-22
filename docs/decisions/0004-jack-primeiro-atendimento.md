@@ -155,6 +155,15 @@ perguntas. O Djalma decidiu: **na Jack V1 ela só encaminha, calada**, como est�
 Pergunta de desempate e conversa natural ficam para a Jack Completa. Continuam valendo só os três
 casos em que ela fala: apresentação quando perguntam se é robô, fora do escopo e aviso fora do horário.
 
+## Atualização 22/11/2026 — Jack só no horário de funcionamento (pedido do Djalma)
+
+- Com o controle de horário ligado, fora do horário geral e nos feriados a Jack fica desligada: não
+  distribui, não se apresenta, não responde "fora do escopo". A conversa espera (no Geral) e a pessoa
+  recebe uma vez o aviso de fora do horário, com o setor que o texto aponta.
+- Quando a empresa abre, ela distribui o que chegou durante a noite.
+- Plantão: assunto claro de um setor que está atendendo naquela hora (ex.: Manutenção 24 h), ou número
+  dedicado a esse setor, vai para ele mesmo fora do horário geral.
+
 ## Atualização 16/11/2026 — setor Geral e Jack como atendente (pedidos do Djalma)
 
 Substitui a "fila instantânea" da 0.20.1 quando o setor Geral existe:
