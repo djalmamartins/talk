@@ -23,9 +23,9 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
 - `docs/jack/IA.md`: plano para a Jack passar a usar IA (o que decidir, o que providenciar e a ordem).
 - **Jack com IA, etapa A** (decisão do Djalma, registrada na ADR 0004): a IA só vai entender o assunto; as
   respostas continuam sendo os textos aprovados.
-- **Cenários fixos de triagem** (IA1/JV1.2): 44 frases fictícias com o setor certo (`src/Jack/Scenarios.php`) e
-  o placar `php bin/jack-cenarios.php`, que também usa as sugestões com setor certo. Regras hoje: 36 de 44 (82%);
-  o teste trava abaixo de 80%.
+- **Placar regras x IA** (IA1): `php bin/jack-cenarios.php [--ia]` usa as mesmas frases fixas da 0.27.0
+  (`tests/Fixtures/jack/triagem.csv` e as 40 de conferência) mais as sugestões com setor certo da tela Serviço
+  da Jack. A comparação que vale é nas 40 de conferência: regras 60% exato e 77,5% no setor certo.
 - **IA local da Jack** (escolha do Djalma: Gemma 3 1B na própria máquina, primeiro no Mac): adaptador
   `src/Jack/AiClassifier.php` (formato OpenAI, Ollama ou llama-server), JSON fechado, dados pessoais mascarados,
   timeout e volta para as regras. `JACK_AI=off|shadow|on` (padrão off). Em sombra, a tela Serviço da Jack mostra
@@ -87,6 +87,23 @@ e busca os dados do ERP pela API (ADR 0005).
 ### Corrigido
 - Planilha do Painel: nenhuma célula vira fórmula no Excel (nome de contato como `=HYPERLINK(...)` ganha um
   apóstrofo). O mesmo achado veio da revisão de segurança do ERP.
+## [0.28.0] — 2026-11-22
+### Alterado
+- **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
+  (cadastro, síndico, regimento, convenção, mudança, ata, reserva, documentos, certidão, proposta) e
+  alguns do Financeiro e da Manutenção. Nas 105 frases de ajuste: de 70,5% para 99,0%. Nas 40 frases
+  de conferência (escritas depois, não usadas no ajuste): 60% de acerto exato e 77,5% no setor certo.
+  Nenhum erro grave nas duas.
+- Pergunta sobre o síndico agora vai em silêncio para o Administrativo (antes a Jack respondia "fora do
+  meu escopo" e transferia para o mesmo setor).
+
+## [0.27.0] — 2026-11-22
+### Adicionado
+- **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
+  frases fictícias no jeito do WhatsApp, cada uma com o setor certo. `php tools/jack-cenarios.php` mostra
+  o acerto por setor e lista os erros; o teste `JackScenariosTest` trava se aparecer erro grave ou se o
+  acerto cair. Primeira medição: 70,5% de acerto exato, 87,6% das conversas no setor certo, nenhum erro
+  grave; o Administrativo é o mais fraco (7 de 25).
 
 ## [0.26.0] — 2026-11-16
 ### Alterado

@@ -36,7 +36,7 @@ longos (CPF, telefone) antes de mandar o texto ao modelo.
 
 1. `brew install ollama` (ou o aplicativo do site ollama.com).
 2. Na pasta do Talk: `tools/local/jack-ia-lab.sh`. Ele inicia o Ollama, baixa o `gemma3:1b`, mostra o
-   placar dos 44 cenários (regras x IA, com o tempo) e pergunta se pode ligar o modo de teste no `.env`
+   placar regras x IA nas frases fixas (com o tempo) e pergunta se pode ligar o modo de teste no `.env`
    (`JACK_AI=shadow`).
 3. Mande mensagens pelo simulador e abra **Serviço da Jack**: cada atendimento mostra "IA em teste" (o que
    ela diria e se bate com onde a conversa ficou) e o topo mostra o placar do período.
@@ -47,12 +47,16 @@ longos (CPF, telefone) antes de mandar o texto ao modelo.
 1. Baixar o Gemma 3 1B em formato `.gguf` (Q4_K_M ou a versão QAT, ~1 GB; no Hugging Face é preciso aceitar
    a licença do Gemma) e salvar como `deploy/ia/modelo.gguf`.
 2. No `deploy/.env`: `COMPOSE_PROFILES=tunnel,ia` e `JACK_AI=shadow`. `docker compose up -d`.
-3. Rodar o placar lá dentro para medir o tempo real:
-   `docker compose exec app php bin/jack-cenarios.php --ia` (usa `JACK_AI_URL=http://jack-ia:8080`).
+3. Rodar o placar lá dentro para medir o tempo real (as frases ficam fora da imagem, então copie antes):
+   `docker compose cp ../tests/Fixtures/jack app:/tmp/jack` e
+   `docker compose exec app php bin/jack-cenarios.php --ia --frases=/tmp/jack` (usa `JACK_AI_URL=http://jack-ia:8080`).
 
 ## 3. Como funciona no código (opção A)
 
-1. **Cenários fixos** (`src/Jack/Scenarios.php`, 44 frases) e placar `php bin/jack-cenarios.php [--ia]`.
+1. **Frases fixas** da JV1.2 (`tests/Fixtures/jack/`): 105 de ajuste (`triagem.csv`) e 40 de conferência
+   (`triagem-conferencia.csv`, escritas depois e não usadas para afinar as regras). Placar regras x IA:
+   `php bin/jack-cenarios.php [--ia]` (também usa as sugestões com setor certo). A comparação que vale é a das 40
+   de conferência; contam acerto exato, setor certo e **erro grave** (mandou com certeza para o setor errado).
 2. **Adaptador** `src/Jack/AiClassifier.php`: chama `/v1/chat/completions` (formato da OpenAI, que o Ollama e
    o llama-server entendem), com instruções fixas (o servidor reaproveita o cache), temperatura 0 e resposta
    em JSON fechado: `{"intencao": boleto|financeiro|cotacao|administrativo|manutencao|nenhuma, "certeza":
@@ -81,15 +85,16 @@ O supervisor marca a sugestão como **aplicada** quando ela entra no código, ou
 | Etapa | Entrega | Depende de |
 |---|---|---|
 | IA0 | Sugestões na tela Serviço da Jack | feito (1.2.0) |
-| IA1 | Cenários fixos (JV1.2): 44 frases em `src/Jack/Scenarios.php`, placar em `php bin/jack-cenarios.php` (inclui as sugestões com setor certo). Regras hoje: 36 de 44 (82%) | feito (1.2.0) |
+| IA1 | Frases fixas (JV1.2, 0.27.0/0.28.0) e placar regras x IA em `php bin/jack-cenarios.php`. Regras nas 40 de conferência: 60% exato, 77,5% no setor certo, nenhum erro grave | feito |
 | IA2 | Adaptador da IA local e modo sombra (Mac: Ollama; Pi: serviço jack-ia) | feito no código (1.2.0); falta o teste no Mac |
 | IA3 | IA decidindo o setor, regras como reserva (`JACK_AI=on`) | IA2 melhor que as regras, medida no Pi |
 | IA4 | (se escolhido) rascunho de resposta com aprovação do atendente | decisão B ou C e revisão da ADR 0004 |
 
-## 6. Onde as regras erram hoje (cenários de 22/11/2026)
+## 6. Onde as regras erram hoje (frases de conferência, 22/11/2026)
 
-As regras ficam sem certeza em 8 das 44 frases, todas com uma palavra só de peso 2 (abaixo do mínimo 3):
-"paguei ontem e ainda aparece em aberto", "declaração de quitação de débitos", "vou fazer mudança",
-"atualizar meu cadastro", "regimento interno", "falar com o síndico", "quanto custa a administração" e
-"recebi uma advertência". Hoje essas conversas vão para o Administrativo (setor padrão), então as 2 de
-Financeiro caem no setor errado; as outras chegam ao setor certo, mas por sorte. É o primeiro alvo da IA em sombra.
+Depois do ajuste das palavras-chave (0.28.0), as regras acertam 24 das 40 frases de conferência (60%) e 77,5%
+chegam ao setor certo, sem erro grave. Os erros são todos "sem certeza": a conversa vai para o Administrativo
+(setor padrão), o que erra o setor das de Financeiro e Manutenção. Exemplos: "fiz o pix e nao baixou", "to devendo
+3 meses, tem como negociar?", "a grade da varanda soltou", "quebraram o vidro da portaria". É o primeiro alvo da IA
+em sombra. Para ligar (`JACK_AI=on`), a IA com as regras de reserva precisa ganhar nas 40 de conferência sem
+nenhum erro grave a mais.

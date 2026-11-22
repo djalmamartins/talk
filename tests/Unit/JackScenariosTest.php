@@ -6,32 +6,69 @@ namespace ConnectTalk\Tests\Unit;
 use ConnectTalk\Jack\Scenarios;
 use PHPUnit\Framework\TestCase;
 
-/** Cenários fixos de triagem (IA1): régua para as regras de hoje e para a IA depois. */
+/**
+ * JV1.2: as frases fixas de triagem. Trava se a Jack piorar.
+ * Ao melhorar o classificador, suba o mínimo abaixo para o novo resultado (php tools/jack-cenarios.php).
+ */
 final class JackScenariosTest extends TestCase
 {
-    /** Regras em 22/11/2026: 36 de 44 (82%). Subir quando melhorar; nunca baixar sem decidir. */
-    private const MINIMO_DAS_REGRAS = 0.80;
+    // frases de ajuste: 70,5% antes do ajuste de 22/11/2026, 99,0% depois
+    private const MIN_TAXA = 0.95;
+    private const MIN_NO_SETOR_CERTO = 0.95;
+    // frases de conferência (não usadas no ajuste): 60,0% exato e 77,5% no setor certo em 22/11/2026
+    private const MIN_CONFERENCIA = 0.55;
 
-    public function test_regras_acertam_pelo_menos_o_minimo_combinado(): void
+    private static function scenarios(): array
     {
-        $r = Scenarios::score(Scenarios::rules());
-        $detalhe = implode("\n", array_map(fn ($e) => sprintf('"%s": esperado %s, regras %s', $e['frase'], $e['esperado'] ?? 'sem certeza', $e['obtido'] ?? 'sem certeza'), $r['erros']));
-        $this->assertGreaterThanOrEqual(self::MINIMO_DAS_REGRAS, $r['taxa'], $detalhe);
+        return Scenarios::run(Scenarios::load(__DIR__ . '/../Fixtures/jack/triagem.csv'));
     }
 
-    public function test_cenarios_usam_so_setores_da_lista_fechada(): void
+    public function test_nenhum_erro_grave(): void
     {
-        foreach (Scenarios::CASES as [$text, $sector]) {
-            $this->assertContains($sector, [null, 'financeiro', 'administrativo', 'manutencao'], $text);
-        }
-        $this->assertGreaterThanOrEqual(40, count(Scenarios::CASES));
+        $graves = array_map(fn ($m) => "linha {$m['linha']}: \"{$m['frase']}\" era {$m['setor']}, foi {$m['jack']}", self::scenarios()['graves']);
+        $this->assertSame([], $graves, 'A Jack mandou com certeza para o setor errado');
     }
 
-    public function test_placar_conta_acertos_e_erros(): void
+    public function test_acerto_nao_cai(): void
     {
-        $r = Scenarios::score(fn (string $t) => 'financeiro', [['a', 'financeiro'], ['b', null]]);
-        $this->assertSame(1, $r['acertos']);
-        $this->assertSame(0.5, $r['taxa']);
-        $this->assertSame('b', $r['erros'][0]['frase']);
+        $r = self::scenarios();
+        $this->assertGreaterThanOrEqual(100, $r['total'], 'o arquivo de frases encolheu');
+        $this->assertGreaterThanOrEqual(self::MIN_TAXA, $r['taxa']);
+        $this->assertGreaterThanOrEqual(self::MIN_NO_SETOR_CERTO, $r['no_setor_certo']);
+    }
+
+    public function test_frases_de_conferencia_sem_erro_grave_e_sem_piorar(): void
+    {
+        $r = Scenarios::run(Scenarios::load(__DIR__ . '/../Fixtures/jack/triagem-conferencia.csv'));
+        $this->assertSame([], array_column($r['graves'], 'frase'), 'A Jack mandou com certeza para o setor errado');
+        $this->assertGreaterThanOrEqual(self::MIN_CONFERENCIA, $r['taxa']);
+        $this->assertSame(10, $r['por_setor']['padrao']['acertos']);
+    }
+
+    public function test_so_cumprimento_ou_pedido_vago_nunca_vai_com_certeza(): void
+    {
+        $this->assertSame(['total' => 20, 'acertos' => 20], self::scenarios()['por_setor']['padrao']);
+    }
+
+    public function test_setor_invalido_no_arquivo_e_recusado(): void
+    {
+        $f = tempnam(sys_get_temp_dir(), 'tri');
+        file_put_contents($f, "frase;setor\noi;juridico\n");
+        $this->expectException(\InvalidArgumentException::class);
+        Scenarios::load($f);
+    }
+
+    public function test_placar_de_outro_classificador_nas_mesmas_frases(): void
+    {
+        $rows = [['frase' => 'a', 'setor' => 'financeiro'], ['frase' => 'b', 'setor' => 'padrao'], ['frase' => 'c', 'setor' => 'administrativo']];
+        $r = Scenarios::score(fn (string $t) => $t === 'c' ? null : 'financeiro', $rows);
+        $this->assertSame([1, 0.333, 0.667, 1], [$r['acertos'], $r['taxa'], $r['no_setor_certo'], $r['graves']]);
+        $this->assertSame(['frase' => 'b', 'esperado' => 'padrao', 'obtido' => 'financeiro'], $r['erros'][0]);
+    }
+
+    public function test_regras_no_placar_batem_com_a_medicao_das_regras(): void
+    {
+        $rows = Scenarios::load(__DIR__ . '/../Fixtures/jack/triagem-conferencia.csv');
+        $this->assertSame(Scenarios::run($rows)['acertos'], Scenarios::score(Scenarios::rules(), $rows)['acertos']);
     }
 }

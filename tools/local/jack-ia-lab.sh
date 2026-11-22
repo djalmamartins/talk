@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # IA local da Jack no laboratório do Mac (docs/jack/IA.md): Ollama no próprio Mac, com o Gemma 3 1B.
-# 1) confere o Ollama e baixa o modelo; 2) mede a IA nos 44 cenários fixos; 3) se você quiser, liga a IA
+# 1) confere o Ollama e baixa o modelo; 2) mede a IA nas frases fixas (as 40 de conferência são as que valem); 3) se você quiser, liga a IA
 #    em modo de teste (JACK_AI=shadow) no .env do Talk: ela só registra o que faria, quem decide continuam
 #    sendo as regras. Não apaga nada; só acrescenta linhas ao .env, e pergunta antes.
 # Uso: tools/local/jack-ia-lab.sh            (MODEL=qwen3:1.7b tools/local/jack-ia-lab.sh para comparar)
@@ -33,7 +33,7 @@ echo "  Ollama no ar."
 echo "2/4 Modelo $model"
 ollama pull "$model"
 
-echo "3/4 Placar nos 44 cenários (regras x IA)"
+echo "3/4 Placar nas frases fixas (regras x IA)"
 # PHP do Mac, se tiver; senão o PHP do container do lab (que alcança o Mac por host.docker.internal)
 if command -v php >/dev/null; then
   JACK_AI_URL=http://localhost:11434 JACK_AI_MODEL="$model" php "$project/bin/jack-cenarios.php" --sem-banco --ia
