@@ -188,7 +188,7 @@ final class LoadTest
     /** Triagem como se o cliente tivesse parado de escrever há 10 min; confere e encerra cada atendimento. @param list<int> $ids */
     private function settle(array $ids): void
     {
-        $this->svc->triage(600);
+        $this->svc->triage(600, ignoreHours: true); // a carga roda a qualquer hora
         $final = static fn (string $s): string => $s === 'padrao' ? 'administrativo' : $s;
         foreach ($ids as $id) {
             $k = $this->db->one('SELECT * FROM talk_jack_carga WHERE id = ?', [$id]);

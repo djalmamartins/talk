@@ -101,6 +101,8 @@ editável pelo supervisor no futuro. Áudio transcrito ainda não existe (PLANEJ
 4. Se alguém aceita ou transfere no Geral antes, a Jack não mexe mais na conversa.
 5. Sem o setor Geral, vale o fluxo antigo: assunto claro vai na hora; só "bom dia" espera até 30 s.
 6. Não reconheceu, empatou ou só cumprimentou: vai para o setor padrão (Administrativo).
+7. Fora do horário de funcionamento a Jack fica desligada (0.29.0): manda só o aviso de fora do horário e
+   distribui tudo quando a empresa abre. Setor de plantão (ex.: Manutenção 24 h) recebe na hora.
 7. Toda conversa vira chamado com protocolo SAC (Help Desk no ERP quando a API estiver ligada).
 8. Atendente pode transferir a qualquer momento; a transferência vira o gabarito de erro da Jack.
 9. Com atendente humano na conversa, a Jack não responde mais.

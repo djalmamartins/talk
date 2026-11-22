@@ -101,4 +101,17 @@ final class JackLoadTest extends DbTestCase
         $this->assertNull((new TestSafeDirectory($dir))->findByPhone(Phone::candidates(LoadTest::phone(1))));
         $this->assertSame(0, $dir->asked);
     }
+
+    public function test_carga_roda_mesmo_com_a_empresa_fechada(): void
+    {
+        // makeService() já usa BusinessHours: fechado hoje, abre só amanhã
+        $now = new \DateTimeImmutable($this->db->one('SELECT NOW() n')['n']);
+        $week = array_fill_keys(array_map('strval', range(0, 6)), []);
+        $week[$now->modify('+1 day')->format('w')] = [['08:00', '18:00']];
+        (new \ConnectTalk\Service\BusinessHours($this->db))->save(new \ConnectTalk\Domain\StaffMember(1, true), ['enabled' => true, 'week' => $week]);
+        $load = new LoadTest($this->db, $this->svc, $this->labChannel());
+        $r = $load->report($load->run([self::ROWS[0]], messages: 3, clients: 3, seed: 1));
+        $this->assertGreaterThan(0, $r['atendimentos']);
+        $this->assertSame($r['atendimentos'], $r['certos']);
+    }
 }

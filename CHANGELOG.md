@@ -107,6 +107,16 @@ e busca os dados do ERP pela API (ADR 0005).
 ### Corrigido
 - Planilha do Painel: nenhuma célula vira fórmula no Excel (nome de contato como `=HYPERLINK(...)` ganha um
   apóstrofo). O mesmo achado veio da revisão de segurança do ERP.
+## [0.29.0] — 2026-11-22
+### Alterado
+- **A Jack só trabalha no horário de funcionamento** (pedido do Djalma). Com o controle de horário
+  ligado, fora do horário geral (e nos feriados) ela não distribui nem responde: as conversas ficam
+  esperando (no Geral, à vista de quem atende o Geral) e a pessoa recebe uma vez o aviso de fora do
+  horário. Quando a empresa abre, ela distribui tudo o que chegou durante a noite, calada.
+- Exceção de plantão: se o assunto é claro de um setor que está atendendo naquela hora (por exemplo, a
+  Manutenção marcada como 24 h) ou chegou num número dedicado a ele, a conversa vai para esse setor na hora.
+- Com o controle de horário desligado, nada muda: ela trabalha o tempo todo.
+
 ## [0.28.0] — 2026-11-22
 ### Alterado
 - **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
