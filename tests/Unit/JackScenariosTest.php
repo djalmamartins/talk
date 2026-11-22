@@ -12,8 +12,11 @@ use PHPUnit\Framework\TestCase;
  */
 final class JackScenariosTest extends TestCase
 {
-    private const MIN_TAXA = 0.70;          // acerto exato da Jack em 22/11/2026: 70,5%
-    private const MIN_NO_SETOR_CERTO = 0.86; // onde a conversa termina, contando o setor padrão: 87,6%
+    // frases de ajuste: 70,5% antes do ajuste de 22/11/2026, 99,0% depois
+    private const MIN_TAXA = 0.95;
+    private const MIN_NO_SETOR_CERTO = 0.95;
+    // frases de conferência (não usadas no ajuste): 60,0% exato e 77,5% no setor certo em 22/11/2026
+    private const MIN_CONFERENCIA = 0.55;
 
     private static function scenarios(): array
     {
@@ -32,6 +35,14 @@ final class JackScenariosTest extends TestCase
         $this->assertGreaterThanOrEqual(100, $r['total'], 'o arquivo de frases encolheu');
         $this->assertGreaterThanOrEqual(self::MIN_TAXA, $r['taxa']);
         $this->assertGreaterThanOrEqual(self::MIN_NO_SETOR_CERTO, $r['no_setor_certo']);
+    }
+
+    public function test_frases_de_conferencia_sem_erro_grave_e_sem_piorar(): void
+    {
+        $r = Scenarios::run(Scenarios::load(__DIR__ . '/../Fixtures/jack/triagem-conferencia.csv'));
+        $this->assertSame([], array_column($r['graves'], 'frase'), 'A Jack mandou com certeza para o setor errado');
+        $this->assertGreaterThanOrEqual(self::MIN_CONFERENCIA, $r['taxa']);
+        $this->assertSame(10, $r['por_setor']['padrao']['acertos']);
     }
 
     public function test_so_cumprimento_ou_pedido_vago_nunca_vai_com_certeza(): void

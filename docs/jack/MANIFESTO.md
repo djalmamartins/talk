@@ -236,7 +236,14 @@ com certeza) ou se o acerto cair. O arquivo cresce com os erros reais vindos das
 
 Primeira medição (22/11/2026): acerto exato 70,5%, conversa no setor certo 87,6%, **nenhum erro grave**,
 31 erros leves (assunto claro sem certeza, que vai para o setor padrão). O Administrativo é o mais fraco
-(7 de 25): termos como "cadastro", "síndico", "regimento" sozinhos não passam do mínimo de pontos. Clientes
+(7 de 25): termos como "cadastro", "síndico", "regimento" sozinhos não passam do mínimo de pontos.
+
+Ajuste de 22/11/2026 (0.28.0): pesos e termos novos no classificador. Nas 105 frases de ajuste foi para
+99,0%. Como essas frases serviram de régua, o número honesto é o das **40 frases de conferência**
+(`triagem-conferencia.csv`), escritas depois e não usadas no ajuste: **60% de acerto exato, 77,5% no setor
+certo, nenhum erro grave**. Palavras-chave têm limite: frases sem termo conhecido ("o morador de cima
+deixa o cachorro latindo") continuam indo para o setor padrão. É isso que a IA na classificação (JV1.10)
+resolveria. Clientes
 simulados por IA e avaliador ficam para quando houver IA (J4).
 
 ## 13. Plano de construção da Jack V1

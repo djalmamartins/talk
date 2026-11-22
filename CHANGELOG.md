@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.28.0] — 2026-11-22
+### Alterado
+- **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
+  (cadastro, síndico, regimento, convenção, mudança, ata, reserva, documentos, certidão, proposta) e
+  alguns do Financeiro e da Manutenção. Nas 105 frases de ajuste: de 70,5% para 99,0%. Nas 40 frases
+  de conferência (escritas depois, não usadas no ajuste): 60% de acerto exato e 77,5% no setor certo.
+  Nenhum erro grave nas duas.
+- Pergunta sobre o síndico agora vai em silêncio para o Administrativo (antes a Jack respondia "fora do
+  meu escopo" e transferia para o mesmo setor).
+
 ## [0.27.0] — 2026-11-22
 ### Adicionado
 - **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
