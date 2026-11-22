@@ -97,4 +97,44 @@ final class JackGeneralTest extends DbTestCase
         $id = (int) $this->inbound('o portão quebrou');
         $this->assertSame($this->sectors['Administrativo'], (int) $this->conv($id)['sector_id']);
     }
+
+    public function test_fora_do_horario_a_jack_desliga_e_distribui_quando_abre(): void
+    {
+        $hours = new \ConnectTalk\Service\BusinessHours($this->db);
+        $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(),
+            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto', generalSeconds: 60), hours: $hours);
+        // empresa fechada o dia todo hoje; abre só amanhã das 8h às 18h
+        $now = new \DateTimeImmutable($this->db->one('SELECT NOW() n')['n']);
+        $week = array_fill_keys(array_map('strval', range(0, 6)), []);
+        $week[$now->modify('+1 day')->format('w')] = [['08:00', '18:00']];
+        $hours->save(new StaffMember(1, true), ['enabled' => true, 'week' => $week]);
+
+        $id = (int) $this->inbound('o portão da garagem quebrou');
+        $this->inbound('vc é um robô?'); // desligada: não se apresenta
+        $this->assertSame(0, $this->triage(600));            // passou 10 min e ela não distribuiu
+        $c = $this->conv($id);
+        $this->assertSame($this->general, (int) $c['sector_id']);
+        $this->assertSame(1, (int) $c['jack_pending']);
+        $outs = $this->db->all("SELECT type FROM talk_messages WHERE conversation_id = ? AND direction = 'out'", [$id]);
+        $this->assertSame(['off_hours'], array_column($outs, 'type')); // só o aviso de fora do horário, uma vez
+        $this->triage(700);
+        $this->assertSame(1, $this->outs($id));
+
+        // amanhã às 9h a empresa abre: ela distribui o que chegou durante a noite, calada
+        $tomorrow9 = $now->modify('+1 day')->setTime(9, 0);
+        $shift = $tomorrow9->getTimestamp() - $now->getTimestamp();
+        $this->assertSame(1, $this->triage($shift));
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($id)['sector_id']);
+        $this->assertSame(1, $this->outs($id));
+    }
+
+    public function test_com_o_controle_de_horario_desligado_ela_trabalha_sempre(): void
+    {
+        $this->svc = new ConversationService($this->db, new EventBus($this->db), new AccessPolicy(), new NullContactDirectory(),
+            new NullHelpdesk(), new Texts(), new Jack($this->db, mode: 'auto', generalSeconds: 60),
+            hours: new \ConnectTalk\Service\BusinessHours($this->db));
+        $id = (int) $this->inbound('o portão quebrou');
+        $this->assertSame(1, $this->triage(65));
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($id)['sector_id']);
+    }
 }

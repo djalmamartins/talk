@@ -56,7 +56,7 @@ final class BusinessHoursTest extends DbTestCase
     {
         $this->hours()->save($this->sup(), ['enabled' => true, 'week' => $this->week([2 => [['08:00', '12:00'], ['13:30', '18:00']]])]);
         $c = $this->routed('quero a segunda via do boleto');
-        $this->assertSame('pending', $this->conv($c)['status']); // continua na fila do setor
+        $this->assertSame('bot', $this->conv($c)['status']); // Jack desligada fora do horário: espera a empresa abrir
         $this->assertCount(0, $this->outbound($c, 'jack_routed'));
         $msg = $this->outbound($c, 'off_hours');
         $this->assertCount(1, $msg);
@@ -91,6 +91,9 @@ final class BusinessHoursTest extends DbTestCase
         $this->svc = $this->makeService(); // o serviço relê o horário a cada 30 s; aqui, na hora
         $m = $this->routed('vazamento no teto', '5531911110000');
         $this->assertCount(0, $this->outbound($m, 'off_hours'));
+        // empresa fechada, mas a Manutenção atende 24 h: o assunto claro dela vai na hora
+        $this->assertSame($this->sectors['Manutenção'], (int) $this->conv($m)['sector_id']);
+        $this->assertSame('pending', $this->conv($m)['status']);
         $f = $this->routed('boleto atrasado', '5531922220000');
         $this->assertStringContainsString('amanhã às 9h', $this->outbound($f, 'off_hours')[0]);
 

@@ -233,12 +233,23 @@ final class BusinessHours
         };
     }
 
+    /**
+     * A empresa está atendendo (horário geral e fora de feriado)? É o relógio da Jack: fora dele ela
+     * não distribui nem responde (pedido do Djalma em 22/11/2026). Controle desligado = sempre.
+     */
+    public function isOpenGeneral(\DateTimeImmutable $at): bool
+    {
+        return $this->openIn($this->enabled() ? $this->config()['week'] : null, $at);
+    }
+
     public function isOpen(int $sectorId, \DateTimeImmutable $at): bool
     {
-        if (!$this->enabled()) {
-            return true;
-        }
-        $week = $this->weekFor($sectorId);
+        return $this->openIn($this->enabled() ? $this->weekFor($sectorId) : null, $at);
+    }
+
+    /** @param array|null $week null = 24 h */
+    private function openIn(?array $week, \DateTimeImmutable $at): bool
+    {
         if ($week === null) {
             return true;
         }

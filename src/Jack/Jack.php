@@ -81,6 +81,13 @@ final class Jack
         return ($ageSeconds >= $this->generalSeconds && $quietSeconds >= $this->waitSeconds) || $ageSeconds >= 2 * $this->generalSeconds;
     }
 
+    /** Setor que o texto aponta com certeza (sem registrar decisão), ou null. */
+    public function guessSector(string $text): ?array
+    {
+        $r = $this->classifier->classify($text);
+        return $r['sector'] !== null && $r['confident'] ? $this->sectorByKey($r['sector']) : null;
+    }
+
     /** A pessoa parou de escrever (ou já esperou demais)? */
     public function isDue(int $quietSeconds, int $ageSeconds): bool
     {

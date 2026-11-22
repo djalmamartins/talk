@@ -92,7 +92,7 @@ class ConversationService
 
             // Sem menu: a Jack lê em silêncio e encaminha depois que a pessoa termina de escrever (triage()).
             // Ela só fala quando perguntam se é robô, ou quando o assunto sai do que ela sabe.
-            if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '') {
+            if ($this->jack !== null && $in->type === 'text' && trim((string) $in->body) !== '' && $this->jackOnDuty()) {
                 $talk = $this->jack->converse($conv, (string) $in->body);
                 if ($talk !== null && $talk['kind'] === 'identity') {
                     $this->jackSay($conv, $this->texts->jackIdentity(), 'jack_identity');
@@ -261,6 +261,11 @@ class ConversationService
         if ($this->jack === null) {
             return 0;
         }
+        if (!$this->jackOnDuty($clockShift)) {
+            // fora do horário a Jack está desligada: as conversas esperam (no Geral, à vista) e ela
+            // distribui tudo quando a empresa abre. Quem escreveu recebe só o aviso de fora do horário.
+            return $this->offDuty($clockShift);
+        }
         $rows = $this->db->all(
             "SELECT c.id,
                     TIMESTAMPDIFF(SECOND, MAX(m.created_at), NOW() + INTERVAL ? SECOND) AS quiet,
@@ -325,6 +330,64 @@ class ConversationService
                     $this->jackSay($this->get((int) $conv['id']), $off, 'off_hours');
                 }
                 return true;
+            });
+        }
+        return $routed;
+    }
+
+    /** A Jack só trabalha no horário geral de atendimento (controle de horário desligado = sempre). */
+    private function jackOnDuty(int $clockShift = 0): bool
+    {
+        if ($this->hours === null || !$this->hours->enabled()) {
+            return true;
+        }
+        $now = $this->db->one('SELECT NOW() + INTERVAL ? SECOND AS n', [$clockShift])['n'];
+        return $this->hours->isOpenGeneral(new \DateTimeImmutable((string) $now));
+    }
+
+    /**
+     * Fora do horário (Jack desligada), para cada conversa nova com a pessoa já calada há uns segundos:
+     *  - assunto claro de um setor que está atendendo agora (ex.: Manutenção 24 h) → vai para ele;
+     *  - senão fica esperando a empresa abrir e a pessoa recebe uma vez o aviso de fora do horário,
+     *    com o setor que o texto aponta (ou o Geral/padrão).
+     * @return int quantas conversas foram para um setor de plantão
+     */
+    private function offDuty(int $clockShift): int
+    {
+        $rows = $this->db->all(
+            "SELECT c.id FROM talk_conversations c
+               JOIN talk_messages m ON m.conversation_id = c.id AND m.direction = 'in'
+              WHERE c.assigned_user_id IS NULL AND (c.status = 'bot' OR (c.jack_pending = 1 AND c.status = 'pending'))
+              GROUP BY c.id
+             HAVING MAX(m.created_at) <= NOW() + INTERVAL ? SECOND - INTERVAL 5 SECOND",
+            [$clockShift]
+        );
+        $now = new \DateTimeImmutable((string) $this->db->one('SELECT NOW() + INTERVAL ? SECOND AS n', [$clockShift])['n']);
+        $routed = 0;
+        foreach ($rows as $r) {
+            $routed += (int) $this->db->transaction(function () use ($r, $now): bool {
+                $conv = $this->lock((int) $r['id']);
+                if (!self::inTriage($conv)) {
+                    return false;
+                }
+                $contact = $this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]);
+                // número dedicado a um setor vale como o setor certo; senão, o que o texto aponta
+                $guess = $this->db->one(
+                    'SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?',
+                    [$conv['channel_id']]
+                ) ?: $this->jack->guessSector($this->inboundText((int) $conv['id']));
+                if ($guess !== null && $this->hours->isOpen((int) $guess['id'], $now)) {
+                    $this->jack->record($conv, $guess, 'plantao', null);
+                    $this->route($conv, $guess, $contact);
+                    return true;
+                }
+                if ($conv['off_hours_at'] === null) {
+                    $sector = $guess ?? $this->jack->generalSector() ?? $this->fallbackSector();
+                    if ($sector !== null) {
+                        $this->sayOffHours($conv, $sector, $contact);
+                    }
+                }
+                return false;
             });
         }
         return $routed;

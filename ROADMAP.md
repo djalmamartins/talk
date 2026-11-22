@@ -30,6 +30,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U6 | Mudar o status do atendimento (fila, em atendimento, aguardando cliente/retorno interno, encerrado, reabrir) | pedido de 16/11 | feito (0.22.0) |
 | U7 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.24.0) |
 | U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
+| U9 | Jack só no horário de funcionamento; de manhã distribui o que chegou à noite | pedido de 22/11 | feito (0.29.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
 ## Jack V1
