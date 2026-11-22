@@ -7,9 +7,10 @@ sem framework), hospedada **separada do ERP** e integrada a ele por **API REST**
   [0003 hospedagem separada + API REST](docs/decisions/0003-hospedagem-separada-api-rest.md)
 - **API que o ERP precisa expor:** [docs/api-erp.md](docs/api-erp.md)
 
-## Produção
-Docker no PC do escritório, com HTTPS automático, worker, backup diário e restauração:
-**[docs/producao.md](docs/producao.md)**.
+## Produção (v1.0)
+Raspberry Pi no escritório, com o túnel da Cloudflare, o WhatsApp, o worker e o backup diário, e o ERP pela API:
+**[docs/raspberry-pi.md](docs/raspberry-pi.md)** (`bash deploy/instalar-pi.sh` faz tudo). PC ou VPS e a referência dos
+serviços: [docs/producao.md](docs/producao.md). Contrato com o ERP: [docs/api-erp.md](docs/api-erp.md).
 
 ## Laboratório local (https://talk.connect.lab)
 No Mac com o XAMPP compartilhado (`dev-apache` + `dev-mysql`):

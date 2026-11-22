@@ -91,23 +91,32 @@ final class ReportService
         ];
     }
 
+    /** Célula da planilha sem fórmula (regra pura): começo com = + - @ (ou tab/enter) ganha um apóstrofo. */
+    public static function csvCell(mixed $value): string
+    {
+        $value = (string) $value;
+        return preg_match('/^[\p{Z}\s\p{Cc}\x{FEFF}]*[=+\-@\x{FF1D}\x{FF0B}\x{FF0D}\x{FF20}]|^[\t\r\n]/u', $value) === 1 ? "'" . $value : $value;
+    }
+
     /** Planilha (CSV, separada por ponto e vírgula, abre direto no Excel) com um atendimento por linha. */
     public function exportCsv(StaffMember $u, array $f = []): string
     {
         [$from, $to] = $this->period($f);
         $out = fopen('php://temp', 'w+');
         fwrite($out, "\xEF\xBB\xBF"); // BOM: acentos certos no Excel
-        fputcsv($out, ['Protocolo', 'Aberto em', 'Contato', 'Telefone', 'Setor', 'Atendente', 'Situação', 'Aceito em',
-            'Encerrado em', 'Espera (min)', 'Atendimento (min)', 'Nota', 'Comentário'], ';', '"', '');
+        // nada vira fórmula no Excel: o nome do contato vem do WhatsApp e pode ser "=HYPERLINK(...)"
+        $csvCell = static fn (array $row): array => array_map([self::class, 'csvCell'], $row);
+        fputcsv($out, $csvCell(['Protocolo', 'Aberto em', 'Contato', 'Telefone', 'Setor', 'Atendente', 'Situação', 'Aceito em',
+            'Encerrado em', 'Espera (min)', 'Atendimento (min)', 'Nota', 'Comentário']), ';', '"', '');
         $status = ['bot' => 'Com a Jack', 'pending' => 'Na fila', 'open' => 'Em atendimento', 'closed' => 'Encerrado'];
         foreach ($this->rows($u, $from, $to, $f) as $r) {
-            fputcsv($out, [
+            fputcsv($out, $csvCell([
                 $r['protocol'], $this->br($r['opened_at']), $r['contact_name'], $r['phone'], $r['sector_name'], $r['user_name'],
                 $status[$r['status']] ?? $r['status'], $this->br($r['accepted_at']), $this->br($r['closed_at']),
                 $r['wait_s'] !== null ? number_format($r['wait_s'] / 60, 1, ',', '') : '',
                 $r['handle_s'] !== null ? number_format($r['handle_s'] / 60, 1, ',', '') : '',
                 $r['score'] ?? '', $r['comment'] ?? '',
-            ], ';', '"', '');
+            ]), ';', '"', '');
         }
         rewind($out);
         return (string) stream_get_contents($out);

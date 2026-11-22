@@ -18,10 +18,10 @@ empresa só (`docs/porte-atendechat.md`).
 | S4 | Conexões WhatsApp: vários números, setor de cada número, QR Code, status | conexao-whatsapp.png | feito (0.10.0) |
 | S5 | Atendentes e setores: cadastro, papéis (atendente, gerente, supervisor), senha | Atendechat Users/Queues | feito (0.11.0) |
 | S6a | Agendamento de mensagens | Atendechat Schedules | feito (0.12.0) |
-| S6b | Envio em massa pela API oficial (modelos aprovados, lista por etiqueta ou planilha; boletos quando a API do ERP sair) | Atendechat Campaigns/ContactLists | feito (0.13.0) |
+| S6b | Envio em massa pela API oficial (modelos aprovados, lista por etiqueta ou planilha; boletos quando a API do ERP sair) | Atendechat Campaigns/ContactLists | feito (0.13.0); 2ª via do boleto na conversa pela API do ERP (1.0.0) |
 | S7 | Painel e relatórios (tempo de espera e de atendimento por setor e atendente) e avaliação pós-atendimento | Atendechat Dashboard/UserRating | feito (0.14.0) |
 | S8a | Horário de atendimento (geral, por setor, 24 h, feriados) e mensagem fora do horário | Atendechat Settings | feito (0.15.0) |
-| S8b | Produção: Docker, worker como serviço, backup do banco e dos arquivos, guia de instalação | — | feito (0.16.0); falta instalar no PC do escritório (decisão do Djalma) |
+| S8b | Produção: Docker, worker como serviço, backup do banco e dos arquivos, guia de instalação | — | feito (0.16.0); no Raspberry Pi com túnel e instalador (1.0.0, ADR 0005); falta instalar no Pi do escritório |
 | U1 | Pedidos do Djalma no teste de 15/11: QR Code só com nome e número; topo com busca, notificações e perfil; seletor de sistemas; cor livre nas etiquetas; abas; sem simulador na tela | prints de 15/11 | feito (0.16.2 e 0.17.0) |
 | U2 | Correções do primeiro teste real (15/11): número do cliente (LID), Jack encaminha calada, falta de água vai para Manutenção, número do chamado do Help Desk, formatação do WhatsApp na tela, emojis na resposta, favicon | conversa com o coordenador de 15/11 | feito (0.18.0); número CH… real depende do `/talk/tickets` no ERP |
 | U3 | Som de alerta ao chegar mensagem, sino sem a bolinha por cima, botão "Abrir chamado" no Help Desk | pedido de 15/11 | feito (0.19.0); chamado real e nomes do ERP dependem da API do ERP (issue #400) |
@@ -30,6 +30,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U6 | Mudar o status do atendimento (fila, em atendimento, aguardando cliente/retorno interno, encerrado, reabrir) | pedido de 16/11 | feito (0.22.0) |
 | U7 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.24.0) |
 | U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
+| v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
 ## Jack V1
