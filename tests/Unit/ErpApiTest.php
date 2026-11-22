@@ -82,7 +82,7 @@ final class ErpApiTest extends TestCase
         $msg = $this->http->calls[0]['body']['message'];
         $this->assertStringContainsString('Contato: João (5531999998888)', $msg);
         $this->assertStringContainsString('Condomínio: Res. Jardins, unidade Bloco A 101', $msg);
-        $this->assertStringContainsString('Setor no Talk: Manutenção', $msg);
+        $this->assertStringContainsString('Setor que vai cuidar: Manutenção', $msg);
         $this->assertStringContainsString('Início da conversa: 22/11/2026 09:05', $msg);
         $this->assertStringContainsString("Conversa até agora:\n[22/11 09:05] Cliente: o portão quebrou", $msg);
 

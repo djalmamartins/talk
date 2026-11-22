@@ -3,6 +3,8 @@ const csrf = document.querySelector('meta[name=csrf]').content;
 const isLab = document.body.dataset.lab === '1';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// protocolo como todos veem: os antigos tinham "SAC" na frente (até a 1.0)
+const proto = (p) => String(p ?? '').replace(/^SAC(?=\d{11}$)/, '');
 const hhmm = (d) => (d ? new Date(d.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
 const state = { tab: 'mine', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
@@ -43,7 +45,7 @@ async function loadList() {
     <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}${c.status === 'pending' ? ' queued' : ''}">
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
-      <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
+      <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(proto(c.protocol))}</span><span></span>
       <span class="last">${c.status === 'open' && c.stage ? `<span class="stage st-${c.stage}">${c.stage === 'waiting_customer' ? 'Aguardando cliente' : 'Aguardando retorno'}</span> ` : ''}${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
     </li>`;
@@ -75,6 +77,7 @@ async function openConversation(id) {
   state.current = id;
   document.querySelector('.layout').classList.add('has-chat');
   const { conversation: c, contact, messages, can_act } = await api(`/api/conversations/${id}`);
+  state.conv = c;
   const actions = [];
   if (can_act && c.status !== 'bot') actions.push(statusSelect(c));
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
@@ -86,7 +89,7 @@ async function openConversation(id) {
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
-      <div class="meta">${esc(contact.phone)} · ${c.helpdesk_protocol ? `chamado <b>${esc(c.helpdesk_protocol)}</b>` : `protocolo <b>${esc(c.protocol)}</b>`} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
+      <div class="meta">${esc(contact.phone)} · Protocolo <b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ' · chamado no SAC' : ''} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
       ${c.assigned_user_id ? ' · ' + esc(state.users[c.assigned_user_id] || '#' + c.assigned_user_id) : ''}</div></div>
       <div class="actions">${actions.join('')}</div>
     </div>
@@ -102,7 +105,7 @@ async function openConversation(id) {
   }
   if (state.attach && $('#reply')) { const f = state.attach; pickAttach(f, draft ? !draft.focus : true); }
   renderContact(contact, c);
-  state.ctx = { nome: contact.name || '', protocolo: c.helpdesk_protocol || c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
+  state.ctx = { nome: contact.name || '', protocolo: proto(c.helpdesk_protocol || c.protocol), setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
   if ((c.unread > 0 || Number(c.transfer_pending)) && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
   document.querySelectorAll('#conversations li').forEach((li) => li.classList.toggle('active', li.dataset.id == id));
 }
@@ -171,7 +174,7 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b>${c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}</dd>` : ''}<dt>Protocolo</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
+      <dt>Protocolo</dt><dd><b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ` · chamado no SAC${c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}` : ''}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
     <section><h4>Protocolos desta pessoa</h4><div id="cp-hist-box">${histHtml(panel)}</div></section>
@@ -186,7 +189,7 @@ function histHtml(h) {
   // uma linha por protocolo: número · data · situação; o assunto aparece ao passar o mouse
   const items = h.history.map((x) => `
     <li${x.current ? ' class="current" aria-current="true" title="Atendimento aberto agora"' : ` data-open="${x.id}" title="${esc(x.subject || '')}"`}>
-      <b>${esc(x.protocol)}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
+      <b>${esc(proto(x.protocol))}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
   const pager = h.history_pages > 1 ? `<nav class="cp-pager" aria-label="Páginas de protocolos">
       <button type="button" data-hpage="${h.history_page - 1}" ${h.history_page <= 1 ? 'disabled' : ''} aria-label="Mais novos">‹</button>
       <span>${h.history_page} de ${h.history_pages} · ${h.history_total} protocolos</span>
@@ -345,6 +348,9 @@ document.addEventListener('click', async (e) => {
       const said = [...document.querySelectorAll('#msgs .msg.in')].map((m) => m.childNodes[0]?.textContent?.trim() || '').filter(Boolean);
       $('#ticket-subject').value = (said[0] || '').split('\n')[0].slice(0, 120);
       $('#ticket-desc').value = said.slice(-5).join('\n');
+      const conv = state.conv || {};
+      $('#ticket-proto').textContent = proto(conv.protocol);
+      $('#ticket-sector').innerHTML = state.sectors.map((s) => `<option value="${s.id}"${s.id == conv.sector_id ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
       $('#ticket-dialog').showModal(); $('#ticket-subject').focus();
       return;
     }
@@ -390,8 +396,8 @@ $('#charges-list').addEventListener('click', async (e) => {
 $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;
   try {
-    const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value } });
-    toast(`Chamado ${c.helpdesk_protocol || c.protocol} aberto no SAC.`);
+    const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value, sector_id: +$('#ticket-sector').value || null } });
+    toast(`Chamado aberto no SAC com o protocolo ${proto(c.helpdesk_protocol || c.protocol)}.`);
     await openConversation(state.current); loadList();
   } catch (err) { toast(err.message); }
 });

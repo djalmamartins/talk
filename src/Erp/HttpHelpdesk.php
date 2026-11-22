@@ -41,7 +41,7 @@ final class HttpHelpdesk implements Helpdesk
         $about = array_filter([
             'Contato: ' . (($contact['name'] ?? '') ?: 'sem nome') . ' (' . $contact['phone'] . ')',
             isset($details['condominio']) ? 'Condomínio: ' . $details['condominio'] . (isset($details['unidade']) ? ', unidade ' . $details['unidade'] : '') : 'Contato não identificado no cadastro do ERP',
-            $sectorName ? 'Setor no Talk: ' . $sectorName : null,
+            $sectorName ? 'Setor que vai cuidar: ' . $sectorName : null,
             !empty($conversation['opened_at']) ? 'Início da conversa: ' . date('d/m/Y H:i', strtotime((string) $conversation['opened_at'])) : null,
         ]);
         $message .= "\n\n" . implode("\n", $about);

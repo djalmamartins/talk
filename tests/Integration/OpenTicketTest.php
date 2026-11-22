@@ -58,7 +58,7 @@ final class OpenTicketTest extends DbTestCase
     {
         $id = $this->routed('preciso da segunda via do boleto'); // NullHelpdesk
         try {
-            $this->svc->openTicketNow($id, $this->agent(10, 'Financeiro'), 'Boleto', '');
+            $this->svc->openTicketNow($id, $this->agent(10, 'Financeiro'), 'Boleto', 'Cliente pediu a segunda via de novembro.');
             $this->fail('deveria avisar');
         } catch (DomainError $e) {
             $this->assertStringContainsString('ERP_API_URL', $e->getMessage());

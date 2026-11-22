@@ -28,3 +28,13 @@ motor do WhatsApp por QR Code precisa ficar ligado o tempo todo.
 - Os dados das conversas ficam no Pi. O backup precisa sair do escritório, e o pedido de titular (LGPD) é atendido nos
   dois sistemas.
 - O motor do WhatsApp só no Pi do ERP (`tools/whatsapp-pi`) deixa de ser necessário.
+
+## Atualização 22/11/2026 — protocolo único e chamado só pelo botão (pedido do Djalma)
+
+- O protocolo da conversa fica sem "SAC" na frente (aammdd + 5 dígitos, ex.: 26112200403). A migração 027 tirou o
+  prefixo dos números antigos; a busca e a consulta pelo WhatsApp aceitam os dois jeitos.
+- Conversa comum fica só no Talk. O chamado só vai para o SAC quando o atendente clica em **Abrir chamado** e preenche
+  título, descrição e o setor que vai cuidar (escolha do Djalma no cartão de decisão). O chamado usa o mesmo protocolo
+  da conversa (ADR 0637 do ERP) e continua aberto no SAC depois que a conversa é encerrada no Talk.
+- `SAC_AUTO_TICKET=on` volta o comportamento antigo (todo encaminhamento abre chamado, e encerrar a conversa encerra o
+  chamado). A Jack só fala em chamado quando ele existe.

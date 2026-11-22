@@ -29,6 +29,8 @@ abstract class DbTestCase extends TestCase
     protected \ConnectTalk\Media\MediaStore $media;
     private int $seq = 0;
     protected bool $announceTickets = false;
+    /** Chamado no SAC sozinho ao encaminhar (antes da 1.0). Os testes antigos contam com ele; ProtocolTicketTest usa o padrão novo (desligado). */
+    protected bool $autoTicket = true;
 
     protected function setUp(): void
     {
@@ -70,6 +72,7 @@ abstract class DbTestCase extends TestCase
             new \ConnectTalk\Jack\Jack($this->db, announceTickets: $this->announceTickets),
             $this->media,
             hours: new \ConnectTalk\Service\BusinessHours($this->db),
+            autoTicket: $this->autoTicket,
         );
     }
 

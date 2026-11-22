@@ -1,5 +1,16 @@
 # Changelog
 
+## [Não publicado] — protocolo único com o SAC (22/11/2026)
+### Alterado
+- **Protocolo sem "SAC" na frente** (ex.: `26112200403`), o mesmo número no Talk e no SAC (ADR 0637 do ERP). A migração
+  027 tira o prefixo dos números antigos; a busca e a consulta pelo WhatsApp aceitam os dois jeitos.
+- **Chamado só pelo botão Abrir chamado** (`SAC_AUTO_TICKET=off`, padrão): conversa comum fica só no Talk. O diálogo pede
+  título, descrição e **para qual setor** vai o chamado. O chamado aberto assim continua no SAC depois que a conversa
+  é encerrada no Talk.
+- A tela mostra "Protocolo N" e, quando há chamado, "chamado no SAC" com o link de acompanhar.
+### Corrigido
+- O título digitado no Abrir chamado não chegava ao SAC (a conversa já tinha a coluna `subject` vazia e ela valia).
+
 ## [1.3.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026, durante os testes da 1.1.0.
 ### Adicionado

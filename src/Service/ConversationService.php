@@ -35,6 +35,9 @@ class ConversationService
         private bool $askRating = true,
         private ?BusinessHours $hours = null,
         private bool $autoAssign = true,
+        // chamado no SAC sozinho em toda conversa encaminhada (antes da 1.0). Desde 22/11/2026 o Djalma decidiu: só pelo
+        // botão Abrir chamado, com o mesmo protocolo da conversa (ADR 0005). SAC_AUTO_TICKET=on volta o comportamento antigo.
+        private bool $autoTicket = false,
     ) {
     }
 
@@ -250,9 +253,9 @@ class ConversationService
     }
 
     /**
-     * Protocolo do atendimento: SAC + AAMMDD + sequência do dia com 5 dígitos (ex.: SAC26111600004),
-     * sem colisão entre processos. "SAC" mostra que o número veio do Talk. Os números antigos ficam em
-     * legacy_protocol (migração 018) e continuam achando a conversa na busca.
+     * Protocolo do atendimento: AAMMDD + sequência do dia com 5 dígitos (ex.: 26111600004), sem colisão entre
+     * processos. É o mesmo número do chamado quando o atendente abre o chamado no SAC (ADR 0637 do ERP). Até a 1.0 o
+     * número tinha "SAC" na frente (a migração 027 tirou); os mais antigos ficam em legacy_protocol (migração 018).
      */
     public function nextProtocol(): string
     {
@@ -262,7 +265,7 @@ class ConversationService
             [$day]
         );
         $n = (int) $this->db->one('SELECT `last_value` FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
-        return 'SAC' . date('ymd') . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
+        return date('ymd') . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
     }
 
     // ------------------------------------------------------------------ triagem (Jack)
@@ -342,7 +345,7 @@ class ConversationService
                 if ($off !== null) {
                     $url = $conv['helpdesk_url'] ?? null;
                     $this->jackSay($conv, $off . ($url ? "\n\n" . $this->texts->trackLink($url) : ''), 'off_hours');
-                } elseif ($this->jack->announcesTickets()) {
+                } elseif ($this->jack->announcesTickets() && ($this->autoTicket || $conv['helpdesk_ticket_id'])) { // sem chamado, não fala em chamado
                     $this->announceTicket($conv, $d['sector'], $first);
                 }
                 return true;
@@ -365,16 +368,27 @@ class ConversationService
 
     // ------------------------------------------------------------------ consulta de chamado pelo WhatsApp
 
-    /** Número de chamado na mensagem: o do SAC (CH2611220A1B) ou o protocolo do Talk (SAC26112200004). */
+    /**
+     * Número de chamado na mensagem: o protocolo do Talk e do SAC (26112200004, com ou sem "SAC" na frente) ou um chamado
+     * antigo do ERP (CH2611220A1B). O protocolo tem data válida (aammdd), então um telefone não passa por ele.
+     */
+    private const CODE = '/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|(?:SAC)?(?:2[4-9]|3\d)(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{5})(?![A-Z0-9])/i';
+
     public static function ticketCode(string $text): ?string
     {
-        return preg_match('/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|SAC\d{11})(?![A-Z0-9])/i', $text, $m) ? strtoupper($m[1]) : null;
+        return preg_match(self::CODE, $text, $m) ? self::plainProtocol(strtoupper($m[1])) : null;
+    }
+
+    /** O protocolo como aparece para todos: sem o "SAC" que os números antigos tinham na frente. */
+    public static function plainProtocol(string $protocol): string
+    {
+        return (string) preg_replace('/^SAC(?=\d{11}$)/', '', $protocol);
     }
 
     /** A mensagem é só a consulta ("CH2611220A1B", "status do chamado CH…?"), sem outro assunto. */
     public static function onlyTicketCode(string $text): bool
     {
-        $rest = (string) preg_replace('/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|SAC\d{11})(?![A-Z0-9])/i', ' ', $text);
+        $rest = (string) preg_replace(self::CODE, ' ', $text);
         $rest = \ConnectTalk\Jack\Classifier::normalize($rest);
         $rest = (string) preg_replace('/\b(oi|ola|bom dia|boa tarde|boa noite|meu|minha|o|a|do|da|de|e|qual|como|esta|ta|status|situacao|andamento|chamado|protocolo|numero|n|no|por favor|pf|obrigad[oa])\b/u', ' ', $rest);
         return trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', $rest)) === '';
@@ -386,8 +400,8 @@ class ConversationService
         $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
         $found = $this->db->one(
             'SELECT c.*, s.name AS sector_name FROM talk_conversations c LEFT JOIN talk_sectors s ON s.id = c.sector_id
-              WHERE c.contact_id = ? AND (c.helpdesk_protocol = ? OR c.protocol = ? OR c.legacy_protocol = ?) ORDER BY c.id DESC LIMIT 1',
-            [$contact['id'], $code, $code, $code]
+              WHERE c.contact_id = ? AND (c.helpdesk_protocol = ? OR c.protocol = ? OR c.protocol = ? OR c.legacy_protocol = ?) ORDER BY c.id DESC LIMIT 1',
+            [$contact['id'], $code, $code, 'SAC' . $code, $code]
         );
         if ($found === null) {
             $this->jackSay($conv, $this->texts->jackTicketNotFound($first, $code), 'jack_status');
@@ -875,7 +889,8 @@ class ConversationService
                 "UPDATE talk_conversations SET status = 'closed', stage = NULL, closed_at = NOW(), closed_by = ?, unread = 0, transfer_pending = 0 WHERE id = ?",
                 [$u->userId, $convId]
             );
-            if ($conv['helpdesk_ticket_id']) {
+            // chamado aberto pelo botão continua no SAC (a equipe de lá cuida); o aberto sozinho termina junto com a conversa
+            if ($conv['helpdesk_ticket_id'] && $conv['helpdesk_opened_by'] === null) {
                 $this->safeHelpdesk(fn () => $this->helpdesk->close((int) $conv['helpdesk_ticket_id'], $u->userId, $resolution));
             }
             $conv = $this->get($convId);
@@ -898,10 +913,11 @@ class ConversationService
     }
 
     /**
-     * Botão "Abrir chamado": abre na hora o chamado no SAC do ERP com o assunto e a descrição
-     * escritos pelo atendente. Diferente da abertura automática, aqui o erro aparece para a pessoa.
+     * Botão "Abrir chamado": abre na hora o chamado no SAC do ERP com o título e a descrição escritos pelo atendente,
+     * para o setor escolhido (a área que vai cuidar lá), com o mesmo protocolo da conversa. Encerrar a conversa depois
+     * não encerra o chamado. Diferente da abertura automática, aqui o erro aparece para a pessoa.
      */
-    public function openTicketNow(int $convId, StaffMember $u, string $subject, string $description): array
+    public function openTicketNow(int $convId, StaffMember $u, string $subject, string $description, ?int $sectorId = null): array
     {
         $subject = trim($subject);
         $description = trim($description);
@@ -919,10 +935,18 @@ class ConversationService
         if ($conv['status'] === 'bot') {
             throw new DomainError('Espere a conversa chegar à fila de um setor para abrir o chamado.');
         }
+        if (mb_strlen($description) < 10) {
+            throw new DomainError('Descreva o que está acontecendo (pelo menos 10 caracteres).');
+        }
         $contact = $this->ticketContact($this->db->one('SELECT * FROM talk_contacts WHERE id = ?', [$conv['contact_id']]));
-        $sector = $conv['sector_id'] ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$conv['sector_id']]) : null;
+        $target = $sectorId ?: ($conv['sector_id'] ? (int) $conv['sector_id'] : null);
+        $sector = $target ? $this->db->one('SELECT name FROM talk_sectors WHERE id = ?', [$target]) : null;
+        if ($sectorId && $sector === null) {
+            throw new DomainError('Escolha para qual setor vai o chamado.');
+        }
         try {
-            $t = $this->helpdesk->open($conv + ['subject' => $subject, 'ticket_message' => $description, 'transcript' => $this->transcript($convId)], $contact, $sector['name'] ?? null);
+            // array_replace: a conversa já tem a coluna subject (vazia), e o título do atendente tem de valer
+            $t = $this->helpdesk->open(array_replace($conv, ['subject' => $subject, 'ticket_message' => $description, 'transcript' => $this->transcript($convId)]), $contact, $sector['name'] ?? null);
         } catch (\Throwable $e) {
             error_log('[talk] abrir chamado: ' . $e->getMessage());
             throw new DomainError('O SAC do ERP não respondeu. Tente de novo em instantes.', 502);
@@ -935,11 +959,11 @@ class ConversationService
             );
         }
         $this->db->run(
-            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, helpdesk_url = ?, subject = ? WHERE id = ?',
-            [(int) $t['id'], $t['protocol'] ?? null, $t['url'] ?? null, $subject, $convId]
+            'UPDATE talk_conversations SET helpdesk_ticket_id = ?, helpdesk_protocol = ?, helpdesk_url = ?, helpdesk_opened_by = ?, subject = ? WHERE id = ?',
+            [(int) $t['id'], $t['protocol'] ?? null, $t['url'] ?? null, $u->userId, $subject, $convId]
         );
         $conv = $this->get($convId);
-        $this->addNote($convId, $u, 'Chamado ' . self::ticketNumber($conv) . ' aberto no SAC: ' . $subject);
+        $this->addNote($convId, $u, 'Chamado aberto no SAC' . ($sector ? ' para ' . $sector['name'] : '') . ', protocolo ' . self::ticketNumber($conv) . ': ' . $subject);
         $this->events->publish('conversation.updated', $convId, $this->sector($conv), $u->userId, $this->summary($conv));
         return $conv;
     }
@@ -975,6 +999,9 @@ class ConversationService
     /** Abre o chamado no SAC e guarda o id e o número dele (o número que o cliente vê). */
     private function openTicket(array $conv, array $contact, ?string $sectorName): void
     {
+        if (!$this->autoTicket) {
+            return; // só pelo botão Abrir chamado
+        }
         $contact = $this->ticketContact($contact);
         $t = $this->safeHelpdesk(fn () => $this->helpdesk->open($conv + ['transcript' => $this->transcript((int) $conv['id'])], $contact, $sectorName));
         if (is_array($t) && isset($t['id'])) {
@@ -1023,7 +1050,7 @@ class ConversationService
     /** Número do chamado para o cliente: o do SAC, quando houver; senão, o protocolo do Talk. */
     public static function ticketNumber(array $conv): string
     {
-        return (string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']);
+        return self::plainProtocol((string) (($conv['helpdesk_protocol'] ?? null) ?: $conv['protocol']));
     }
 
     private function safeHelpdesk(callable $fn): mixed

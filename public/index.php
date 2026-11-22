@@ -628,7 +628,7 @@ try {
                     }
                     $json($app['second_copy']->list($me, $id));
                 case 'ticket':
-                    $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? '')));
+                    $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? ''), ($b['sector_id'] ?? null) ? (int) $b['sector_id'] : null));
                 case 'notes':
                     $json(['message_id' => $svc->addNote($id, $me, (string) ($b['note'] ?? ''))]);
                 case 'read':

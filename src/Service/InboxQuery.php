@@ -117,11 +117,11 @@ final class InboxQuery
     {
         [$where, $params] = $this->policy->sqlFilter($u, 'c');
         $conds = [$where, "m.direction <> 'internal'"];
-        // busca por número de protocolo (SAC26111600004, o antigo 20261115-00004 ou o chamado CH…):
+        // busca por número de protocolo (26111600004, com ou sem SAC na frente, o antigo 20261115-00004 ou o chamado CH…):
         // acha a conversa pelo número, uma linha por conversa, sem procurar o texto nas mensagens
         $q = strtoupper(trim((string) ($f['q'] ?? '')));
-        if (preg_match('/^(SAC\d{6,}|\d{8}-\d{5}|CH[0-9A-Z]{6,})$/', $q)) {
-            $f['contact'] = $q;
+        if (preg_match('/^(SAC\d{6,}|\d{11}|\d{8}-\d{5}|CH[0-9A-Z]{6,})$/', $q)) {
+            $f['contact'] = ConversationService::plainProtocol($q);
             unset($f['q']);
             $conds[] = "m.id = (SELECT MIN(m1.id) FROM talk_messages m1 WHERE m1.conversation_id = c.id AND m1.direction <> 'internal')";
         }
@@ -150,10 +150,11 @@ final class InboxQuery
             $params['fuser'] = (int) $f['user_id'];
         }
         if (!empty($f['contact'])) {
-            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto OR c.legacy_protocol = :lproto OR c.helpdesk_protocol = :hproto)';
+            $conds[] = '(ct.name LIKE :cname OR ct.phone LIKE :cphone OR c.protocol = :proto OR c.protocol = :sproto OR c.legacy_protocol = :lproto OR c.helpdesk_protocol = :hproto)';
             $params['cname'] = '%' . $f['contact'] . '%';
             $params['cphone'] = '%' . preg_replace('/\D+/', '', (string) $f['contact']) . '%';
             $params['proto'] = $params['lproto'] = $params['hproto'] = $f['contact'];
+            $params['sproto'] = 'SAC' . $f['contact']; // número antigo, que tinha SAC na frente
         }
         return $this->db->all(
             'SELECT m.id, m.conversation_id, m.direction, m.body, m.created_at, m.author_user_id,

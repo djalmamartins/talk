@@ -104,7 +104,8 @@ $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', _
 $hours = new \ConnectTalk\Service\BusinessHours($db);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
     askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours,
-    autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off'); // só uma pessoa online para o setor: a conversa vai direto para ela
+    autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off', // só uma pessoa online para o setor: a conversa vai direto para ela
+    autoTicket: $env('SAC_AUTO_TICKET', 'off') === 'on'); // chamado no SAC só pelo botão Abrir chamado (ADR 0005)
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');
