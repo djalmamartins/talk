@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace ConnectTalk\Jack;
 
 use ConnectTalk\Domain\StaffMember;
+use ConnectTalk\Service\DomainError;
 use ConnectTalk\Support\Db;
 
 /**
@@ -47,6 +48,7 @@ final class Monitor
      */
     public function overview(StaffMember $u, int $days = 1, string $filter = 'all', string $search = ''): array
     {
+        $this->requireSchema();
         $days = max(1, min(90, $days));
         $since = date('Y-m-d 00:00:00', strtotime('-' . ($days - 1) . ' days'));
         $ids = $this->touchedIds($u, $since, $search);
@@ -89,6 +91,7 @@ final class Monitor
     /** Passo a passo de uma conversa: o que o cliente disse, o que a Jack entendeu, respondeu e fez. Null = fora do escopo. */
     public function detail(StaffMember $u, int $convId): ?array
     {
+        $this->requireSchema();
         if ($this->touchedIds($u, '1970-01-01 00:00:00', '', $convId) === []) {
             return null;
         }
@@ -166,6 +169,7 @@ final class Monitor
      */
     public function suggest(StaffMember $u, int $convId, string $kind, string $text, ?int $expectedSectorId = null): array
     {
+        $this->requireSchema();
         $text = trim($text);
         if ($text === '' || mb_strlen($text) > 1000) {
             throw new \InvalidArgumentException('Escreva a sugestão (até 1.000 caracteres).');
@@ -187,6 +191,7 @@ final class Monitor
     /** Sugestões (supervisor vê todas; gerente, as dele). $status: nova | aplicada | descartada | '' (todas). */
     public function suggestions(StaffMember $u, string $status = 'nova'): array
     {
+        $this->requireSchema();
         $where = ['1 = 1'];
         $args = [];
         if (in_array($status, ['nova', 'aplicada', 'descartada'], true)) {
@@ -203,6 +208,7 @@ final class Monitor
     /** Supervisor marca a sugestão como aplicada (virou regra ou texto) ou descartada. */
     public function review(StaffMember $u, int $id, string $status): array
     {
+        $this->requireSchema();
         if (!$u->supervisor) {
             throw new \DomainException('Só o supervisor marca as sugestões.');
         }
@@ -232,6 +238,22 @@ final class Monitor
               WHERE $where ORDER BY f.id DESC LIMIT $limit",
             $args
         ));
+    }
+
+    private bool $schemaOk = false;
+
+    /** Código novo com banco antigo (migrações 024/025 não rodadas): avisa em vez de dar erro de SQL. */
+    private function requireSchema(): void
+    {
+        if ($this->schemaOk) {
+            return;
+        }
+        $hasTable = $this->db->one("SHOW TABLES LIKE 'talk_jack_feedback'") !== null;
+        $hasCol = $this->db->one("SHOW COLUMNS FROM talk_jack_decisions LIKE 'source'") !== null;
+        if (!$hasTable || !$hasCol) {
+            throw new DomainError('Falta atualizar o banco do Talk (migrações 024 e 025). Rode: php bin/migrate.php (no lab: docker exec dev-apache php /var/www/html/talk/bin/migrate.php --lab).', 503);
+        }
+        $this->schemaOk = true;
     }
 
     // ------------------------------------------------------------------ montagem

@@ -42,7 +42,14 @@ else
     php /var/www/html/talk/bin/jack-cenarios.php --sem-banco --ia
 fi
 
-echo "4/4 Modo de teste no Talk do lab"
+echo "4/4 Banco e modo de teste no Talk do lab"
+# a tela Serviço da Jack e o modo de teste precisam das migrações 024 e 025
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx dev-apache; then
+  docker exec dev-apache php /var/www/html/talk/bin/migrate.php --lab | tail -2
+else
+  echo "  O lab (dev-apache) não está rodando; quando subir, rode:"
+  echo "  docker exec dev-apache php /var/www/html/talk/bin/migrate.php --lab"
+fi
 if [[ -n "$(envget JACK_AI)" ]]; then
   echo "  O .env já tem JACK_AI=$(envget JACK_AI) (mantido). Modelo no .env: $(envget JACK_AI_MODEL)"
 elif confirm "Ligar a IA em modo de teste (só registra, não decide) no .env do Talk?"; then
