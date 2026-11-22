@@ -20,7 +20,7 @@ if ($text === '') {
     fwrite(STDERR, "Uso: php bin/simular.php \"mensagem do cliente\" [telefone] [nome]\n");
     exit(1);
 }
-$phone = preg_replace('/\D/', '', (string) ($argv[2] ?? '5531999990001'));
+$phone = preg_replace('/\D/', '', (string) ($argv[2] ?? '5500900009001')); // padrão: número de teste (DDD 00), nunca sai do Talk
 $channel = $app['db']->one("SELECT id FROM talk_channels WHERE kind = 'lab' ORDER BY is_default DESC, id LIMIT 1");
 if ($channel === null) {
     fwrite(STDERR, "Não há número simulado. Rode: php bin/seed-lab.php\n");
