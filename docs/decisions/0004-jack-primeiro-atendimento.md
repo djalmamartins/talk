@@ -182,3 +182,15 @@ chamado do SAC, equipe, quem já está com a conversa e o link de acompanhamento
 são aprovados e variam entre três modelos (`Texts::jackTicketOpened`). Quando o cliente manda só o número do
 chamado, ela responde a situação (`Texts::jackTicketStatus`), apenas para chamados do mesmo contato. Desliga com
 `JACK_TICKET_NOTICE=off`, voltando ao comportamento calado.
+
+## Atualização 22/11/2026 — Jack com IA, etapa A (decisão do Djalma)
+
+Na pergunta "até onde a IA da Jack deve ir nesta primeira etapa?", o Djalma escolheu **"IA entende, textos
+seguem aprovados"**. Confirma a fase J4 desta ADR:
+- A IA só **classifica** a mensagem na lista fechada de intenções e setores, com a mesma trava de confiança.
+  A saída é validada por código; fora da lista, vale a regra.
+- **Não escreve** nada para o cliente: as mensagens continuam vindo de `Service\Texts`.
+- Entra primeiro em **modo sombra** (só registra o que faria) e passa a decidir quando acertar mais que as
+  regras nos cenários fixos e na sombra. Se falhar, demorar ou passar do limite, a Jack volta para as regras.
+- Só o texto da mensagem vai para o provedor, sem nome, telefone, CPF ou unidade.
+Rascunho de resposta (opção B) e conversa livre (opção C) continuam fora. Plano em `docs/jack/IA.md`.

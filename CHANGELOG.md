@@ -21,6 +21,11 @@ Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Ja
   Descartadas; só o supervisor marca. Tabela `talk_jack_feedback` (migração 024). API
   `POST /api/jack/service/{id}/feedback`, `GET /api/jack/feedback` e `POST /api/jack/feedback/{id}/status`.
 - `docs/jack/IA.md`: plano para a Jack passar a usar IA (o que decidir, o que providenciar e a ordem).
+- **Jack com IA, etapa A** (decisão do Djalma, registrada na ADR 0004): a IA só vai entender o assunto; as
+  respostas continuam sendo os textos aprovados.
+- **Cenários fixos de triagem** (IA1/JV1.2): 44 frases fictícias com o setor certo (`src/Jack/Scenarios.php`) e
+  o placar `php bin/jack-cenarios.php`, que também usa as sugestões com setor certo. Regras hoje: 36 de 44 (82%);
+  o teste trava abaixo de 80%.
 - O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
   assinadas por ela).
 
