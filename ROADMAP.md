@@ -31,7 +31,9 @@ empresa só (`docs/porte-atendechat.md`).
 | U7 | Setor Geral: toda mensagem nova cai no Geral e a Jack distribui depois de 1 minuto | pedido de 16/11 | feito (0.24.0) |
 | U8 | Sem a aba Fila em Atendimentos; aviso no sino quando transferem uma conversa | pedido de 16/11 | feito (0.26.0) |
 | U9 | Fila com "com quem está", distribuição automática, Jack conta e consulta o chamado do SAC | pedido de 22/11 | feito (1.1.0) |
-| U10 | Fila como página inicial, som sempre que alguém cai na fila, aviso de avaliação para o atendente | pedido de 22/11 | feito (1.2.0) |
+| U10 | Aba Serviço da Jack: lista de atendimentos com janela de detalhe (ideia, procedimento, respostas, o que não fez) e sugestões para ela melhorar | pedido de 22/11 | feito (1.2.0) |
+| IA | Jack com IA local (Gemma 3 1B): plano em `docs/jack/IA.md`. IA0 sugestões, IA1 cenários e IA2 adaptador + modo sombra feitos | pedido de 22/11 | falta teste no Mac, depois Pi |
+| U11 | Fila como página inicial, som sempre que alguém cai na fila, aviso de avaliação para o atendente | pedido de 22/11 | feito (1.3.0) |
 | v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
@@ -44,7 +46,7 @@ atendimento no Talk) da **Jack Completa** (evolução futura). A regra em vigor 
 |---|---|---|---|
 | JV1.0 | Manifesto da Jack; decidir se ela conversa ou só encaminha (registrar na ADR 0004) | Djalma | feito: calada na V1 (16/11) |
 | JV1.1 | Painel de acertos na tela do supervisor | só o Talk | feito (0.23.0): seção no Painel |
-| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | a fazer |
+| JV1.2 | Cenários fixos de triagem (laboratório mínimo) nos testes | JV1.1 | feito (0.27.0): 105 frases, `php tools/jack-cenarios.php`; ajuste do classificador na 0.28.0 (conferência: 60% exato, 0 erro grave) |
 | JV1.3 | Resumo para o atendente (nota interna com assunto e protocolos anteriores) | só o Talk | a fazer |
 | JV1.4 | Urgência: prioridade alta e aviso ao gerente | só o Talk | a fazer |
 | JV1.5 | Chamado duplicado junta na conversa existente | PR talk#1 / erp#538 | a fazer |

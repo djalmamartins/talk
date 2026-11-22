@@ -132,6 +132,8 @@ final class InboxAndRealtimeTest extends DbTestCase
             'config_encrypted' => $this->crypto->encrypt(['phone_number_id' => '1', 'access_token' => 't', 'app_secret' => 's', 'verify_token' => 'v']),
         ]);
         $this->assertSame($official, $this->gateways()->bulkChannelId());
-        $this->assertInstanceOf(\ConnectTalk\Gateway\CloudApiGateway::class, $this->gateways()->forChannel($official));
+        $gw = $this->gateways()->forChannel($official);
+        $this->assertInstanceOf(\ConnectTalk\Gateway\TestNumberGuard::class, $gw); // WhatsApp de verdade sempre com a trava
+        $this->assertInstanceOf(\ConnectTalk\Gateway\CloudApiGateway::class, $gw->inner());
     }
 }

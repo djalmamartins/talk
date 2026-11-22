@@ -78,6 +78,10 @@ if ($env('ERP_API_URL')) {
     $helpdesk = new NullHelpdesk();
     $charges = new \ConnectTalk\Erp\NullChargeDirectory();
 }
+$sacOn = $helpdesk instanceof HttpHelpdesk;
+// números de teste da Jack (DDD 00, bin/jack-carga.php) nunca vão ao ERP nem saem pelo WhatsApp (GatewayFactory)
+$directory = new \ConnectTalk\Erp\TestSafeDirectory($directory);
+$helpdesk = new \ConnectTalk\Erp\TestSafeHelpdesk($helpdesk);
 $jack = new Jack(
     $db,
     new Classifier(),
@@ -87,6 +91,13 @@ $jack = new Jack(
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
     generalSeconds: (int) $env('JACK_GENERAL_SECONDS', '60'),   // tempo no setor Geral antes de ela distribuir
     announceTickets: $env('JACK_TICKET_NOTICE', 'on') !== 'off', // avisa o número e o link do chamado ao cliente
+    // IA local (docs/jack/IA.md): servidor de modelo na própria máquina (Ollama no Mac, llama-server no Pi)
+    ai: $env('JACK_AI_URL') ? new \ConnectTalk\Jack\AiClassifier(
+        new CurlHttpClient(max(1, (int) $env('JACK_AI_TIMEOUT', '4'))),
+        (string) $env('JACK_AI_URL'),
+        (string) $env('JACK_AI_MODEL', 'gemma3:1b'),
+    ) : null,
+    aiMode: (string) $env('JACK_AI', 'off'), // off | shadow (só registra) | on (IA decide; regras de reserva)
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
@@ -112,6 +123,7 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'jack_monitor' => new \ConnectTalk\Jack\Monitor($db, $jack, $sacOn), // tela Serviço da Jack
     'hours' => $hours,
     'reports' => new \ConnectTalk\Service\ReportService($db, $hours),
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),

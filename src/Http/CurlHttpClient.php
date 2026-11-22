@@ -31,11 +31,9 @@ final class CurlHttpClient implements HttpClient
         $resp = curl_exec($ch);
         if ($resp === false) {
             $err = curl_error($ch);
-            curl_close($ch);
             throw new \RuntimeException("HTTP falhou: $err");
         }
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
         return ['status' => $status, 'body' => (string) $resp];
     }
 
@@ -62,11 +60,9 @@ final class CurlHttpClient implements HttpClient
         $resp = curl_exec($ch);
         if ($resp === false) {
             $err = curl_error($ch);
-            curl_close($ch);
             throw new \RuntimeException("HTTP falhou: $err");
         }
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
         return ['status' => $status, 'body' => (string) $resp];
     }
 }

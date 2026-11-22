@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.0] — 2026-11-22
+## [1.3.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026, durante os testes da 1.1.0.
 ### Adicionado
 - **Aviso de avaliação** para quem atendeu, no sino e num aviso na tela, assim que o cliente responde a nota:
@@ -13,6 +13,48 @@ Pedidos do Djalma em 22/11/2026, durante os testes da 1.1.0.
   links antigos (`/?c=ID`, `/?aba=`, `/?abrir=`) continuam abrindo Atendimentos.
 - O som toca na hora quando alguém entra na fila, uma conversa é transferida ou distribuída para a pessoa, ou
   um cliente dela responde, em qualquer tela (antes a tela da Fila só conferia a cada 20 s, com 25 s de folga).
+
+## [1.2.0] — 2026-11-22
+Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Jack.
+### Adicionado
+- **Serviço da Jack** (`/servico`, menu lateral, para supervisor e gerentes): o que a Jack está fazendo agora, o que
+  ela não fez ou deu problema, as respostas que mandou ao cliente (com a situação da entrega), a **ideia** (o que
+  ela entendeu e por quais palavras) e o **procedimento** (assumiu no Geral, encaminhou, abriu o chamado no SAC,
+  entregou para alguém, respondeu a situação do chamado). Filtros Hoje/7/30 dias, abas Tudo, Fazendo agora,
+  Não fez ou deu problema e Respostas enviadas, busca por protocolo, chamado ou contato, e o **passo a passo** de
+  cada conversa em linha do tempo. Atualiza sozinha a cada 15 s.
+- Problemas que a tela aponta: mensagem da Jack que falhou ou está presa na fila de envio, chamado que não abriu no
+  SAC (só com o ERP ligado), conversa parada com a Jack além do tempo (worker parado), assunto que ela não
+  reconheceu (foi para o setor padrão) e setor que a equipe corrigiu depois.
+- API `GET /api/jack/service` e `GET /api/jack/service/{id}` (mesma regra de acesso). Gerente vê só o que passou
+  pelos setores dele.
+- **Lista de atendimentos**: cada linha é um atendimento da Jack; clicar abre uma janela com a ideia, o
+  procedimento, o que ela não fez e o passo a passo (pedido do Djalma às 11h07 de 22/11).
+- **Sugestões para a Jack melhorar**: na janela do atendimento, quem acompanha diz o que ela devia ter
+  entendido, respondido ou feito, e qual seria o setor certo. Aba **Sugestões** com Novas, Aplicadas e
+  Descartadas; só o supervisor marca. Tabela `talk_jack_feedback` (migração 024). API
+  `POST /api/jack/service/{id}/feedback`, `GET /api/jack/feedback` e `POST /api/jack/feedback/{id}/status`.
+- `docs/jack/IA.md`: plano para a Jack passar a usar IA (o que decidir, o que providenciar e a ordem).
+- **Jack com IA, etapa A** (decisão do Djalma, registrada na ADR 0004): a IA só vai entender o assunto; as
+  respostas continuam sendo os textos aprovados.
+- **Placar regras x IA** (IA1): `php bin/jack-cenarios.php [--ia]` usa as mesmas frases fixas da 0.27.0
+  (`tests/Fixtures/jack/triagem.csv` e as 40 de conferência) mais as sugestões com setor certo da tela Serviço
+  da Jack. A comparação que vale é nas 40 de conferência: regras 60% exato e 77,5% no setor certo.
+- **IA local da Jack** (escolha do Djalma: Gemma 3 1B na própria máquina, primeiro no Mac): adaptador
+  `src/Jack/AiClassifier.php` (formato OpenAI, Ollama ou llama-server), JSON fechado, dados pessoais mascarados,
+  timeout e volta para as regras. `JACK_AI=off|shadow|on` (padrão off). Em sombra, a tela Serviço da Jack mostra
+  o que a IA diria em cada atendimento e o placar do período. Migração 025 (`source`, `model`, `ai_ms` em
+  `talk_jack_decisions`); os acertos do Painel contam só as decisões reais.
+- `tools/local/jack-ia-lab.sh` (Mac: Ollama + Gemma 3 1B, placar e modo de teste), `bin/jack-cenarios.php --ia`
+  e serviço `jack-ia` (perfil `ia`) no compose do Pi, com o modelo em `deploy/ia/modelo.gguf`.
+- **Carga de teste da Jack** (`bin/jack-carga.php enviar | reteste | placar`, só no lab): 500 mensagens fictícias
+  de 60 clientes fictícios, triagem, conferência do setor e reteste do que ela errou com outro cliente. Tabela
+  `talk_jack_carga` (migração 026); marca "teste" na tela Serviço da Jack. Números de teste têm DDD 00 e
+  **nunca saem**: o WhatsApp de verdade recusa (`TestNumberGuard`) e o ERP não abre chamado nem consulta o
+  cadastro deles. Primeira rodada no laboratório da nuvem: 93% no setor certo, nenhum erro grave.
+- `bin/simular.php`: uma mensagem de cliente no número simulado, pelo Terminal.
+- O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
+  assinadas por ela).
 
 ## [1.1.0] — 2026-11-22
 Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.
@@ -65,6 +107,23 @@ e busca os dados do ERP pela API (ADR 0005).
 ### Corrigido
 - Planilha do Painel: nenhuma célula vira fórmula no Excel (nome de contato como `=HYPERLINK(...)` ganha um
   apóstrofo). O mesmo achado veio da revisão de segurança do ERP.
+## [0.28.0] — 2026-11-22
+### Alterado
+- **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
+  (cadastro, síndico, regimento, convenção, mudança, ata, reserva, documentos, certidão, proposta) e
+  alguns do Financeiro e da Manutenção. Nas 105 frases de ajuste: de 70,5% para 99,0%. Nas 40 frases
+  de conferência (escritas depois, não usadas no ajuste): 60% de acerto exato e 77,5% no setor certo.
+  Nenhum erro grave nas duas.
+- Pergunta sobre o síndico agora vai em silêncio para o Administrativo (antes a Jack respondia "fora do
+  meu escopo" e transferia para o mesmo setor).
+
+## [0.27.0] — 2026-11-22
+### Adicionado
+- **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
+  frases fictícias no jeito do WhatsApp, cada uma com o setor certo. `php tools/jack-cenarios.php` mostra
+  o acerto por setor e lista os erros; o teste `JackScenariosTest` trava se aparecer erro grave ou se o
+  acerto cair. Primeira medição: 70,5% de acerto exato, 87,6% das conversas no setor certo, nenhum erro
+  grave; o Administrativo é o mais fraco (7 de 25).
 
 ## [0.26.0] — 2026-11-16
 ### Alterado
