@@ -86,6 +86,7 @@ final class CampaignService
         $this->assertSupervisor($u);
         $this->bulkChannel($channelId);
         $gw = $this->gateways->forChannel($channelId);
+        $gw = $gw instanceof \ConnectTalk\Gateway\TestNumberGuard ? $gw->inner() : $gw; // modelos: não manda mensagem
         if (!$gw instanceof CloudApiGateway) {
             throw new DomainError('Só números da API oficial têm modelos na Meta.');
         }

@@ -1,0 +1,2 @@
+Coloque aqui o arquivo do modelo da IA local da Jack com o nome modelo.gguf (docs/jack/IA.md).
+O .gguf não vai para o Git.

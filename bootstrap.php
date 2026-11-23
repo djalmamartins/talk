@@ -72,10 +72,16 @@ if ($env('ERP_API_URL')) {
     $erp = new ErpApi($http, (string) $env('ERP_API_URL'), (string) $env('ERP_API_TOKEN'));
     $directory = new HttpContactDirectory($erp, static fn (string $m) => error_log("[talk] $m"));
     $helpdesk = new HttpHelpdesk($erp, (string) $env('APP_URL', ''));
+    $charges = new \ConnectTalk\Erp\HttpChargeDirectory($erp);
 } else {
     $directory = $env('TALK_CONTACT_SQL') ? new SqlContactDirectory($db, (string) $env('TALK_CONTACT_SQL')) : new NullContactDirectory();
     $helpdesk = new NullHelpdesk();
+    $charges = new \ConnectTalk\Erp\NullChargeDirectory();
 }
+$sacOn = $helpdesk instanceof HttpHelpdesk;
+// números de teste da Jack (DDD 00, bin/jack-carga.php) nunca vão ao ERP nem saem pelo WhatsApp (GatewayFactory)
+$directory = new \ConnectTalk\Erp\TestSafeDirectory($directory);
+$helpdesk = new \ConnectTalk\Erp\TestSafeHelpdesk($helpdesk);
 $jack = new Jack(
     $db,
     new Classifier(),
@@ -83,12 +89,23 @@ $jack = new Jack(
     (int) $env('JACK_WAIT_SECONDS', '5'),       // espera a pessoa parar de escrever
     (int) $env('JACK_MAX_WAIT_SECONDS', '30'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
+    generalSeconds: (int) $env('JACK_GENERAL_SECONDS', '60'),   // tempo no setor Geral antes de ela distribuir
+    announceTickets: $env('JACK_TICKET_NOTICE', 'on') !== 'off', // avisa o número e o link do chamado ao cliente
+    // IA local (docs/jack/IA.md): servidor de modelo na própria máquina (Ollama no Mac, llama-server no Pi)
+    ai: $env('JACK_AI_URL') ? new \ConnectTalk\Jack\AiClassifier(
+        new CurlHttpClient(max(1, (int) $env('JACK_AI_TIMEOUT', '4'))),
+        (string) $env('JACK_AI_URL'),
+        (string) $env('JACK_AI_MODEL', 'gemma3:1b'),
+    ) : null,
+    aiMode: (string) $env('JACK_AI', 'off'), // off | shadow (só registra) | on (IA decide; regras de reserva)
 );
 // arquivos das conversas: fora da pasta pública, servidos por /media/{id} com conferência de acesso
 $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', __DIR__ . '/storage'), '/'));
 $hours = new \ConnectTalk\Service\BusinessHours($db);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
-    askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours);
+    askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours,
+    autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off', // só uma pessoa online para o setor: a conversa vai direto para ela
+    autoTicket: $env('SAC_AUTO_TICKET', 'off') === 'on'); // chamado no SAC só pelo botão Abrir chamado (ADR 0005)
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');
@@ -107,11 +124,13 @@ return [
     'sse' => new SseStream($db, $policy),
     'gateways' => $gateways,
     'jack' => $jack,
+    'jack_monitor' => new \ConnectTalk\Jack\Monitor($db, $jack, $sacOn), // tela Serviço da Jack
     'hours' => $hours,
     'reports' => new \ConnectTalk\Service\ReportService($db, $hours),
     'queue' => new \ConnectTalk\Service\QueueQuery($db, $policy, (int) $env('QUEUE_WARN_MINUTES', '15'), (int) $env('QUEUE_LATE_MINUTES', '30'), $hours),
     'contactbook' => new \ConnectTalk\Service\ContactBook($db, $conversations),
     'contacts' => new \ConnectTalk\Service\ContactPanel($db, $policy, $events),
+    'second_copy' => new \ConnectTalk\Service\SecondCopy($db, $policy, $conversations, $charges),
     'quick' => new \ConnectTalk\Service\QuickMessages($db),
     'team' => new \ConnectTalk\Service\TeamService($db, $events, $_SERVER['REMOTE_ADDR'] ?? null),
     'login' => new \ConnectTalk\Service\LoginGuard($db),

@@ -13,13 +13,12 @@
 <div class="page">
 <?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
-  <div><h1>Atendimentos</h1><p>Acompanhe a fila e responda os clientes pelo WhatsApp.</p></div>
+  <div><h1>Atendimentos</h1><p>Responda os clientes pelo WhatsApp.</p></div>
 </header>
 <main class="layout">
   <aside class="list">
     <nav class="tabs" id="tabs">
-      <button data-tab="pending" class="active">Fila <b id="badge-pending"></b></button>
-      <button data-tab="mine">Meus</button>
+      <button data-tab="mine" class="active">Meus</button>
       <button data-tab="open">Em atendimento</button>
       <button data-tab="closed">Encerrados</button>
     </nav>
@@ -92,11 +91,20 @@
 </dialog>
 <dialog id="ticket-dialog">
   <form method="dialog" id="ticket-form">
-    <h3>Abrir chamado no Help Desk</h3>
-    <p class="meta">O chamado cai no Help Desk do Connect ERP, na área do setor desta conversa, com o nome e o telefone do cliente.</p>
-    <label>Assunto<input id="ticket-subject" maxlength="200" required></label>
-    <label>Descrição<textarea id="ticket-desc" rows="5" maxlength="5000"></textarea></label>
+    <h3>Abrir chamado no SAC</h3>
+    <p class="meta">O chamado vai para o SAC do Connect ERP com o mesmo protocolo desta conversa (<b id="ticket-proto"></b>), o nome, o telefone, o condomínio e a conversa até agora. Ele continua aberto lá mesmo depois que você encerrar a conversa aqui.</p>
+    <label>Para qual setor<select id="ticket-sector" required></select></label>
+    <label>Título<input id="ticket-subject" maxlength="200" required></label>
+    <label>Descrição do que está acontecendo<textarea id="ticket-desc" rows="5" minlength="10" maxlength="5000" required></textarea></label>
     <menu><button value="cancel" formnovalidate>Cancelar</button><button value="ok" class="primary">Abrir chamado</button></menu>
+  </form>
+</dialog>
+<dialog id="charges-dialog">
+  <form method="dialog">
+    <h3>2ª via do boleto</h3>
+    <p class="meta">Boletos em aberto deste morador no Connect ERP (só do proprietário ou responsável financeiro, com o telefone do cadastro). O escolhido vai para o cliente com a linha digitável e o Pix.</p>
+    <ul id="charges-list" class="charges-list"></ul>
+    <menu><button value="cancel">Fechar</button></menu>
   </form>
 </dialog>
 <dialog id="close-dialog">

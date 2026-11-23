@@ -3,9 +3,11 @@ const csrf = document.querySelector('meta[name=csrf]').content;
 const isLab = document.body.dataset.lab === '1';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// protocolo como todos veem: os antigos tinham "SAC" na frente (até a 1.0)
+const proto = (p) => String(p ?? '').replace(/^SAC(?=\d{11}$)/, '');
 const hhmm = (d) => (d ? new Date(d.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
-const state = { tab: 'pending', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
+const state = { tab: 'mine', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -36,16 +38,19 @@ const sectorName = (id) => state.sectors.find((s) => s.id == id)?.name || '—';
 async function loadList() {
   if (state.search) return runSearch();
   searchBar();
-  const rows = await api(`/api/conversations?tab=${state.tab}&sector=${state.sector}&tag=${state.tagFilter || ''}`);
-  $('#conversations').innerHTML = rows.map((c) => `
-    <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}">
+  const q = `&sector=${state.sector}&tag=${state.tagFilter || ''}`;
+  // "Meus" mostra em cima quem espera na fila dos seus setores (supervisor: de todos), para ninguém ficar sem ver
+  const [rows, waiting] = await Promise.all([api(`/api/conversations?tab=${state.tab}${q}`), state.tab === 'mine' ? api(`/api/conversations?tab=pending${q}`) : []]);
+  const item = (c) => `
+    <li data-id="${c.id}" class="${state.current == c.id ? 'active' : ''}${c.status === 'pending' ? ' queued' : ''}">
       <span class="name">${esc(c.contact_name || c.phone)}</span>
       ${c.unread > 0 && c.status !== 'closed' ? `<span class="unread">${c.unread}</span>` : `<span class="meta">${hhmm(c.last_message_at)}</span>`}
-      <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(c.protocol)}</span><span></span>
+      <span class="meta"><span class="tag">${esc(c.sector_name || 'menu')}</span> ${esc(proto(c.protocol))}</span><span></span>
       <span class="last">${c.status === 'open' && c.stage ? `<span class="stage st-${c.stage}">${c.stage === 'waiting_customer' ? 'Aguardando cliente' : 'Aguardando retorno'}</span> ` : ''}${esc(waPlain(c.last_body))}</span>
       ${c.tag_ids ? `<span class="chips">${tagChips(c.tag_ids.split(',').map(Number))}</span>` : ''}
-    </li>`).join('') || '<li class="meta">Nada por aqui.</li>';
-  if (state.tab === 'pending') { $('#badge-pending').textContent = rows.length || ''; $('#badge-nav').textContent = rows.length || ''; if ($('#badge-queue')) $('#badge-queue').textContent = rows.length || ''; }
+    </li>`;
+  const queued = waiting.length ? `<li class="group">Na fila, esperando alguém atender (${waiting.length})</li>${waiting.map(item).join('')}<li class="group">Meus atendimentos</li>` : '';
+  $('#conversations').innerHTML = queued + (rows.map(item).join('') || '<li class="meta">Nada por aqui.</li>');
 }
 
 function searchBar() {
@@ -72,17 +77,19 @@ async function openConversation(id) {
   state.current = id;
   document.querySelector('.layout').classList.add('has-chat');
   const { conversation: c, contact, messages, can_act } = await api(`/api/conversations/${id}`);
+  state.conv = c;
   const actions = [];
   if (can_act && c.status !== 'bot') actions.push(statusSelect(c));
   if (can_act && c.status === 'pending') actions.push('<button class="primary" data-act="accept">Aceitar</button>');
   if (can_act && c.status !== 'closed' && c.status !== 'bot') actions.push('<button data-act="transfer">Transferir</button>', '<button data-act="close">Encerrar</button>');
-  if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no Help Desk do Connect ERP">Abrir chamado</button>');
+  if (can_act && c.status !== 'bot' && !c.helpdesk_ticket_id) actions.push('<button data-act="ticket" title="Abrir o chamado no SAC do Connect ERP">Abrir chamado</button>');
+  if (can_act && (c.status === 'open' || c.status === 'pending') && contact.erp_person_id) actions.push('<button data-act="charges" title="Boletos em aberto do morador no Connect ERP">2ª via</button>');
   if (can_act && c.status !== 'closed') actions.push('<button data-act="note">Nota interna</button>');
   if (can_act && c.status !== 'bot') actions.push('<button data-act="schedule" title="Marcar uma mensagem para outro dia e hora">Agendar</button>');
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
-      <div class="meta">${esc(contact.phone)} · ${c.helpdesk_protocol ? `chamado <b>${esc(c.helpdesk_protocol)}</b>` : `protocolo <b>${esc(c.protocol)}</b>`} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
+      <div class="meta">${esc(contact.phone)} · Protocolo <b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ' · chamado no SAC' : ''} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
       ${c.assigned_user_id ? ' · ' + esc(state.users[c.assigned_user_id] || '#' + c.assigned_user_id) : ''}</div></div>
       <div class="actions">${actions.join('')}</div>
     </div>
@@ -98,8 +105,8 @@ async function openConversation(id) {
   }
   if (state.attach && $('#reply')) { const f = state.attach; pickAttach(f, draft ? !draft.focus : true); }
   renderContact(contact, c);
-  state.ctx = { nome: contact.name || '', protocolo: c.helpdesk_protocol || c.protocol, setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
-  if (c.unread > 0 && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
+  state.ctx = { nome: contact.name || '', protocolo: proto(c.helpdesk_protocol || c.protocol), setor: sectorName(c.sector_id), atendente: (state.me.name || '').split(' (')[0] };
+  if ((c.unread > 0 || Number(c.transfer_pending)) && can_act) api(`/api/conversations/${id}/read`, { method: 'POST' }).catch(() => {});
   document.querySelectorAll('#conversations li').forEach((li) => li.classList.toggle('active', li.dataset.id == id));
 }
 
@@ -167,7 +174,7 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      ${c.helpdesk_protocol ? `<dt>Chamado</dt><dd><b>${esc(c.helpdesk_protocol)}</b></dd>` : ''}<dt>Protocolo</dt><dd>${c.helpdesk_protocol ? esc(c.protocol) : `<b>${esc(c.protocol)}</b>`}</dd></dl>
+      <dt>Protocolo</dt><dd><b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ` · chamado no SAC${c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}` : ''}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
     <section><h4>Protocolos desta pessoa</h4><div id="cp-hist-box">${histHtml(panel)}</div></section>
@@ -182,7 +189,7 @@ function histHtml(h) {
   // uma linha por protocolo: número · data · situação; o assunto aparece ao passar o mouse
   const items = h.history.map((x) => `
     <li${x.current ? ' class="current" aria-current="true" title="Atendimento aberto agora"' : ` data-open="${x.id}" title="${esc(x.subject || '')}"`}>
-      <b>${esc(x.protocol)}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
+      <b>${esc(proto(x.protocol))}</b><time>${hhmm(x.created_at).split(',')[0]}</time><small class="st st-${x.status}">${convStatus[x.status]}</small></li>`).join('');
   const pager = h.history_pages > 1 ? `<nav class="cp-pager" aria-label="Páginas de protocolos">
       <button type="button" data-hpage="${h.history_page - 1}" ${h.history_page <= 1 ? 'disabled' : ''} aria-label="Mais novos">‹</button>
       <span>${h.history_page} de ${h.history_pages} · ${h.history_total} protocolos</span>
@@ -335,11 +342,15 @@ document.addEventListener('click', async (e) => {
       return;
     }
     if (act === 'close') { $('#close-resolution').value = ''; $('#close-dialog').showModal(); return; }
+    if (act === 'charges') { await openCharges(); return; }
     if (act === 'ticket') {
       // começa com o que o cliente escreveu: a primeira linha vira o assunto, as últimas mensagens a descrição
       const said = [...document.querySelectorAll('#msgs .msg.in')].map((m) => m.childNodes[0]?.textContent?.trim() || '').filter(Boolean);
       $('#ticket-subject').value = (said[0] || '').split('\n')[0].slice(0, 120);
       $('#ticket-desc').value = said.slice(-5).join('\n');
+      const conv = state.conv || {};
+      $('#ticket-proto').textContent = proto(conv.protocol);
+      $('#ticket-sector').innerHTML = state.sectors.map((s) => `<option value="${s.id}"${s.id == conv.sector_id ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
       $('#ticket-dialog').showModal(); $('#ticket-subject').focus();
       return;
     }
@@ -358,11 +369,35 @@ $('#chat').addEventListener('change', async (e) => {
   } catch (err) { toast(err.message); }
   await openConversation(state.current); loadList();
 });
+// 2ª via do boleto: o ERP diz quais boletos podem sair; o atendente escolhe um e ele vai para o cliente
+async function openCharges() {
+  const list = $('#charges-list');
+  list.innerHTML = '<li class="meta">Buscando no Connect ERP…</li>';
+  $('#charges-dialog').showModal();
+  try {
+    const r = await api(`/api/conversations/${state.current}/charges`);
+    list.innerHTML = r.charges.length ? r.charges.map((b) => `<li class="charge">
+        <div><b>${esc(b.reference)}</b> · vence ${esc(b.due)} · <b>${esc(b.amount)}</b>
+        <div class="meta">${esc(b.condominium)}${b.unit ? ' · ' + esc(b.unit) : ''}${b.digitable_line ? '' : ' · sem linha digitável'}${b.pix_copy_paste ? ' · com Pix' : ''}</div></div>
+        <button type="button" class="primary" data-charge="${b.id}">Enviar ao cliente</button></li>`).join('')
+      : `<li class="meta">${esc(r.reason || 'Nenhum boleto em aberto.')}</li>`;
+  } catch (err) { list.innerHTML = `<li class="meta">${esc(err.message)}</li>`; }
+}
+$('#charges-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-charge]');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await api(`/api/conversations/${state.current}/charges`, { method: 'POST', body: { charge_id: +btn.dataset.charge } });
+    $('#charges-dialog').close();
+    await openConversation(state.current); loadList();
+  } catch (err) { btn.disabled = false; toast(err.message); }
+});
 $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;
   try {
-    const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value } });
-    toast(`Chamado ${c.helpdesk_protocol || c.protocol} aberto no Help Desk.`);
+    const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value, sector_id: +$('#ticket-sector').value || null } });
+    toast(`Chamado aberto no SAC com o protocolo ${proto(c.helpdesk_protocol || c.protocol)}.`);
     await openConversation(state.current); loadList();
   } catch (err) { toast(err.message); }
 });
@@ -590,6 +625,7 @@ function connect() {
         if (document.hidden) document.title = '(nova) Connect Talk';
       }
       if (t === 'conversation.created') window.talkAlert?.();
+      if (t.startsWith('conversation.')) window.talkCheck?.(); // fila, transferência: o sino confere na hora
       scheduleRefresh(d.conversation_id);
     }));
 }
@@ -605,7 +641,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   // links vindos de fora: /?c=ID abre a conversa (Fila, chamado do ERP); /?abrir=... abre um diálogo;
   // /?q=... vem da busca do topo em outra tela; /?aba=mine vem das notificações
   const qs = new URLSearchParams(location.search);
-  if (['pending', 'mine', 'open', 'closed'].includes(qs.get('aba'))) {
+  if (qs.get('aba') === 'pending') { location.replace('/'); return; } // a aba Fila saiu: a fila fica em Fila de atendimento
+  if (['mine', 'open', 'closed'].includes(qs.get('aba'))) {
     state.tab = qs.get('aba');
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
   }
@@ -617,7 +654,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
   if (abrir === 'mensagens') $('#nav-quick')?.click();
   if (abrir === 'etiquetas') $('#nav-tags')?.click();
   if (abrir === 'busca') $('#search').focus();
-  if (qs.toString()) history.replaceState(null, '', '/');
+  if (qs.toString()) history.replaceState(null, '', '/atendimentos');
   connect();
 })();
 

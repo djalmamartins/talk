@@ -139,6 +139,7 @@ try {
         $channel = (int) $m[1];
         if ($method === 'GET') {
             $gw = $app['gateways']->forChannel($channel);
+            $gw = $gw instanceof \ConnectTalk\Gateway\TestNumberGuard ? $gw->inner() : $gw;
             $challenge = $gw instanceof CloudApiGateway ? $gw->verifySubscription($_GET) : null;
             http_response_code($challenge === null ? 403 : 200);
             echo $challenge ?? 'forbidden';
@@ -159,7 +160,7 @@ try {
                 http_response_code(429);
                 $view('login', ['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.', 'isLab' => $isLab]);
             }
-            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1', [$email]);
+            $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1 AND is_bot = 0', [$email]); // a Jack não entra
             if ($u && password_verify((string) ($_POST['password'] ?? ''), $u['password_hash'])) {
                 $app['login']->succeeded($email);
                 session_regenerate_id(true);
@@ -180,7 +181,16 @@ try {
         header('Location: /login');
         exit;
     }
-    if ($path === '/') {
+    // a página inicial é a Fila de atendimento (pedido do Djalma, 22/11/2026); Atendimentos fica em
+    // /atendimentos. Links antigos com parâmetros (/?c=ID do chamado no SAC, /?aba=, /?abrir=) seguem abrindo Atendimentos.
+    if ($path === '/' && ($_SERVER['QUERY_STRING'] ?? '') === '') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $view('queue', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
+    if ($path === '/' || $path === '/atendimentos') {
         if (!$sessionOk()) {
             header('Location: /login');
             exit;
@@ -253,6 +263,18 @@ try {
         }
         $view('reports', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/servico') {
+        if (!$sessionOk()) {
+            header('Location: /login');
+            exit;
+        }
+        $me = $app['staff']->find((int) $_SESSION['user_id']);
+        if (!$me->supervisor && !$me->managerSectors) {
+            header('Location: /');
+            exit;
+        }
+        $view('service', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
+    }
     if ($path === '/fila') {
         if (!$sessionOk()) {
             header('Location: /login');
@@ -320,7 +342,7 @@ try {
                 // para "Trocar atendente": quem atende em cada setor
                 'staff' => $app['db']->all(
                     "SELECT s.user_id, u.name, s.sector_id, s.role FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
-                      WHERE u.active = 1 ORDER BY u.name"
+                      WHERE u.active = 1 AND u.is_bot = 0 ORDER BY u.name"
                 ),
             ]);
         }
@@ -336,7 +358,43 @@ try {
             if (!$me->supervisor && $me->managerSectors === []) {
                 $json(['error' => 'Só supervisor e gerentes veem os acertos da Jack.'], 403);
             }
-            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30)))));
+            // gerente vê só o que passou pelos setores dele; supervisor vê tudo
+            $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30))), $me->supervisor ? null : $me->managerSectors));
+        }
+        // Serviço da Jack: o que ela faz, o que não fez, respostas, ideia e procedimento (só leitura)
+        if (str_starts_with($path, '/api/jack/') && $path !== '/api/jack/stats' && !$me->supervisor && $me->managerSectors === []) {
+            $json(['error' => 'Só supervisor e gerentes acompanham o serviço da Jack.'], 403);
+        }
+        // sugestões para a Jack melhorar
+        if (preg_match('#^/api/jack/service/(\d+)/feedback$#', $path, $m) && $method === 'POST') {
+            $b = $body();
+            try {
+                $json($app['jack_monitor']->suggest($me, (int) $m[1], (string) ($b['kind'] ?? 'outro'), (string) ($b['text'] ?? ''),
+                    !empty($b['expected_sector_id']) ? (int) $b['expected_sector_id'] : null), 201);
+            } catch (\InvalidArgumentException $e) {
+                $json(['error' => $e->getMessage()], 422);
+            } catch (\DomainException $e) {
+                $json(['error' => $e->getMessage()], 404);
+            }
+        }
+        if ($path === '/api/jack/feedback') {
+            $json($app['jack_monitor']->suggestions($me, (string) ($_GET['status'] ?? 'nova')));
+        }
+        if (preg_match('#^/api/jack/feedback/(\d+)/status$#', $path, $m) && $method === 'POST') {
+            try {
+                $json($app['jack_monitor']->review($me, (int) $m[1], (string) ($body()['status'] ?? '')));
+            } catch (\InvalidArgumentException $e) {
+                $json(['error' => $e->getMessage()], 422);
+            } catch (\DomainException $e) {
+                $json(['error' => $e->getMessage()], $me->supervisor ? 404 : 403);
+            }
+        }
+        if ($path === '/api/jack/service' || preg_match('#^/api/jack/service/(\d+)$#', $path, $m)) {
+            if ($path === '/api/jack/service') {
+                $json($app['jack_monitor']->overview($me, (int) ($_GET['days'] ?? 1), (string) ($_GET['filter'] ?? 'all'), mb_substr((string) ($_GET['q'] ?? ''), 0, 60)));
+            }
+            $d = $app['jack_monitor']->detail($me, (int) $m[1]);
+            $d === null ? $json(['error' => 'Conversa não encontrada.'], 404) : $json($d);
         }
         if ($path === '/api/contacts') {
             $json($app['contactbook']->list($me, $_GET));
@@ -563,8 +621,14 @@ try {
                     ));
                 case 'close':
                     $json($svc->close($id, $me, $b['resolution'] ?? null));
+                case 'charges': // 2ª via do boleto (GET lista; POST envia o escolhido ao cliente)
+                    if ($method === 'POST') {
+                        $json(['message_id' => $app['second_copy']->send($id, $me, (int) ($b['charge_id'] ?? 0),
+                            ($b['sign'] ?? true) ? explode(' (', (string) ($_SESSION['user_name'] ?? ''))[0] : null)]);
+                    }
+                    $json($app['second_copy']->list($me, $id));
                 case 'ticket':
-                    $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? '')));
+                    $json($svc->openTicketNow($id, $me, (string) ($b['subject'] ?? ''), (string) ($b['description'] ?? ''), ($b['sector_id'] ?? null) ? (int) $b['sector_id'] : null));
                 case 'notes':
                     $json(['message_id' => $svc->addNote($id, $me, (string) ($b['note'] ?? ''))]);
                 case 'read':

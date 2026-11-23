@@ -47,7 +47,7 @@ final class ChannelService
         );
         $staff = $this->db->all(
             "SELECT s.sector_id, u.id, u.name FROM talk_staff s JOIN talk_users u ON u.id = s.user_id
-              WHERE u.active = 1 AND s.sector_id IS NOT NULL ORDER BY u.name"
+              WHERE u.active = 1 AND u.is_bot = 0 AND s.sector_id IS NOT NULL ORDER BY u.name"
         );
         return array_map(function (array $r) use ($staff) {
             $sector = $r['sector_id'] !== null ? (int) $r['sector_id'] : null;

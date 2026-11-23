@@ -1,16 +1,20 @@
-# Connect Talk em produção (PC do escritório)
+# Connect Talk em produção (PC, VPS ou Raspberry Pi)
 
-Tudo roda em Docker, num PC ligado o tempo todo. São sete serviços (`deploy/docker-compose.yml`):
+> **Raspberry Pi do escritório (o caminho escolhido, ADR 0005):** siga [raspberry-pi.md](raspberry-pi.md). O
+> `deploy/instalar-pi.sh` faz os passos abaixo sozinho. Este guia fica para PC ou VPS e para a referência dos serviços.
+
+Tudo roda em Docker, num aparelho ligado o tempo todo. São estes serviços (`deploy/docker-compose.yml`):
 
 | Serviço | O que faz |
 |---|---|
-| `caddy` | HTTPS automático (Let's Encrypt) no domínio, ex.: `talk.connect.com.br` |
+| `tunnel` | HTTPS pela Cloudflare sem abrir porta (`COMPOSE_PROFILES=tunnel`, padrão) |
+| `caddy` | ou HTTPS próprio (Let's Encrypt) com as portas 80/443 abertas (`COMPOSE_PROFILES=caddy`) |
 | `app` | o site (PHP 8.2 + Apache). Ao subir, aplica as migrations sozinho |
 | `worker` | envia as mensagens, faz a triagem da Jack, agendamentos e envio em massa |
 | `db` | MariaDB 11.4 (dados no volume `db`) |
 | `whatsapp` | motor do WhatsApp por QR Code (Evolution API, que usa o Baileys como o Atendechat); só na rede interna |
 | `whatsapp-db` | banco das sessões dos números de QR Code (Postgres) |
-| `backup` | cópia diária do banco e dos arquivos em `deploy/backups/` |
+| `backup` | cópia diária do banco e dos arquivos em `BACKUP_DIR` (padrão `deploy/backups/`) |
 
 O projeto do docker-compose se chama `talk-php`. Isso evita misturar com o Talk antigo em Node,
 que se chama `connect-talk`.
@@ -19,8 +23,9 @@ que se chama `connect-talk`.
 1. **Domínio:** crie no DNS o registro `talk.connect.com.br` apontando para o IP público do escritório.
 2. **Roteador:** encaminhe as portas **80** e **443** para o PC. A Meta só entrega mensagens em HTTPS,
    e o certificado é emitido pela porta 80.
-   - Sem IP fixo ou sem como abrir porta, a alternativa é um túnel (Cloudflare Tunnel) apontando
-     para `http://localhost:80`. Nesse caso tire as `ports` do `caddy` e deixe o túnel na frente.
+   - Com as portas abertas, use `COMPOSE_PROFILES=caddy` no `.env`.
+   - Sem IP fixo ou sem como abrir porta, use o túnel: `COMPOSE_PROFILES=tunnel` e `CLOUDFLARE_TUNNEL_TOKEN`
+     (passo 3 de [raspberry-pi.md](raspberry-pi.md)). Aí este passo do roteador não é preciso.
 3. **No PC:** instale o Docker (Docker Desktop no Windows/Mac ou Docker Engine no Linux).
 
 ## Instalação (uma vez)
@@ -34,7 +39,10 @@ Preencha o `.env`:
 - `TALK_KEY`: gere com `openssl rand -base64 32`. **Guarde uma cópia fora do PC** (gerenciador de
   senhas). É ela que abre os tokens do WhatsApp guardados no banco; sem ela, um backup restaurado
   não reconecta os números.
-- `ERP_API_URL` e `ERP_API_TOKEN`: quando a API do ERP existir. Vazio, o Talk funciona sozinho.
+- `TALK_DOMAIN` e `APP_URL`: o endereço do Talk, sem e com `https://`.
+- `ERP_API_URL` e `ERP_API_TOKEN`: endereço da API do ERP (termina em `/api/v1`) e o token `ctk_`
+  (passo 5 de [raspberry-pi.md](raspberry-pi.md)). Vazio, o Talk funciona sozinho. Confira com
+  `docker compose exec app php bin/erp-check.php`.
 - `EVOLUTION_API_KEY`: gere com `openssl rand -hex 24`. É a chave interna entre o Talk e o motor do
   WhatsApp; o endereço já vem pronto. Depois, para conectar um número, a tela pede só o nome e o
   número e mostra o QR Code, como no Atendechat.

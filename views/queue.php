@@ -34,10 +34,13 @@
     </section>
     <section class="card q-table">
       <header><nav class="q-tabs" id="q-tabs"></nav>
-        <label class="q-order">Ordenar por: <select id="q-order"><option value="oldest">Mais antigo</option><option value="priority">Prioridade</option><option value="newest">Mais recente</option></select></label></header>
+        <div class="q-tools">
+          <div class="q-view" role="tablist" aria-label="O que mostrar"><button type="button" data-view="waiting" class="active">Na fila <b id="v-waiting"></b></button><button type="button" data-view="attending">Em atendimento <b id="v-attending"></b></button></div>
+          <label class="q-order">Ordenar por: <select id="q-order"><option value="oldest">Mais antigo</option><option value="priority">Prioridade</option><option value="newest">Mais recente</option></select></label>
+        </div></header>
       <div class="q-scroll"><table>
-        <thead><tr><th>Posição</th><th>Contato</th><th>Setor</th><th>Assunto</th><th>Tempo de espera</th><th class="r">Ações</th></tr></thead>
-        <tbody id="q-rows"><tr><td colspan="6" class="meta">Carregando…</td></tr></tbody>
+        <thead><tr><th>Posição</th><th>Contato</th><th>Setor</th><th>Assunto</th><th id="h-wait">Tempo de espera</th><th>Com quem está</th><th class="r">Ações</th></tr></thead>
+        <tbody id="q-rows"><tr><td colspan="7" class="meta">Carregando…</td></tr></tbody>
       </table></div>
       <footer id="q-foot" class="meta"></footer>
     </section>

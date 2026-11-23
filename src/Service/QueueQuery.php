@@ -7,7 +7,8 @@ use ConnectTalk\Domain\StaffMember;
 use ConnectTalk\Support\Db;
 
 /**
- * Tela "Fila de atendimento": quem está esperando, há quanto tempo, e os números do dia.
+ * Tela "Fila de atendimento": quem está esperando, há quanto tempo, com quem está cada conversa
+ * (Jack, atendente ou ninguém), por onde ela passou e os números do dia.
  * O escopo é o mesmo da caixa de entrada: supervisor vê tudo; os demais, os próprios setores.
  */
 final class QueueQuery
@@ -22,22 +23,16 @@ final class QueueQuery
     {
         [$where, $params] = $this->policy->sqlFilter($u, 'c');
         $waiting = $this->db->all(
-            "SELECT c.id, c.protocol, c.sector_id, s.name AS sector_name, c.priority, c.queued_at, c.unread,
-                    TIMESTAMPDIFF(SECOND, COALESCE(c.queued_at, c.opened_at), NOW()) AS wait_seconds,
-                    COALESCE(c.queued_at, c.opened_at) AS wait_from, NOW() AS now_db,
-                    ct.name AS contact_name, ct.phone,
-                    (SELECT GROUP_CONCAT(tg.tag_id ORDER BY tg.tag_id) FROM talk_contact_tags tg WHERE tg.contact_id = c.contact_id) AS tag_ids,
-                    (SELECT LEFT(COALESCE(NULLIF(m.body, ''), '(arquivo)'), 140) FROM talk_messages m
-                      WHERE m.conversation_id = c.id AND m.direction = 'in' ORDER BY m.id LIMIT 1) AS subject
-               FROM talk_conversations c
-               JOIN talk_contacts ct ON ct.id = c.contact_id
-               LEFT JOIN talk_sectors s ON s.id = c.sector_id
-              WHERE c.status = 'pending' AND $where
-              ORDER BY COALESCE(c.queued_at, c.opened_at), c.id
-              LIMIT 200",
+            self::SELECT . " WHERE c.status = 'pending' AND $where ORDER BY COALESCE(c.queued_at, c.opened_at), c.id LIMIT 200",
             $params
         );
+        // em atendimento: com quem está e desde quando (sem posição)
+        $attending = array_map(fn (array $r): array => array_diff_key($this->present($r), ['wait_from' => 1, 'now_db' => 1, 'wait_seconds' => 1]) + ['since' => $r['accepted_at']], $this->db->all(
+            self::SELECT . " WHERE c.status = 'open' AND $where ORDER BY c.accepted_at DESC, c.id DESC LIMIT 200",
+            $params
+        ));
         foreach ($waiting as $i => &$w) {
+            $w = $this->present($w);
             $w['position'] = $i + 1;
             // fora do horário do setor e feriados não contam como espera
             $w['wait_seconds'] = $this->hours
@@ -87,6 +82,50 @@ final class QueueQuery
             'distribution' => $dist,
             'attendants' => $this->attendants($u),
             'waiting' => $waiting,
+            'attending' => $attending,
+        ];
+    }
+
+    private const SELECT = "SELECT c.id, c.protocol, c.helpdesk_protocol, c.status, c.sector_id, s.name AS sector_name, c.priority, c.queued_at, c.accepted_at, c.unread,
+                    c.jack_pending, c.assigned_user_id, au.name AS assigned_name, c.subject AS ticket_subject,
+                    TIMESTAMPDIFF(SECOND, COALESCE(c.queued_at, c.opened_at), NOW()) AS wait_seconds,
+                    COALESCE(c.queued_at, c.opened_at) AS wait_from, NOW() AS now_db,
+                    ct.name AS contact_name, ct.phone, ct.erp_snapshot,
+                    (SELECT GROUP_CONCAT(tg.tag_id ORDER BY tg.tag_id) FROM talk_contact_tags tg WHERE tg.contact_id = c.contact_id) AS tag_ids,
+                    (SELECT LEFT(COALESCE(NULLIF(m.body, ''), '(arquivo)'), 140) FROM talk_messages m
+                      WHERE m.conversation_id = c.id AND m.direction = 'in' ORDER BY m.id LIMIT 1) AS subject,
+                    (SELECT CONCAT(DATE_FORMAT(m.created_at, '%Y-%m-%d %H:%i:%s'), '|', LEFT(m.body, 200)) FROM talk_messages m
+                      WHERE m.conversation_id = c.id AND m.direction = 'internal' AND m.type = 'transfer' ORDER BY m.id DESC LIMIT 1) AS last_move
+               FROM talk_conversations c
+               JOIN talk_contacts ct ON ct.id = c.contact_id
+               LEFT JOIN talk_sectors s ON s.id = c.sector_id
+               LEFT JOIN talk_users au ON au.id = c.assigned_user_id";
+
+    /** Vínculos do ERP em português, para "quem é". */
+    private const RELATIONSHIPS = ['owner' => 'Proprietário', 'tenant' => 'Inquilino', 'resident' => 'Morador', 'financial' => 'Responsável financeiro'];
+
+    /** Quem é (cadastro do ERP), com quem está e o último encaminhamento, prontos para a tela. */
+    private function present(array $r): array
+    {
+        $erp = json_decode((string) ($r['erp_snapshot'] ?? ''), true) ?: [];
+        $who = array_values(array_filter([
+            isset($erp['vinculo']) ? (self::RELATIONSHIPS[$erp['vinculo']] ?? $erp['vinculo']) : null,
+            $erp['condominio'] ?? null,
+            $erp['unidade'] ?? null,
+        ]));
+        [$moveAt, $move] = $r['last_move'] ? explode('|', (string) $r['last_move'], 2) + [1 => ''] : [null, null];
+        $handler = match (true) {
+            $r['status'] === 'open' && $r['assigned_name'] !== null => ['kind' => 'agent', 'name' => trim((string) preg_replace('/\s*\(.*\)$/', '', (string) $r['assigned_name']))],
+            (int) $r['jack_pending'] === 1 => ['kind' => 'jack', 'name' => 'Jack'],
+            default => ['kind' => 'none', 'name' => null],
+        };
+        unset($r['erp_snapshot'], $r['last_move'], $r['assigned_name']);
+        return $r + [
+            'who' => $who ? implode(' · ', $who) : 'Não identificado no ERP',
+            'identified' => $who !== [],
+            'handler' => $handler,
+            'last_move' => $move !== null ? ['text' => $move, 'at' => $moveAt] : null,
+            'ticket' => $r['helpdesk_protocol'] ?: $r['protocol'],
         ];
     }
 
@@ -107,7 +146,7 @@ final class QueueQuery
                FROM talk_users u
                JOIN talk_staff s ON s.user_id = u.id
                LEFT JOIN talk_sectors sec ON sec.id = s.sector_id
-              WHERE u.active = 1 $filter
+              WHERE u.active = 1 AND u.is_bot = 0 $filter
               GROUP BY u.id, u.name, u.last_seen_at
               ORDER BY online DESC, u.name",
             $params

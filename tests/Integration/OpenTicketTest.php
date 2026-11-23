@@ -23,6 +23,7 @@ final class OpenTicketTest extends DbTestCase
             }
             public function transfer(int $t, string $s, int $u, ?string $n): void {}
             public function close(int $t, int $u, ?string $r): void {}
+            public function status(int $t): ?array { return null; }
         };
     }
 
@@ -57,7 +58,7 @@ final class OpenTicketTest extends DbTestCase
     {
         $id = $this->routed('preciso da segunda via do boleto'); // NullHelpdesk
         try {
-            $this->svc->openTicketNow($id, $this->agent(10, 'Financeiro'), 'Boleto', '');
+            $this->svc->openTicketNow($id, $this->agent(10, 'Financeiro'), 'Boleto', 'Cliente pediu a segunda via de novembro.');
             $this->fail('deveria avisar');
         } catch (DomainError $e) {
             $this->assertStringContainsString('ERP_API_URL', $e->getMessage());
