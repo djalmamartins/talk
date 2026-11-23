@@ -30,22 +30,9 @@ let lastAlert = 0;
 const soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; } };
 function unlockAudio() {
   if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; } }
-  if (audio.state === 'suspended') audio.resume().then(renderUnlock).catch(() => {});
-  renderUnlock();
+  if (audio.state === 'suspended') audio.resume().catch(() => {});
 }
-// o navegador bloqueia o som até o primeiro clique: avisa no topo para a pessoa não ficar sem alerta
-function renderUnlock() {
-  let b = document.getElementById('sound-unlock');
-  const blocked = soundOn() && (!audio || audio.state !== 'running');
-  if (!blocked) { b?.remove(); return; }
-  if (b) return;
-  b = document.createElement('button');
-  b.type = 'button'; b.id = 'sound-unlock'; b.className = 'sound-unlock';
-  b.textContent = '🔔 Clique aqui para ativar o som dos avisos';
-  b.addEventListener('click', () => { unlockAudio(); setTimeout(() => { if (audio?.state === 'running') chime(); renderUnlock(); }, 80); });
-  document.body.appendChild(b);
-}
-setTimeout(renderUnlock, 1500);
+// o navegador só deixa tocar depois do primeiro clique ou tecla: libera o áudio em silêncio nessa hora, sem aviso na tela
 ['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 function chime() {
   if (!audio || audio.state !== 'running') return;
@@ -75,7 +62,7 @@ function renderSound() {
 }
 $('#sound-toggle').addEventListener('click', () => {
   try { localStorage.setItem(SOUND_KEY, soundOn() ? 'off' : 'on'); } catch { /* sem armazenamento: fica ligado */ }
-  renderSound(); unlockAudio(); renderUnlock();
+  renderSound(); unlockAudio();
   if (soundOn()) setTimeout(chime, 50); // toca uma vez para a pessoa ouvir como fica
 });
 renderSound();

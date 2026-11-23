@@ -12,8 +12,12 @@
   Abrir e Dispensar tiram o aviso do sino, e ele só volta quando há novidade (alguém novo na fila, outra mensagem,
   outro agendamento com falha). "Limpar todas" dispensa tudo de uma vez. A API `/api/notifications` passa a mandar
   `key` e `sig` em cada item. A escolha fica guardada no navegador.
-- **Ícone novo do Connect Talk:** o símbolo da Connect em dourado dentro de um balão de conversa verde, em fundo
-  escuro (favicon, ícones do app e menu recolhido). Não usa o logotipo oficial do WhatsApp, que é marca registrada.
+- **Ícone novo do Connect Talk:** o símbolo da Connect maior, em branco sobre verde, com um telefone dourado dentro
+  (favicon, ícones do app e menu recolhido). As outras duas opções desenhadas estão em `docs/icone/`.
+- **Som de aviso sempre ligado, sem o botão "Clique aqui para ativar o som":** o áudio é liberado em silêncio no
+  primeiro clique ou tecla na página (o navegador só deixa tocar depois disso). Continua dando para desligar no menu
+  do usuário.
+- Item ativo do menu sem a faixa verde mais escura na lateral.
 
 ## [1.4.0] — 2026-11-22 — primeira versão de produção
 Pedido do Djalma em 22/11/2026: versão de produção sem a Jack, com entrada só para os funcionários do ERP (ADR 0006).
