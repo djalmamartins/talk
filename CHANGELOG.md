@@ -13,7 +13,9 @@ Pedidos do Djalma em 26/11/2026 (ADR 0006, revisão).
 - **Painel de informações da conversa** com espaço em volta, sem a borda verde-escura no protocolo atual e sem barra de
   rolagem para o lado; texto comprido quebra a linha.
 - **Abas do topo** (Atendentes, Setores, Registro de alterações e as das outras telas) em verde clarinho, sem borda.
-- Protocolo `SAC` + AAAAMMDD + sequência (ff68041, da conversa de chamados).
+- **Protocolo do Talk `TLK` + AAAAMMDD + sequência** em cada conversa, sem e-mail. Só o botão Abrir chamado cria o
+  `SAC…` no ERP, e os dois números ficam ligados e aparecem um no outro; números antigos continuam achados na busca
+  (eee9ab0, da conversa de chamados).
 
 
 ## [1.4.1] — 2026-11-22 — acertos visuais pedidos pelo Djalma

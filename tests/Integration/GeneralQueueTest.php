@@ -41,7 +41,7 @@ final class GeneralQueueTest extends DbTestCase
         $this->assertSame($this->general, (int) $c['sector_id']);
         $this->assertNull($c['assigned_user_id']);
         $this->assertNull($this->db->one("SELECT id FROM talk_messages WHERE conversation_id = ? AND direction = 'out'", [$id]), 'Sem menu e sem Jack.');
-        $this->assertStringStartsWith('SAC', (string) $c['protocol']);
+        $this->assertStringStartsWith('TLK', (string) $c['protocol'], 'Número do Talk; o SAC só nasce no Abrir chamado.');
     }
 
     public function test_todos_veem_a_fila_geral_e_qualquer_um_pega(): void
