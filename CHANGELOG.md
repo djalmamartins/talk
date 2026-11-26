@@ -52,10 +52,13 @@ Pedido do Djalma em 22/11/2026: versão de produção sem a Jack, com entrada s�
 
 ### Protocolo único com o SAC (22/11/2026)
 ### Alterado
-- **Protocolo no formato do SAC: SAC + AAAAMMDD + sequência do dia** (ex.: `SAC202611260001`; 5 dígitos depois de
-  9999), o mesmo número no Talk e no SAC (ADR 0637 do ERP, escolha do Djalma em 26/11). A migração 028 converte os
-  números antigos (`26112200403` e `SAC26112200403` viram `SAC202611220403`) e guarda o antigo em `legacy_protocol`;
-  a busca e a consulta pelo WhatsApp aceitam os formatos antigos e o número digitado com espaços.
+- **Cada conversa tem número próprio: TLK + AAAAMMDD + sequência do dia** (ex.: `TLK202611260001`; 5 dígitos depois
+  de 9999). O **SAC…** é só do chamado, que o ERP cria quando o atendente clica em Abrir chamado (ADR 0637 do ERP); os
+  dois números ficam ligados e aparecem juntos na tela ("Protocolo TLK… · chamado SAC… no SAC"), e o chamado leva o TLK
+  no texto. Modelo aprovado pelo Djalma em 26/11/2026. As migrações 028 e 029 convertem os números antigos
+  (`26112200403`, `SAC26112200403` e o `SAC2026…` da manhã de 26/11 viram `TLK2026…`) e guardam o antigo em
+  `legacy_protocol`; a busca e a consulta pelo WhatsApp acham a conversa pelo TLK, pelo SAC do chamado, pelos antigos
+  e pelo número digitado com espaços ou sem o prefixo.
 - **Chamado só pelo botão Abrir chamado** (`SAC_AUTO_TICKET=off`, padrão): conversa comum fica só no Talk. O diálogo pede
   título, descrição e **para qual setor** vai o chamado. O chamado aberto assim continua no SAC depois que a conversa
   é encerrada no Talk.

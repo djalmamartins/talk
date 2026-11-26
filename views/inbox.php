@@ -92,7 +92,7 @@
 <dialog id="ticket-dialog">
   <form method="dialog" id="ticket-form">
     <h3>Abrir chamado no SAC</h3>
-    <p class="meta">O chamado vai para o SAC do Connect ERP com o mesmo protocolo desta conversa (<b id="ticket-proto"></b>), o nome, o telefone, o condomínio e a conversa até agora. Ele continua aberto lá mesmo depois que você encerrar a conversa aqui.</p>
+    <p class="meta">O chamado nasce no SAC do Connect ERP com número próprio (SAC…), ligado a esta conversa (<b id="ticket-proto"></b>), e leva o nome, o telefone, o condomínio e a conversa até agora. Ele continua aberto lá mesmo depois que você encerrar a conversa aqui.</p>
     <label>Para qual setor<select id="ticket-sector" required></select></label>
     <label>Título<input id="ticket-subject" maxlength="200" required></label>
     <label>Descrição do que está acontecendo<textarea id="ticket-desc" rows="5" minlength="10" maxlength="5000" required></textarea></label>
