@@ -42,20 +42,16 @@ dialog{border:0;border-radius:12px;padding:18px;width:min(420px,92vw)}dialog men
 .sys-hint{align-self:center;font-size:12px;color:var(--muted);padding:2px 10px;border-radius:10px;background:rgba(0,0,0,.04)}
 
 /* casca: menu lateral cinza + logo dourada (referência: fila-de-atendimento.png) */
-.shell{display:grid;grid-template-columns:232px 1fr;height:100vh}
-.sidebar{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px 16px;gap:4px}
-.sidebar .logo{width:190px;margin:-6px 0 14px}
 .profile{display:flex;gap:10px;align-items:center;padding:8px 6px 18px;border-bottom:1px solid var(--line);margin-bottom:12px}
 .profile b{display:block;font-size:14px}.avatar{width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
 .profile .live{font-size:12px;color:var(--muted)}.profile .live.on{color:var(--primary)}
-.nav{display:flex;align-items:center;gap:10px;white-space:nowrap;padding:10px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:0;background:none;width:100%;text-align:left;font-size:14px}
+.nav{display:flex;align-items:center;gap:10px;white-space:nowrap;padding:9px 10px;border-radius:10px;color:var(--text);text-decoration:none;border:0;background:none;width:100%;text-align:left;font-size:14px}
 .nav svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .nav:hover{background:#e7e9e7}.nav.active{background:#e3f1e8;color:var(--primary-dark);font-weight:600}
 .nav b{margin-left:auto;background:var(--primary);color:#fff;border-radius:10px;padding:0 8px;font-size:12px}.nav b:empty{display:none}
 .logout{margin-top:auto}
 .page{display:flex;flex-direction:column;min-width:0;min-height:0}
 .page-head{padding:22px 20px 16px}.page-head h1{margin:0;font-size:26px}.page-head p{margin:4px 0 0;color:var(--muted)}
-@media (max-width:1100px){.shell{grid-template-columns:72px 1fr}.sidebar .logo,.profile div,.nav{font-size:0}.sidebar .logo{width:44px;object-fit:cover;object-position:left}.nav{justify-content:center}.nav b{display:none}}
 .sim-thread .typing{font-style:italic;color:var(--muted)}
 
 /* Trocar atendente (referência: trocar-atendente.png) */
@@ -152,7 +148,9 @@ button.ghost{display:inline-flex;align-items:center;gap:6px;border:1px solid var
 button.ghost:hover{background:#e8f3ec}button.ghost svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 button.ghost.sm{padding:5px 12px;font-size:13px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr)}
-.kpi{display:flex;gap:12px;padding:4px 16px;border-left:1px solid var(--line)}.kpi:first-child{border-left:0;padding-left:0}
+.kpi{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px 16px;border-left:1px solid var(--line)}.kpi:first-child{border-left:0}
+.kpi>div{min-width:0}
+.kpi>.ic{display:grid;margin-top:0} /* o ".kpi span" acima deixava o ícone no canto de cima à esquerda do quadrado */
 .kpi b{display:block;font-size:26px;line-height:1.1}.kpi span{display:block;font-size:13px;margin-top:2px}.kpi small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
 .ic{display:grid;place-items:center;width:44px;height:44px;min-width:44px;border-radius:12px}.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .ic.g{background:#e8f3ec;color:var(--primary)}.ic.y{background:#fdf3d6;color:#a77d00}.ic.b{background:#e6eefc;color:#2F6FDE}.ic.p{background:#efe8fb;color:#7A3EC8}
@@ -583,10 +581,71 @@ a.env-item:hover{background:#f1f5f2}.env-item[aria-current]{background:#e3f1e8}
 @media (max-width:700px){.sv-grid{grid-template-columns:1fr;gap:2px}.sv-grid dd{margin-bottom:8px}.sv-timeline li{grid-template-columns:1fr}.sv-fb-row{grid-template-columns:1fr}.sv-last{max-width:none}}
 /* 1.2.0: som bloqueado pelo navegador e aviso de avaliação recebida */
 .tb-ico.k-rating{background:#fff6d6;color:#9a7a12}
-.sound-unlock{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;background:var(--ink);color:#fff;border:0;border-radius:20px;padding:9px 16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 .rating-toast{position:fixed;right:18px;bottom:18px;z-index:61;display:grid;gap:3px;width:min(340px,calc(100vw - 32px));padding:12px 14px;border-radius:12px;background:#fff;color:var(--text);text-decoration:none;border-left:5px solid var(--primary);box-shadow:0 10px 30px rgba(0,0,0,.18);animation:rt-in .3s ease-out;transition:opacity .5s,transform .5s}
 .rating-toast+.rating-toast{bottom:110px}
 .rating-toast span{color:var(--accent);letter-spacing:2px;font-size:16px}.rating-toast small{color:var(--muted)}
 .rating-toast.review{border-left-color:var(--accent)}
 .rating-toast.out{opacity:0;transform:translateY(10px)}
 @keyframes rt-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* menu lateral igual ao do Connect ERP, nas cores do Talk (1.4.1): cabeçalho com logo e botão de recolher,
+   alternador de sistemas, grupos com título, rodapé com a pessoa. Recolhido: só ícones e o símbolo do Talk;
+   tablet (901 a 1100 px) já abre recolhido; celular (até 900 px) vira gaveta aberta pelo botão do topo. */
+:root{--sb-w:250px;--sb-w-collapsed:76px}
+.shell{display:grid;grid-template-columns:var(--sb-w) minmax(0,1fr);height:100vh;transition:grid-template-columns .25s ease}
+.shell.is-collapsed{grid-template-columns:var(--sb-w-collapsed) minmax(0,1fr)}
+.sidebar{position:relative;z-index:40;height:100vh;display:flex;flex-direction:column;gap:14px;padding:20px 12px 12px;background:var(--side);border-right:1px solid var(--line);overflow:hidden;min-width:0}
+.sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;min-height:40px}
+.brand-link{display:flex;align-items:center;min-width:0}
+.sidebar .logo{width:160px;height:auto;max-height:54px;object-fit:contain;object-position:left center;margin:0}
+.brand-mark{width:38px;height:38px;display:none}
+.sb-collapse,.sb-close{display:grid;place-items:center;flex:none;width:34px;height:34px;padding:0;border:0;border-radius:8px;background:#e5e8e6;color:var(--text)}
+.sb-collapse:hover,.sb-close:hover{background:#d9dedb}
+.sb-collapse svg,.sb-close svg,.tb-menu svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.sb-close,.tb-menu{display:none}
+.sidebar .envswitch{margin:0 2px;padding-bottom:0;border-bottom:0}
+.env-mark img,.env-ico img{width:32px;height:32px;border-radius:9px;display:block}
+.env-mark:has(img),.env-ico:has(img){background:none}
+.sb-nav{flex:1;display:grid;align-content:start;gap:2px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:0 2px 8px;scrollbar-width:thin}
+.nav-heading{padding:10px 10px 4px;color:var(--muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.nav-heading:first-child{padding-top:2px}
+.nav-label{overflow:hidden;text-overflow:ellipsis}
+.sidebar-foot{border-top:1px solid var(--line);padding:10px 2px 0}
+.sb-profile{display:flex;align-items:center;gap:10px;padding:6px;border-radius:10px;min-width:0}
+.sb-profile .avatar.sm{width:36px;height:36px;font-size:13px}
+.sb-profile div{min-width:0}.sb-profile strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sb-profile small{color:var(--muted);font-size:12px}
+.sb-backdrop{display:none}
+/* recolhido: some todo texto (inclusive "Connect Talk" do alternador), fica o símbolo */
+.shell.is-collapsed .sidebar{padding-left:10px;padding-right:10px}
+.shell.is-collapsed .logo,.shell.is-collapsed .nav-label,.shell.is-collapsed .nav-heading,.shell.is-collapsed .envswitch,.shell.is-collapsed .sb-profile div,.shell.is-collapsed .nav b{display:none}
+.shell.is-collapsed .brand-mark{display:block}
+.shell.is-collapsed .sidebar-head{flex-direction:column;gap:10px;padding:0}
+.shell.is-collapsed .sb-collapse svg{transform:rotate(180deg)}
+.shell.is-collapsed .nav{justify-content:center;padding:10px}
+.shell.is-collapsed .sb-nav{padding-top:4px}
+.shell.is-collapsed .sb-profile{justify-content:center}
+/* recolhido, o número da fila vira uma bolinha sobre o ícone */
+.shell.is-collapsed .nav{position:relative}
+.shell.is-collapsed .nav:has(b:not(:empty))::after{content:"";position:absolute;top:7px;right:12px;width:8px;height:8px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2px var(--side)}
+@media (max-width:900px){
+  .shell,.shell.is-collapsed{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;inset:0 auto 0 0;width:min(290px,86vw);transform:translateX(-102%);transition:transform .25s ease;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .shell.is-nav-open .sidebar{transform:none}
+  .shell.is-nav-open .sb-backdrop{display:block;position:fixed;inset:0;z-index:35;background:rgba(17,21,18,.45)}
+  .sb-collapse{display:none}.sb-close{display:grid}
+  .tb-menu{display:grid;flex:none}
+  .topbar{gap:10px;padding:10px 14px}
+}
+@media (prefers-reduced-motion:reduce){.shell,.sidebar{transition:none}}
+/* notificações: pop-up ao clicar (como no Studio do ERP) e "Limpar todas" */
+.tb-notif-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tb-clear{border:0;background:none;padding:2px 6px;color:var(--primary-dark);font-size:12px;font-weight:600;border-radius:6px}.tb-clear:hover{background:#e3f1e8}
+#tb-notif-list{max-height:min(60vh,420px);overflow:auto}
+#tb-notif-list .tb-item{cursor:pointer}
+.notif-dialog{width:min(400px,92vw);padding:26px 24px 20px;text-align:center;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.notif-dialog::backdrop{background:rgba(17,21,18,.45)}
+.notif-dialog .notif-ico{width:52px;height:52px;border-radius:14px;margin:0 auto 12px}.notif-dialog .notif-ico svg{width:26px;height:26px}
+.notif-dialog h2{margin:0 0 8px;font-size:17px}
+.notif-dialog p{margin:0;color:var(--muted);font-size:14px;white-space:pre-line}
+.notif-dialog menu{justify-content:center;margin-top:20px;flex-wrap:wrap}
+.notif-x{position:absolute;top:10px;right:10px;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:none;font-size:22px;line-height:1;color:var(--muted)}.notif-x:hover{background:#f1f2f1}

@@ -4,6 +4,7 @@ $initials ??= '';
 $onInbox = ($active ?? '') === 'inbox';
 ?>
 <header class="topbar">
+  <button type="button" class="tb-icon tb-menu" data-sb-open aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <form class="tb-search" id="search-form" action="/" method="get" role="search">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
     <label class="sr-only" for="search">Buscar conversas</label>
@@ -14,7 +15,7 @@ $onInbox = ($active ?? '') === 'inbox';
     <details class="tb-drop" id="tb-notif">
       <summary class="tb-icon" aria-label="Notificações" title="Notificações"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15zM10 20a2 2 0 004 0"/></svg><span class="tb-count" id="tb-notif-n" hidden></span></summary>
       <div class="tb-panel wide" role="region" aria-label="Notificações">
-        <h2>Notificações</h2>
+        <h2 class="tb-notif-head">Notificações <button type="button" class="tb-clear" id="tb-notif-clear" hidden>Limpar todas</button></h2>
         <div id="tb-notif-list"><p class="tb-empty">Carregando…</p></div>
       </div>
     </details>
@@ -32,3 +33,14 @@ $onInbox = ($active ?? '') === 'inbox';
     </details>
   </div>
 </header>
+<dialog id="notif-dialog" class="notif-dialog" aria-labelledby="notif-dialog-title">
+  <button type="button" class="notif-x" data-notif="later" aria-label="Fechar">×</button>
+  <span class="tb-ico notif-ico" id="notif-dialog-ico" aria-hidden="true"><svg viewBox="0 0 24 24"></svg></span>
+  <h2 id="notif-dialog-title">Notificação</h2>
+  <p id="notif-dialog-text"></p>
+  <menu>
+    <button type="button" data-notif="dismiss" title="Some do sino até aparecer algo novo">Dispensar</button>
+    <button type="button" data-notif="later">Ver depois</button>
+    <button type="button" class="primary" data-notif="open">Abrir</button>
+  </menu>
+</dialog>

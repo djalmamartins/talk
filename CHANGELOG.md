@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.1] — 2026-11-22 — acertos visuais pedidos pelo Djalma
+### Alterado
+- **Visão geral da fila:** os ícones ficam centralizados no quadrado colorido (antes ficavam no canto de cima à
+  esquerda por causa de uma regra do `.kpi span`) e cada indicador fica centralizado na sua coluna.
+- **Menu lateral igual ao do Connect ERP**, nas cores do Talk: logo com botão de recolher (a escolha fica guardada no
+  navegador), alternador de sistemas, grupos Atendimento / Acompanhamento / Administração e a pessoa no rodapé.
+  Recolhido mostra só os ícones e o símbolo do Talk (some o texto "Connect Talk"); no tablet (901 a 1100 px) já abre
+  recolhido; no celular (até 900 px) vira gaveta aberta pelo botão ☰ do topo.
+- **Sino de notificações como no Studio do ERP:** clicar num aviso abre um pop-up com Abrir, Ver depois e Dispensar.
+  Abrir e Dispensar tiram o aviso do sino, e ele só volta quando há novidade (alguém novo na fila, outra mensagem,
+  outro agendamento com falha). "Limpar todas" dispensa tudo de uma vez. A API `/api/notifications` passa a mandar
+  `key` e `sig` em cada item. A escolha fica guardada no navegador.
+- **Ícone novo do Connect Talk:** o logo do WhatsApp (arquivo enviado pelo Djalma) com o símbolo da Connect em branco
+  no lugar do telefone (favicon, ícones do app, alternador de sistemas e menu recolhido). Os rascunhos anteriores
+  ficaram em `docs/icone/`.
+- **Som de aviso sempre ligado, sem o botão "Clique aqui para ativar o som":** o áudio é liberado em silêncio no
+  primeiro clique ou tecla na página (o navegador só deixa tocar depois disso). Continua dando para desligar no menu
+  do usuário.
+- Item ativo do menu sem a faixa verde mais escura na lateral.
+
 ## [1.4.0] — 2026-11-22 — primeira versão de produção
 Pedido do Djalma em 22/11/2026: versão de produção sem a Jack, com entrada só para os funcionários do ERP (ADR 0006).
 ### Adicionado

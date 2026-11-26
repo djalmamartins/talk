@@ -30,22 +30,9 @@ let lastAlert = 0;
 const soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; } };
 function unlockAudio() {
   if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; } }
-  if (audio.state === 'suspended') audio.resume().then(renderUnlock).catch(() => {});
-  renderUnlock();
+  if (audio.state === 'suspended') audio.resume().catch(() => {});
 }
-// o navegador bloqueia o som até o primeiro clique: avisa no topo para a pessoa não ficar sem alerta
-function renderUnlock() {
-  let b = document.getElementById('sound-unlock');
-  const blocked = soundOn() && (!audio || audio.state !== 'running');
-  if (!blocked) { b?.remove(); return; }
-  if (b) return;
-  b = document.createElement('button');
-  b.type = 'button'; b.id = 'sound-unlock'; b.className = 'sound-unlock';
-  b.textContent = '🔔 Clique aqui para ativar o som dos avisos';
-  b.addEventListener('click', () => { unlockAudio(); setTimeout(() => { if (audio?.state === 'running') chime(); renderUnlock(); }, 80); });
-  document.body.appendChild(b);
-}
-setTimeout(renderUnlock, 1500);
+// o navegador só deixa tocar depois do primeiro clique ou tecla: libera o áudio em silêncio nessa hora, sem aviso na tela
 ['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 function chime() {
   if (!audio || audio.state !== 'running') return;
@@ -75,7 +62,7 @@ function renderSound() {
 }
 $('#sound-toggle').addEventListener('click', () => {
   try { localStorage.setItem(SOUND_KEY, soundOn() ? 'off' : 'on'); } catch { /* sem armazenamento: fica ligado */ }
-  renderSound(); unlockAudio(); renderUnlock();
+  renderSound(); unlockAudio();
   if (soundOn()) setTimeout(chime, 50); // toca uma vez para a pessoa ouvir como fica
 });
 renderSound();
@@ -96,15 +83,66 @@ function toastRating(it) {
   setTimeout(() => t.classList.add('out'), 9000);
   setTimeout(() => t.remove(), 9600);
 }
+// ------------------------------------------------------------ notificações: pop-up e dispensar
+// Como no Studio do ERP: clicar numa notificação abre um pop-up com o aviso e três saídas (Abrir, Ver depois,
+// Dispensar). Abrir e Dispensar tiram o aviso do sino; ele só volta quando muda o que ele diz (chegou alguém
+// novo na fila, outra mensagem, outro agendamento com falha...). Fica guardado neste navegador.
+const DISMISS_KEY = 'talk.notif.dismissed';
+let notifItems = [];
+let current = null;
+const dismissed = () => { try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || '{}') || {}; } catch { return {}; } };
+const isDismissed = (it, map = dismissed()) => it.key && map[it.key] === it.sig;
+function dismiss(list) {
+  const map = dismissed();
+  list.forEach((it) => { if (it.key) map[it.key] = it.sig; });
+  // guarda só o que ainda aparece, para a lista não crescer para sempre
+  const keep = {}; notifItems.forEach((it) => { if (it.key && map[it.key] !== undefined) keep[it.key] = map[it.key]; });
+  list.forEach((it) => { if (it.key) keep[it.key] = it.sig; });
+  try { localStorage.setItem(DISMISS_KEY, JSON.stringify(keep)); } catch { /* sem armazenamento */ }
+  renderNotifications(notifItems);
+}
+function renderNotifications(items) {
+  notifItems = items;
+  const map = dismissed();
+  const visible = items.filter((it) => !isDismissed(it, map));
+  const total = visible.reduce((a, it) => a + it.count, 0);
+  const n = $('#tb-notif-n');
+  n.hidden = !total; n.textContent = total > 99 ? '99+' : total;
+  $('#tb-notif summary').classList.toggle('has', !!total);
+  $('#tb-notif summary').setAttribute('aria-label', total ? `Notificações (${total})` : 'Notificações');
+  $('#tb-notif-clear').hidden = !visible.length;
+  $('#tb-notif-list').innerHTML = visible.map((it, i) => `<button type="button" class="tb-item" data-i="${items.indexOf(it)}">
+      <span class="tb-ico k-${esc(it.kind)}"><svg viewBox="0 0 24 24">${ICON[it.kind] || ''}</svg></span>
+      <span><b>${esc(it.title)}</b><small>${esc(it.text)}</small></span></button>`).join('')
+    || '<p class="tb-empty">Tudo em dia. Nada pede sua atenção agora.</p>';
+}
+const dlg = $('#notif-dialog');
+$('#tb-notif-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  current = notifItems[+b.dataset.i]; if (!current) return;
+  $('#tb-notif').open = false;
+  $('#notif-dialog-ico').className = `tb-ico notif-ico k-${current.kind}`;
+  $('#notif-dialog-ico svg').innerHTML = ICON[current.kind] || '';
+  $('#notif-dialog-title').textContent = current.title;
+  $('#notif-dialog-text').textContent = current.text;
+  dlg.showModal();
+  dlg.querySelector('[data-notif="open"]').focus();
+});
+dlg.addEventListener('click', (e) => {
+  if (e.target === dlg) { dlg.close(); return; } // clique fora do cartão
+  const act = e.target.closest('[data-notif]')?.dataset.notif; if (!act || !current) return;
+  const it = current; dlg.close(); current = null;
+  if (act === 'dismiss') dismiss([it]);
+  if (act === 'open') { dismiss([it]); location.href = it.href; }
+});
+$('#tb-notif-clear').addEventListener('click', () => { dismiss(notifItems.filter((it) => !isDismissed(it))); });
+
 async function loadNotifications() {
   try {
     const res = await fetch('/api/notifications', { headers: { Accept: 'application/json' } });
     if (res.status === 401) { location.href = '/login'; return; }
     const d = await res.json();
     failures = 0;
-    const n = $('#tb-notif-n');
-    n.hidden = !d.count; n.textContent = d.count > 99 ? '99+' : d.count;
-    $('#tb-notif summary').classList.toggle('has', !!d.count);
     const count = (k) => d.items.filter((it) => it.kind === k).reduce((a, it) => a + it.count, 0);
     // contador da fila no menu lateral (a aba Fila saiu de Atendimentos)
     const waiting = count('queue');
@@ -122,11 +160,7 @@ async function loadNotifications() {
       window.talkAlert();
       fresh.forEach((it) => rated.add(it.id)); markRated(rated);
     }
-    $('#tb-notif summary').setAttribute('aria-label', d.count ? `Notificações (${d.count})` : 'Notificações');
-    $('#tb-notif-list').innerHTML = d.items.map((it) => `<a class="tb-item" href="${esc(it.href)}">
-        <span class="tb-ico k-${esc(it.kind)}"><svg viewBox="0 0 24 24">${ICON[it.kind] || ''}</svg></span>
-        <span><b>${esc(it.title)}</b><small>${esc(it.text)}</small></span></a>`).join('')
-      || '<p class="tb-empty">Tudo em dia. Nada pede sua atenção agora.</p>';
+    renderNotifications(d.items);
     // telas sem tempo real próprio: mostra que o Talk está respondendo
     const live = $('#live');
     if (live && !live.classList.contains('on') && !live.dataset.sse) { live.textContent = '● Online'; live.classList.add('on'); }

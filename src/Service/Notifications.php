@@ -15,7 +15,8 @@ use ConnectTalk\Support\Db;
  * - supervisor: números de WhatsApp ativos que caíram;
  * - avaliações que os clientes deram à pessoa nas últimas 12 h (parabéns com 4 ou 5 estrelas, convite para
  *   revisar com 3 ou menos), as 3 mais recentes.
- * Cada item some quando o motivo some.
+ * Cada item some quando o motivo some. Cada item traz `key` (qual aviso) e `sig` (o que ele diz agora): a pessoa
+ * pode dispensar o aviso no sino, e ele volta só quando a `sig` muda (chegou alguém novo na fila, nova mensagem...).
  */
 final class Notifications
 {
@@ -23,7 +24,7 @@ final class Notifications
     {
     }
 
-    /** @return array{count:int, items:list<array{kind:string,title:string,text:string,href:string,count:int}>} */
+    /** @return array{count:int, items:list<array{kind:string,key:string,sig:string,title:string,text:string,href:string,count:int}>} */
     public function for(StaffMember $u): array
     {
         $items = [];
@@ -32,7 +33,7 @@ final class Notifications
         // fila: só o que a pessoa pode pegar (o filtro da caixa de entrada já cobre setor e papel)
         [$where, $params] = $this->policy->sqlFilter($u, 'c');
         $q = $this->db->one(
-            "SELECT COUNT(*) n, TIMESTAMPDIFF(MINUTE, MIN(COALESCE(c.queued_at, c.opened_at)), NOW()) wait_min FROM talk_conversations c WHERE c.status = 'pending' AND c.sector_id IS NOT NULL AND $where",
+            "SELECT COUNT(*) n, MAX(c.id) last_id, TIMESTAMPDIFF(MINUTE, MIN(COALESCE(c.queued_at, c.opened_at)), NOW()) wait_min FROM talk_conversations c WHERE c.status = 'pending' AND c.sector_id IS NOT NULL AND $where",
             $params
         );
         if ((int) $q['n'] > 0) {
@@ -48,7 +49,7 @@ final class Notifications
                     $min = max($min, intdiv($this->hours->openSeconds((int) $r['sector_id'], new \DateTimeImmutable($r['t']), new \DateTimeImmutable($r['now_db'])), 60));
                 }
             }
-            $items[] = ['kind' => 'queue', 'count' => (int) $q['n'], 'href' => '/fila',
+            $items[] = ['kind' => 'queue', 'count' => (int) $q['n'], 'href' => '/fila', 'key' => 'queue', 'sig' => (string) $q['last_id'],
                 'title' => $plural((int) $q['n'], '1 conversa esperando na fila', '# conversas esperando na fila'),
                 'text' => $min < 1 ? 'A mais antiga chegou agora.' : "A mais antiga espera há {$this->duration($min)}."];
         }
@@ -56,7 +57,7 @@ final class Notifications
         // transferidas para a pessoa, ou para a fila de um setor dela, por outra pessoa
         $mine = array_map('intval', $u->sectors());
         $t = $this->db->all(
-            "SELECT c.id, c.protocol, ct.name AS contact, ct.phone, s.name AS sector, c.status, u.name AS by_name, COALESCE(u.is_bot, 0) AS by_bot
+            "SELECT c.id, c.protocol, ct.name AS contact, ct.phone, s.name AS sector, c.status, c.transferred_by AS by_id, u.name AS by_name, COALESCE(u.is_bot, 0) AS by_bot
                FROM talk_conversations c
                JOIN talk_contacts ct ON ct.id = c.contact_id
                LEFT JOIN talk_sectors s ON s.id = c.sector_id
@@ -69,18 +70,18 @@ final class Notifications
         );
         foreach ($t as $r) {
             $who = $r['contact'] ?: $r['phone'];
-            $items[] = ['kind' => 'transfer', 'count' => 1, 'href' => '/?c=' . (int) $r['id'],
+            $items[] = ['kind' => 'transfer', 'count' => 1, 'href' => '/?c=' . (int) $r['id'], 'key' => 'transfer:' . (int) $r['id'], 'sig' => $r['status'] . ':' . (int) $r['by_id'],
                 // a Jack entregou porque a pessoa era a única online (distribuição automática)
                 'title' => $r['status'] === 'open' ? ((int) $r['by_bot'] === 1 ? "Conversa nova para você: $who" : "Conversa transferida para você: $who") : "Conversa transferida para {$r['sector']}: $who",
                 'text' => 'Protocolo ' . $r['protocol'] . ((int) $r['by_bot'] === 1 ? ', distribuída pela Jack (você era a única pessoa online).' : ($r['by_name'] ? ', por ' . $r['by_name'] . '.' : '.'))];
         }
 
         $m = $this->db->one(
-            "SELECT COUNT(*) n, SUM(c.unread) msgs FROM talk_conversations c WHERE c.status = 'open' AND c.assigned_user_id = ? AND c.unread > 0",
+            "SELECT COUNT(*) n, SUM(c.unread) msgs, MAX(c.last_message_at) last_at FROM talk_conversations c WHERE c.status = 'open' AND c.assigned_user_id = ? AND c.unread > 0",
             [$u->userId]
         );
         if ((int) $m['n'] > 0) {
-            $items[] = ['kind' => 'unread', 'count' => (int) $m['n'], 'href' => '/?aba=mine',
+            $items[] = ['kind' => 'unread', 'count' => (int) $m['n'], 'href' => '/?aba=mine', 'key' => 'unread', 'sig' => (string) $m['last_at'],
                 'title' => $plural((int) $m['n'], '1 cliente seu respondeu', '# clientes seus responderam'),
                 'text' => $plural((int) $m['msgs'], '1 mensagem nova nos seus atendimentos.', '# mensagens novas nos seus atendimentos.')];
         }
@@ -94,17 +95,18 @@ final class Notifications
             [$u->userId]
         );
         foreach ($rated as $r) {
-            $items[] = ['kind' => 'rating', 'count' => 1, 'id' => (int) $r['id'], 'score' => (int) $r['score'],
+            $items[] = ['kind' => 'rating', 'count' => 1, 'id' => (int) $r['id'], 'score' => (int) $r['score'], 'key' => 'rating:' . (int) $r['id'], 'sig' => '1',
                 'href' => '/?c=' . (int) $r['conversation_id']] + self::ratingText((int) $r['score'], self::firstName($r['contact'] ?: null), $r['comment']);
         }
 
         $sectors = array_map('intval', $u->sectors());
         $scope = $u->supervisor ? '1=1' : '(s.created_by = ' . $u->userId . ($sectors ? ' OR s.sector_id IN (' . implode(',', $sectors) . ')' : '') . ')';
-        $f = (int) $this->db->one(
-            "SELECT COUNT(*) n FROM talk_schedules s WHERE s.status = 'failed' AND COALESCE(s.updated_at, s.send_at) >= NOW() - INTERVAL 7 DAY AND $scope"
-        )['n'];
+        $fr = $this->db->one(
+            "SELECT COUNT(*) n, MAX(s.id) last_id FROM talk_schedules s WHERE s.status = 'failed' AND COALESCE(s.updated_at, s.send_at) >= NOW() - INTERVAL 7 DAY AND $scope"
+        );
+        $f = (int) $fr['n'];
         if ($f > 0) {
-            $items[] = ['kind' => 'schedules', 'count' => $f, 'href' => '/agendamentos?aba=failed',
+            $items[] = ['kind' => 'schedules', 'count' => $f, 'href' => '/agendamentos?aba=failed', 'key' => 'schedules', 'sig' => (string) $fr['last_id'],
                 'title' => $plural($f, '1 agendamento não foi enviado', '# agendamentos não foram enviados'),
                 'text' => 'Veja o motivo e agende de novo.'];
         }
@@ -114,7 +116,7 @@ final class Notifications
                 "SELECT name FROM talk_channels WHERE status = 'active' AND connection_state = 'disconnected' ORDER BY name"
             );
             if ($down) {
-                $items[] = ['kind' => 'channels', 'count' => count($down), 'href' => '/conexoes',
+                $items[] = ['kind' => 'channels', 'count' => count($down), 'href' => '/conexoes', 'key' => 'channels', 'sig' => implode(',', array_column($down, 'name')),
                     'title' => $plural(count($down), '1 número de WhatsApp desconectado', '# números de WhatsApp desconectados'),
                     'text' => implode(', ', array_column($down, 'name')) . '. Leia o QR Code de novo.'];
             }
