@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0] — 2026-11-26 — tudo vindo do ERP e sem a Jack
+Pedidos do Djalma em 26/11/2026 (ADR 0006, revisão).
+### Alterado
+- **Sem a Jack em cena:** toda conversa nova cai na **fila Geral**, que todos veem, e cada um pega a sua; depois dá para
+  transferir para o setor certo (`TALK_ENTRY=geral`). Sem menu, sem mensagem automática e **sem distribuição
+  automática** (`AUTO_ASSIGN=off`). "Serviço da Jack" sai do menu, a Jack sai da Equipe e o selo "Jack" sai dos setores.
+  O menu de setores da 1.4.0 continua disponível com `TALK_ENTRY=menu`.
+- **Equipe vinda do Connect ERP:** com o login pelo ERP, a lista de atendentes é quem tem no ERP a permissão
+  "Atendimento por WhatsApp". O botão "Atualizar do ERP" (e a abertura da tela) traz quem é novo, atualiza nome e e-mail
+  e desativa quem perdeu o acesso, devolvendo os atendimentos dele para a fila. Aqui só se escolhem papel e setores.
+- **Painel de informações da conversa** com espaço em volta, sem a borda verde-escura no protocolo atual e sem barra de
+  rolagem para o lado; texto comprido quebra a linha.
+- **Abas do topo** (Atendentes, Setores, Registro de alterações e as das outras telas) em verde clarinho, sem borda.
+- Protocolo `SAC` + AAAAMMDD + sequência (ff68041, da conversa de chamados).
+
+
 ## [1.4.1] — 2026-11-22 — acertos visuais pedidos pelo Djalma
 ### Alterado
 - **Visão geral da fila:** os ícones ficam centralizados no quadrado colorido (antes ficavam no canto de cima à

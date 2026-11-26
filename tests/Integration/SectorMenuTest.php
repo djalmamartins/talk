@@ -22,7 +22,7 @@ final class SectorMenuTest extends DbTestCase
             $dir ?? new \ConnectTalk\Erp\NullContactDirectory(), $hd ?? new NullHelpdesk(), new \ConnectTalk\Service\Texts(),
             new \ConnectTalk\Jack\Jack($this->db, mode: 'off'),
             $this->media, hours: new \ConnectTalk\Service\BusinessHours($this->db),
-            autoTicket: false, sectorMenu: true, menuTimeoutSeconds: 600,
+            autoTicket: false, entry: 'menu', menuTimeoutSeconds: 600,
         );
     }
 

@@ -7,14 +7,18 @@
 <link rel="stylesheet" href="/assets/app.css?v=<?= TALK_ASSET_V ?>">
 <?php require __DIR__ . '/partials/icons.php'; ?>
 </head>
-<body data-lab="<?= $isLab ? '1' : '0' ?>" data-erp-login="<?= !empty($erpLoginOn) ? '1' : '0' ?>">
+<body data-lab="<?= $isLab ? '1' : '0' ?>" data-erp-login="<?= !empty($erpLoginOn) ? '1' : '0' ?>" data-jack="<?= !empty($jackOn) ? '1' : '0' ?>">
 <div class="shell">
 <?php $active = 'team'; require __DIR__ . '/partials/sidebar.php'; ?>
 <div class="page">
 <?php require __DIR__ . '/partials/topbar.php'; ?>
 <header class="page-head">
   <div><h1>Equipe e setores</h1><p>Quem atende, em quais setores e com qual papel.</p></div>
+  <?php if (!empty($erpLoginOn)): ?>
+  <button type="button" class="primary" id="t-sync">Atualizar do ERP</button>
+  <?php else: ?>
   <button type="button" class="primary" id="t-new">+ Novo atendente</button>
+  <?php endif ?>
 </header>
 <nav class="t-tabs" role="tablist">
   <button type="button" role="tab" data-tab="users" aria-selected="true">Atendentes <b id="t-users-n"></b></button>

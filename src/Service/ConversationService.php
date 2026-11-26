@@ -40,15 +40,32 @@ class ConversationService
         private bool $autoTicket = false,
         // Jack desligada (1.0, escolha do Djalma em 22/11/2026): menu de setores numerado no WhatsApp (TALK_MENU=on).
         // Sem resposta válida depois de 2 menus, ou calado por $menuTimeoutSeconds, vai para o setor padrão.
-        private bool $sectorMenu = false,
+        // Entrada sem a Jack (TALK_ENTRY): 'geral' = fila do setor Geral, que todos veem, e cada um pega a sua (1.5.0,
+        // pedido do Djalma em 26/11/2026); 'menu' = menu numerado de setores (1.4.0); 'padrao' = setor padrão.
+        private string $entry = 'padrao',
         private int $menuTimeoutSeconds = 600,
+        private ?int $generalSector = null,
     ) {
     }
 
-    /** Menu de setores no lugar da Jack? (Jack desligada e TALK_MENU=on) */
+    private function jackOff(): bool
+    {
+        return $this->jack === null || $this->jack->mode() === 'off';
+    }
+
+    /** Menu de setores no lugar da Jack? (Jack desligada e TALK_ENTRY=menu) */
     private function menuMode(): bool
     {
-        return $this->sectorMenu && ($this->jack === null || $this->jack->mode() === 'off');
+        return $this->entry === 'menu' && $this->jackOff();
+    }
+
+    /** Setor Geral como fila de todos (Jack desligada e TALK_ENTRY=geral), ou null. */
+    private function generalQueue(): ?array
+    {
+        if ($this->entry !== 'geral' || !$this->jackOff() || $this->generalSector === null) {
+            return null;
+        }
+        return $this->db->one('SELECT id, name FROM talk_sectors WHERE id = ? AND active = 1', [$this->generalSector]);
     }
 
     /** Setores do menu: os ativos com número (menu_key), sem o Geral da Jack. */
@@ -228,11 +245,11 @@ class ConversationService
             }
             if ($conv['status'] === 'bot' && ($this->jack === null || $this->jack->mode() === 'off')) {
                 $fallback = $this->fallbackSector();
-                if ($this->menuMode()) {
+                if ($this->menuMode() || ($general = $this->generalQueue()) !== null) {
                     // número dedicado a um setor e resposta a envio em massa não passam pelo menu
                     $fixed = $this->db->one('SELECT s.id, s.name FROM talk_channels ch JOIN talk_sectors s ON s.id = ch.sector_id AND s.active = 1 WHERE ch.id = ?', [$conv['channel_id']]);
                     $campaign = $fixed ? null : CampaignReplies::replyTo($this->db, $contact);
-                    $fallback = $fixed ?: ($campaign['sector'] ?? null) ?: $this->menuStep($conv, $contact, $in, $isNew);
+                    $fallback = $fixed ?: ($campaign['sector'] ?? null) ?: ($this->menuMode() ? $this->menuStep($conv, $contact, $in, $isNew) : $general);
                 }
                 if ($fallback !== null) {
                     $this->route($conv, $fallback, $contact);

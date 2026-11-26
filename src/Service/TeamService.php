@@ -61,8 +61,17 @@ final class TeamService
         if ($old !== null) {
             $this->assertNotBot($old);
         }
+        if ($this->erpLogin && $old === null) {
+            throw new DomainError('A equipe vem do Connect ERP: dê a permissão "Atendimento por WhatsApp" no ERP e clique em "Atualizar do ERP".');
+        }
         $name = trim(preg_replace('/\s+/', ' ', (string) ($in['name'] ?? '')));
         $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
+        if ($this->erpLogin) {
+            // nome, e-mail e conta do ERP vêm do ERP; aqui só papel e setores
+            $name = (string) $old['name'];
+            $email = (string) $old['email'];
+            $in['erp_user_id'] = $old['erp_user_id'];
+        }
         $role = (string) ($in['role'] ?? 'agent');
         $sectors = array_values(array_unique(array_map('intval', (array) ($in['sector_ids'] ?? []))));
         // login pelo ERP (ErpLogin): senha do Talk não existe; o cadastro aqui só prepara papel e setores pelo e-mail do ERP
@@ -206,7 +215,7 @@ final class TeamService
         );
         return array_map(fn ($r) => [
             'id' => (int) $r['id'], 'name' => $r['name'], 'jack' => $r['jack_key'] !== null, 'color' => $r['color'],
-            'description' => $r['description'], 'active' => (bool) $r['active'],
+            'description' => $r['description'], 'active' => (bool) $r['active'], 'menu_key' => (string) $r['menu_key'],
             'people' => (int) $r['people'], 'waiting' => (int) $r['waiting'], 'open_count' => (int) $r['open_count'], 'channels' => (int) $r['channels'],
         ], $rows);
     }

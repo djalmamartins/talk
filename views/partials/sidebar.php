@@ -50,7 +50,9 @@ $link = static function (string $key, string $href, string $label, string $svg, 
 <?= $link('contacts', '/contatos', 'Contatos', '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>') ?>
 <?php if (!empty($canBulk)): ?>
 <?= $link('campaigns', '/envios', 'Envio em massa', '<path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2zM16 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/>') ?>
+<?php if (!empty($jackOn)): ?>
 <?= $link('service', '/servico', 'Serviço da Jack', '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9.5 16.5h5M3 13v2M21 13v2"/>') ?>
+<?php endif ?>
 <?php endif; ?>
 <?php if (!empty($isSupervisor)): ?>
   <span class="nav-heading">Administração</span>

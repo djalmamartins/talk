@@ -63,7 +63,13 @@ $db = Db::connect(
 );
 $db->run("SET time_zone = '-03:00'");
 $crypto = Crypto::fromBase64((string) $env('TALK_KEY'));
-$policy = new AccessPolicy();
+// Sem a Jack (1.5.0): conversa nova cai na fila do setor Geral, que todos veem; cada um pega a sua (TALK_ENTRY=geral).
+$entry = strtolower((string) $env('TALK_ENTRY', 'geral'));
+$generalId = null;
+if ($entry === 'geral' && strtolower((string) $env('JACK_MODE', 'off')) === 'off') {
+    $generalId = (int) ($db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' AND active = 1 LIMIT 1")['id'] ?? 0) ?: null;
+}
+$policy = new AccessPolicy($generalId);
 $events = new EventBus($db);
 $http = new CurlHttpClient((int) $env('HTTP_TIMEOUT', '10'));
 
@@ -89,7 +95,7 @@ $helpdesk = new \ConnectTalk\Erp\TestSafeHelpdesk($helpdesk);
 $jack = new Jack(
     $db,
     new Classifier(),
-    (string) $env('JACK_MODE', 'auto'),
+    (string) $env('JACK_MODE', 'off'),
     (int) $env('JACK_WAIT_SECONDS', '5'),       // espera a pessoa parar de escrever
     (int) $env('JACK_MAX_WAIT_SECONDS', '30'),  // depois disso vai para o setor padrão
     typingBaseSeconds: (int) $env('JACK_TYPING_SECONDS', '20'), // "digitando…" antes de cada mensagem dela
@@ -108,10 +114,11 @@ $media = new \ConnectTalk\Media\MediaStore(rtrim((string) $env('TALK_STORAGE', _
 $hours = new \ConnectTalk\Service\BusinessHours($db);
 $conversations = new ConversationService($db, $events, $policy, $directory, $helpdesk, jack: $jack, media: $media,
     askRating: $env('TALK_RATING', 'on') !== 'off', hours: $hours,
-    autoAssign: $env('AUTO_ASSIGN', 'on') !== 'off', // só uma pessoa online para o setor: a conversa vai direto para ela
+    autoAssign: $env('AUTO_ASSIGN', 'off') === 'on', // 1.5.0: desligado; cada um pega na fila. on = só uma pessoa online recebe direto
     autoTicket: $env('SAC_AUTO_TICKET', 'off') === 'on', // chamado no SAC só pelo botão Abrir chamado (ADR 0005)
-    sectorMenu: $env('TALK_MENU', 'on') !== 'off', // com JACK_MODE=off: menu numerado de setores no WhatsApp (1.0)
-    menuTimeoutSeconds: (int) $env('TALK_MENU_TIMEOUT_SECONDS', '600'));
+    entry: $entry, // com JACK_MODE=off: geral (fila do Geral, todos veem) | menu (menu numerado de setores) | padrao (setor padrão)
+    menuTimeoutSeconds: (int) $env('TALK_MENU_TIMEOUT_SECONDS', '600'),
+    generalSector: $generalId);
 $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');

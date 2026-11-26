@@ -11,12 +11,24 @@ use ConnectTalk\Domain\StaffMember;
  * - gerente: tudo dos setores que gerencia
  * - atendente: fila (pendentes) do seu setor + as conversas atribuídas a ele
  * Um setor nunca vê a conversa do outro (a não ser por transferência).
+ * Fila geral (1.5.0, sem a Jack): conversa na fila do setor Geral ($generalSector) aparece para todos,
+ * e qualquer um pode pegar. Depois de pega, segue as regras acima (é de quem pegou).
  */
 final class AccessPolicy
 {
+    public function __construct(private ?int $generalSector = null)
+    {
+    }
+
+    private function inGeneralQueue(array $conv): bool
+    {
+        return $this->generalSector !== null && $conv['sector_id'] !== null
+            && (int) $conv['sector_id'] === $this->generalSector && $conv['status'] === 'pending';
+    }
+
     public function canView(StaffMember $u, array $conv): bool
     {
-        if ($u->supervisor) {
+        if ($u->supervisor || $this->inGeneralQueue($conv)) {
             return true;
         }
         $sector = $conv['sector_id'] !== null ? (int) $conv['sector_id'] : null;
@@ -34,7 +46,7 @@ final class AccessPolicy
     /** Pode responder/transferir/encerrar? */
     public function canAct(StaffMember $u, array $conv): bool
     {
-        if ($u->supervisor) {
+        if ($u->supervisor || $this->inGeneralQueue($conv)) {
             return true;
         }
         $sector = $conv['sector_id'] !== null ? (int) $conv['sector_id'] : null;
@@ -60,6 +72,9 @@ final class AccessPolicy
         $params = ['me' => $u->userId];
         if ($u->managerSectors) {
             $parts[] = "$alias.sector_id IN (" . implode(',', array_map('intval', $u->managerSectors)) . ')';
+        }
+        if ($this->generalSector !== null) {
+            $parts[] = "($alias.sector_id = " . $this->generalSector . " AND $alias.status = 'pending')";
         }
         if ($u->agentSectors) {
             $parts[] = "($alias.sector_id IN (" . implode(',', array_map('intval', $u->agentSectors)) . ") AND $alias.status IN ('pending','closed'))";

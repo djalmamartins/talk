@@ -116,6 +116,7 @@ $view = static function (string $name, array $vars = []) use ($app): never {
     $vars['roleLabel'] = $sm === null ? '' : ($sm->supervisor ? 'Supervisor' : ($sm->managerSectors ? 'Gerente de setor' : 'Atendente'));
     $vars['userEmail'] = $sm !== null ? (string) ($app['db']->one('SELECT email FROM talk_users WHERE id = ?', [$sm->userId])['email'] ?? '') : '';
     $vars['systems'] = $app['systems'];
+    $vars['jackOn'] = $app['jack']->mode() !== 'off'; // 1.5.0: Jack desligada some de todas as telas
     $vars['erpLoginOn'] = $app['erp_login']->enabled(); // login pelo ERP: sem senha do Talk (Trocar senha some)
     extract($vars);
     header('Content-Type: text/html; charset=utf-8');
@@ -306,6 +307,10 @@ try {
         }
         $view('reports', ['isLab' => $isLab, 'csrf' => $_SESSION['csrf'], 'userName' => $_SESSION['user_name'] ?? '']);
     }
+    if ($path === '/servico' && $app['jack']->mode() === 'off') {
+        header('Location: /');
+        exit;
+    }
     if ($path === '/servico') {
         if (!$sessionOk()) {
             header('Location: /login');
@@ -405,6 +410,9 @@ try {
             $json($app['jack']->stats(max(1, min(365, (int) ($_GET['days'] ?? 30))), $me->supervisor ? null : $me->managerSectors));
         }
         // Serviço da Jack: o que ela faz, o que não fez, respostas, ideia e procedimento (só leitura)
+        if (str_starts_with($path, '/api/jack/') && $app['jack']->mode() === 'off') {
+            $json(['error' => 'A Jack está desligada.'], 404);
+        }
         if (str_starts_with($path, '/api/jack/') && $path !== '/api/jack/stats' && !$me->supervisor && $me->managerSectors === []) {
             $json(['error' => 'Só supervisor e gerentes acompanham o serviço da Jack.'], 403);
         }
@@ -521,8 +529,22 @@ try {
             $_SESSION['auth_at'] = time(); // esta sessão continua; as outras caem
             $json(['ok' => true]);
         }
+        if ($path === '/api/team/erp-sync' && $method === 'POST') {
+            // Equipe vinda do ERP (1.5.0): só o supervisor puxa a lista
+            if (!$me->supervisor) {
+                $json(['error' => 'Só o supervisor atualiza a equipe.'], 403);
+            }
+            try {
+                $json($app['erp_login']->syncTeam($me->userId, $_SERVER['REMOTE_ADDR'] ?? null));
+            } catch (\Throwable $e) {
+                error_log('[talk] equipe do ERP: ' . $e->getMessage());
+                $json(['error' => 'Não foi possível buscar a equipe no Connect ERP agora.'], 502);
+            }
+        }
         if ($path === '/api/team/users') {
-            $json($method === 'POST' ? $app['team']->saveUser($me, $body()) : $app['team']->users($me));
+            // Jack desligada: ela não aparece na equipe
+            $json($method === 'POST' ? $app['team']->saveUser($me, $body())
+                : array_values(array_filter($app['team']->users($me), static fn (array $u): bool => $app['jack']->mode() !== 'off' || empty($u['bot']))));
         }
         if (preg_match('#^/api/team/users/(\d+)(?:/(activate|deactivate))?$#', $path, $m)) {
             $uid = (int) $m[1];

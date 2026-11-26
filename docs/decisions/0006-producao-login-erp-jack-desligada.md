@@ -37,3 +37,13 @@ primeira versão de produção é a **1.4.0**.
 - O `.env` do ERP precisa de `TALK_URL` com o endereço do Talk.
 - Quem administra o acesso é o ERP (papel com `talk.access` ou liberação por usuário). O papel no Talk (atendente,
   gerente, supervisor) e os setores continuam no Talk, em Equipe e setores.
+
+## Revisão de 26/11/2026 (1.5.0)
+Pedido do Djalma: "tira a Jack toda do cenário, sem fazer nenhum tipo de distribuição nem nada. Cai na fila e fica na
+fila e cada pessoa pega e atende", e "como não vai ter mais a Jack, ele vai cair em geral, para todo mundo ver".
+- O item 3 (menu de setores) deixa de ser o padrão: `TALK_ENTRY=geral` põe toda conversa nova na fila do setor Geral.
+  `AccessPolicy` deixa todos verem e pegarem a conversa que está na fila do Geral; depois de pega, vale a regra de sempre.
+- `AUTO_ASSIGN=off` por padrão. A Jack some das telas (menu, Equipe, setores) com `JACK_MODE=off`.
+- A Equipe vem do ERP: `GET /api/v1/talk/staff` (escopo `staff.login`) lista quem tem `talk.access`; o Talk cria quem é
+  novo sem setor, atualiza nome e e-mail e desativa quem saiu. Nome e e-mail não se editam no Talk.
+- No ERP, a tela Integrações ganhou o quadro "Ligação com o Connect Talk" (endereço do Talk e quantas pessoas têm acesso).

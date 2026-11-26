@@ -1,3 +1,4 @@
+const jackOn = document.body.dataset.jack === '1'; // 1.5.0: Jack desligada some da tela
 // Connect Talk — Equipe e setores (JS puro, sem build). Só o supervisor chega aqui.
 const csrf = document.querySelector('meta[name=csrf]').content;
 const $ = (s, el = document) => el.querySelector(s);
@@ -72,6 +73,8 @@ function openUser(u = null) {
   if (erpLogin) $('#u-pw-hint').textContent = 'A pessoa entra com o e-mail e a senha do Connect ERP, se lá tiver a permissão "Atendimento por WhatsApp". Quem entra pela primeira vez aparece aqui sem setor: escolha o papel e os setores.';
   $('#u-sectors').innerHTML = '<legend>Setores</legend>' + state.sectors.filter((s) => s.active || (u && u.sector_ids.includes(s.id)))
     .map((s) => `<label><input type="checkbox" name="sector" value="${s.id}"${u && u.sector_ids.includes(s.id) ? ' checked' : ''}><span class="chip" style="--c:${esc(s.color)}">${esc(s.name)}</span></label>`).join('');
+  ['name', 'email'].forEach((n) => { f.elements.namedItem(n).readOnly = erpTeam; });
+  f.elements.namedItem('erp_user_id').closest('label').hidden = erpTeam;
   if (u) {
     f.elements.namedItem('name').value = u.name; f.elements.namedItem('email').value = u.email;
     f.elements.namedItem('erp_user_id').value = u.erp_user_id ?? '';
@@ -102,8 +105,9 @@ function renderSectors() {
   $('#t-sectors-n').textContent = state.sectors.filter((s) => s.active).length;
   $('#s-cards').innerHTML = state.sectors.map((s) => `
     <article class="card s-card${s.active ? '' : ' inactive'}" data-id="${s.id}" style="--c:${esc(s.color)}">
-      <header><b>${esc(s.name)}</b>${s.jack ? '<span class="badge-ok" title="A Jack encaminha para este setor">Jack</span>' : ''}${s.active ? '' : '<span class="badge-off">Desativado</span>'}</header>
-      <p class="meta">${esc(s.description || (s.jack ? 'Recebe as conversas que a Jack identifica.' : 'Recebe por transferência ou por um número dedicado.'))}</p>
+      <header><b>${esc(s.name)}</b>${jackOn && s.jack ? '<span class="badge-ok" title="A Jack encaminha para este setor">Jack</span>' : ''}${!jackOn && s.menu_key === '0' ? '<span class="badge-ok" title="Toda conversa nova cai aqui">Fila geral</span>' : ''}${s.active ? '' : '<span class="badge-off">Desativado</span>'}</header>
+      <p class="meta">${esc(!jackOn && s.menu_key === '0' ? 'Toda conversa nova cai aqui. Todos veem e cada um pega a sua; depois dá para transferir para o setor certo.'
+        : (jackOn ? (s.description || (s.jack ? 'Recebe as conversas que a Jack identifica.' : 'Recebe por transferência ou por um número dedicado.')) : 'Recebe por transferência ou por um número dedicado.'))}</p>
       <ul class="s-nums"><li><b>${s.people}</b>pessoas</li><li><b>${s.waiting}</b>na fila</li><li><b>${s.open_count}</b>em atendimento</li><li><b>${s.channels}</b>números</li></ul>
       <div class="people">${state.users.filter((u) => u.active && u.sector_ids.includes(s.id)).slice(0, 6).map((u) => `<span class="avatar xs" title="${esc(u.name)} (${roleLabel[u.role]})">${esc(initials(u.name))}</span>`).join('')}</div>
       <footer><button type="button" class="ghost" data-act="edit">Editar</button>
@@ -117,7 +121,7 @@ function openSector(s = null) {
   f.reset();
   $('#s-error').hidden = true;
   $('#s-title').textContent = s ? `Editar ${s.name}` : 'Novo setor';
-  $('#s-jack').hidden = !(s && s.jack);
+  $('#s-jack').hidden = !(jackOn && s && s.jack);
   if (s) { f.elements.namedItem('name').value = s.name; f.elements.namedItem('description').value = s.description || ''; f.elements.namedItem('color').value = s.color; }
   $('#s-dialog').showModal();
 }
@@ -149,7 +153,7 @@ function setTab(tab) {
   state.tab = tab;
   document.querySelectorAll('.t-tabs [data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== tab; });
-  $('#t-new').hidden = tab !== 'users';
+  const top = $('#t-new') || $('#t-sync'); if (top) top.hidden = tab !== 'users';
   if (tab === 'audit') renderAudit();
   history.replaceState(null, '', tab === 'users' ? '/equipe' : `/equipe?aba=${tab}`);
 }
@@ -166,7 +170,16 @@ async function load() {
 
 document.querySelector('.t-tabs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
 ['#t-q', '#t-sector', '#t-status'].forEach((s) => $(s).addEventListener('input', renderUsers));
-$('#t-new').addEventListener('click', () => openUser());
+$('#t-new')?.addEventListener('click', () => openUser());
+// Equipe vinda do ERP (1.5.0): puxa quem tem a permissão do Talk no ERP; aqui só papel e setores
+const erpTeam = document.body.dataset.erpLogin === '1';
+async function syncErp(quiet) {
+  try {
+    const r = await api('/api/team/erp-sync', { method: 'POST' });
+    if (!quiet || r.added || r.deactivated) toast(`Equipe do ERP: ${r.total} com acesso${r.added ? `, ${r.added} nova(s)` : ''}${r.deactivated ? `, ${r.deactivated} desativada(s)` : ''}.`);
+  } catch (e) { toast(e.message); }
+}
+$('#t-sync')?.addEventListener('click', async () => { await syncErp(false); await load(); });
 $('#u-form').addEventListener('submit', saveUser);
 $('#u-form').addEventListener('change', (ev) => { if (ev.target.name === 'role') syncRole(); });
 $('#s-form').addEventListener('submit', saveSector);
@@ -197,6 +210,7 @@ $('#s-cards').addEventListener('click', async (ev) => {
 
 (async () => {
   state.me = (await api('/api/me')).user.id;
+  if (erpTeam) await syncErp(true);
   await load();
   const aba = new URLSearchParams(location.search).get('aba');
   if (aba === 'sectors' || aba === 'audit') setTab(aba);
