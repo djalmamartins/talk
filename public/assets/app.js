@@ -4,7 +4,9 @@ const isLab = document.body.dataset.lab === '1';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // protocolo como todos veem: os antigos tinham "SAC" na frente (até a 1.0)
-const proto = (p) => String(p ?? ''); // SAC + AAAAMMDD + sequência, igual ao SAC (ADR 0637 do ERP)
+const proto = (p) => String(p ?? '');
+// número da conversa (TLK…) e, quando o atendente abriu o chamado, o número dele no SAC (SAC…), ligados
+const protoHtml = (c) => `<b>${esc(proto(c.protocol))}</b>${c.helpdesk_protocol && c.helpdesk_protocol !== c.protocol ? ` · chamado <b>${esc(proto(c.helpdesk_protocol))}</b> no SAC` : (c.helpdesk_ticket_id ? ' · chamado no SAC' : '')}`;
 const hhmm = (d) => (d ? new Date(d.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
 const state = { tab: 'mine', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
@@ -89,7 +91,7 @@ async function openConversation(id) {
   $('#chat').innerHTML = `
     <div class="chat-head">
       <div><div class="who">${esc(contact.name || contact.phone)}</div>
-      <div class="meta">${esc(contact.phone)} · Protocolo <b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ' · chamado no SAC' : ''} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
+      <div class="meta">${esc(contact.phone)} · Protocolo ${protoHtml(c)} · ${esc(sectorName(c.sector_id))} · ${statusText(c)}
       ${c.assigned_user_id ? ' · ' + esc(state.users[c.assigned_user_id] || '#' + c.assigned_user_id) : ''}</div></div>
       <div class="actions">${actions.join('')}</div>
     </div>
@@ -174,7 +176,7 @@ async function renderContact(contact, c) {
       <div><b>${esc(contact.name || 'Sem nome')}</b>
       ${contact.erp_person_id ? `<span class="badge-ok">${esc(relLabel[d.vinculo] || 'Cadastro no ERP')}</span>` : '<span class="badge-off">Não identificado no ERP</span>'}</div></div>
     <section><h4>Informações</h4><dl>${info.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}
-      <dt>Protocolo</dt><dd><b>${esc(proto(c.helpdesk_protocol || c.protocol))}</b>${c.helpdesk_ticket_id ? ` · chamado no SAC${c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}` : ''}</dd></dl>
+      <dt>Protocolo</dt><dd>${protoHtml(c)}${c.helpdesk_ticket_id && c.helpdesk_url ? ` <a href="${esc(c.helpdesk_url)}" target="_blank" rel="noopener">acompanhar</a>` : ''}</dd></dl>
       <div class="cp-tags"><span class="dt">Etiquetas</span><div>${tags}<button type="button" class="chip-add" id="tag-edit" title="Etiquetas do contato">+</button></div></div>
       <div id="tag-picker" class="tag-picker" hidden></div></section>
     <section><h4>Protocolos desta pessoa</h4><div id="cp-hist-box">${histHtml(panel)}</div></section>
@@ -397,7 +399,7 @@ $('#ticket-dialog').addEventListener('close', async () => {
   if ($('#ticket-dialog').returnValue !== 'ok') return;
   try {
     const c = await api(`/api/conversations/${state.current}/ticket`, { method: 'POST', body: { subject: $('#ticket-subject').value, description: $('#ticket-desc').value, sector_id: +$('#ticket-sector').value || null } });
-    toast(`Chamado aberto no SAC com o protocolo ${proto(c.helpdesk_protocol || c.protocol)}.`);
+    toast(`Chamado ${proto(c.helpdesk_protocol || c.protocol)} aberto no SAC, ligado à conversa ${proto(c.protocol)}.`);
     await openConversation(state.current); loadList();
   } catch (err) { toast(err.message); }
 });

@@ -253,10 +253,11 @@ class ConversationService
     }
 
     /**
-     * Protocolo do atendimento no formato do SAC: SAC + AAAAMMDD + sequência do dia com 4 dígitos (5 depois de 9999;
-     * ex.: SAC202611260001), sem colisão entre processos. É o mesmo número do chamado quando o atendente abre o
-     * chamado no SAC: o ERP adota esse número (ADR 0637 do ERP; escolha do Djalma em 26/11/2026). Os números antigos
-     * (aammdd + 5 dígitos, com ou sem SAC) foram convertidos pela migração 028 e ficam em legacy_protocol.
+     * Número da conversa no Talk: TLK + AAAAMMDD + sequência do dia com 4 dígitos (5 depois de 9999; ex.:
+     * TLK202611260001), sem colisão entre processos. O chamado do SAC (SAC + AAAAMMDD + sequência, ADR 0637 do ERP) só
+     * nasce no ERP quando o atendente clica em Abrir chamado; os dois números ficam ligados (helpdesk_protocol) e
+     * aparecem juntos. Aprovado pelo Djalma em 26/11/2026. Os números antigos ficam em legacy_protocol (migrações 018,
+     * 028 e 029) e continuam achando a conversa.
      */
     public function nextProtocol(): string
     {
@@ -266,7 +267,7 @@ class ConversationService
             [$day]
         );
         $n = (int) $this->db->one('SELECT `last_value` FROM talk_protocol_seq WHERE day = ?', [$day])['last_value'];
-        return 'SAC' . date('Ymd') . ($n < 10000 ? str_pad((string) $n, 4, '0', STR_PAD_LEFT) : (string) $n);
+        return 'TLK' . date('Ymd') . ($n < 10000 ? str_pad((string) $n, 4, '0', STR_PAD_LEFT) : (string) $n);
     }
 
     // ------------------------------------------------------------------ triagem (Jack)
@@ -370,12 +371,12 @@ class ConversationService
     // ------------------------------------------------------------------ consulta de chamado pelo WhatsApp
 
     /**
-     * Número de chamado na mensagem: o protocolo do Talk e do SAC (SAC202611260001, com ou sem "SAC" e espaços), o
-     * formato antigo do Talk (26112200004, com ou sem SAC) ou um chamado antigo do ERP (CH2611220A1B). O protocolo tem
-     * data válida, então um telefone não passa por ele.
+     * Número na mensagem: o da conversa (TLK202611260001), o do chamado no SAC (SAC202611260001), com ou sem espaços,
+     * os antigos do Talk (26112200004, com ou sem SAC) ou um chamado antigo do ERP (CH2611220A1B). O número tem data
+     * válida, então um telefone não passa por ele.
      */
     private const DATE = '(?:2[4-9]|3\d)(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])';
-    private const CODE = '/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|(?:SAC ?)?20(?:2[4-9]|3\d) ?(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]) ?\d{4,5}|(?:SAC)?' . self::DATE . '\d{5})(?![A-Z0-9])/i';
+    private const CODE = '/(?<![A-Z0-9])(CH\d{6}[A-F0-9]{4}|(?:(?:TLK|SAC) ?)?20(?:2[4-9]|3\d) ?(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]) ?\d{4,5}|(?:SAC)?' . self::DATE . '\d{5})(?![A-Z0-9])/i';
 
     public static function ticketCode(string $text): ?string
     {
@@ -383,20 +384,33 @@ class ConversationService
     }
 
     /**
-     * O protocolo como ele é guardado e mostrado: "sac 2026 1126 0001" e o antigo 26112600001 (com ou sem SAC) viram
-     * SAC202611260001. Outros números (CH…, o antigo 20261115-00004) só ficam em maiúsculas.
+     * O número como foi digitado, em maiúsculas e sem espaços ("tlk 2026 1126 0001" vira TLK202611260001). O antigo do
+     * Talk (26112600001, com ou sem SAC) vira o TLK que a migração 028 deu para ele.
      */
     public static function canonicalProtocol(string $protocol): string
     {
         $p = strtoupper((string) preg_replace('/[\s.]+/', '', $protocol));
-        if (preg_match('/^(?:SAC)?(20' . self::DATE . ')(\d{4,5})$/', $p, $m)) {
-            return 'SAC' . $m[1] . $m[2];
-        }
         if (preg_match('/^(?:SAC)?(' . self::DATE . ')(\d{5})$/', $p, $m)) {
             $n = (int) $m[2];
-            return 'SAC20' . $m[1] . ($n < 10000 ? str_pad((string) $n, 4, '0', STR_PAD_LEFT) : (string) $n);
+            return 'TLK20' . $m[1] . ($n < 10000 ? str_pad((string) $n, 4, '0', STR_PAD_LEFT) : (string) $n);
         }
         return $p;
+    }
+
+    /**
+     * Os números que podem ser a conversa procurada: o próprio, e, para o número sem prefixo (202611260001), tanto o da
+     * conversa (TLK) quanto o do chamado (SAC). Comparar com protocol, legacy_protocol e helpdesk_protocol.
+     *
+     * @return list<string>
+     */
+    public static function protocolCandidates(string $protocol): array
+    {
+        $raw = strtoupper((string) preg_replace('/[\s.]+/', '', $protocol));
+        $list = [$raw, self::canonicalProtocol($raw)];
+        if (preg_match('/^20' . self::DATE . '\d{4,5}$/', $raw)) {
+            $list = [$raw, 'TLK' . $raw, 'SAC' . $raw];
+        }
+        return array_values(array_unique(array_filter($list, static fn ($x) => $x !== '')));
     }
 
     /** A mensagem é só a consulta ("CH2611220A1B", "status do chamado CH…?"), sem outro assunto. */
@@ -412,10 +426,12 @@ class ConversationService
     private function answerTicketStatus(array $conv, array $contact, string $code): void
     {
         $first = $contact['name'] ? explode(' ', trim((string) $contact['name']))[0] : null;
-        $found = $this->db->one(
+        $codes = self::protocolCandidates($code);
+        $found = $this->db->one(sprintf(
             'SELECT c.*, s.name AS sector_name FROM talk_conversations c LEFT JOIN talk_sectors s ON s.id = c.sector_id
-              WHERE c.contact_id = ? AND (c.helpdesk_protocol = ? OR c.protocol = ? OR c.protocol = ? OR c.legacy_protocol = ?) ORDER BY c.id DESC LIMIT 1',
-            [$contact['id'], $code, $code, $code, $code]
+              WHERE c.contact_id = ? AND (c.helpdesk_protocol IN (%1$s) OR c.protocol IN (%1$s) OR c.legacy_protocol IN (%1$s)) ORDER BY c.id DESC LIMIT 1',
+            implode(',', array_fill(0, count($codes), '?'))),
+            [$contact['id'], ...$codes, ...$codes, ...$codes]
         );
         if ($found === null) {
             $this->jackSay($conv, $this->texts->jackTicketNotFound($first, $code), 'jack_status');

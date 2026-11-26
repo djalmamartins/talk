@@ -31,11 +31,12 @@ motor do WhatsApp por QR Code precisa ficar ligado o tempo todo.
 
 ## Atualização 22/11/2026 — protocolo único e chamado só pelo botão (pedido do Djalma)
 
-- ~~O protocolo da conversa fica sem "SAC" na frente (aammdd + 5 dígitos).~~ Substituído em 26/11/2026: o protocolo é
-  **SAC + AAAAMMDD + sequência do dia** com 4 dígitos (5 depois de 9999; ex.: SAC202611260001), o mesmo formato do
-  TicketProtocol do ERP (ADR 0637 do ERP), escolha do Djalma no cartão de decisão. Assim o ERP adota o número da
-  conversa e os dois sistemas mostram o mesmo protocolo. A migração 028 converte os números antigos (o antigo fica em
-  `legacy_protocol`); a busca e a consulta pelo WhatsApp aceitam os formatos antigos e o número com espaços.
+- ~~O protocolo da conversa fica sem "SAC" na frente (aammdd + 5 dígitos).~~ Substituído em 26/11/2026 (modelo aprovado pelo
+  Djalma): cada conversa tem número próprio **TLK + AAAAMMDD + sequência do dia** (4 dígitos, 5 depois de 9999; ex.:
+  TLK202611260001), sem e-mail. O **SAC…** (TicketProtocol do ERP, ADR 0637 do ERP) só nasce quando o atendente clica
+  em Abrir chamado; o Talk guarda o SAC em `helpdesk_protocol`, mostra os dois juntos, e o chamado leva o TLK em
+  `external_ref` e no texto. As migrações 028 e 029 convertem os números antigos (o antigo fica em `legacy_protocol`);
+  a busca e a consulta pelo WhatsApp acham pelo TLK, pelo SAC e pelos antigos.
 - Conversa comum fica só no Talk. O chamado só vai para o SAC quando o atendente clica em **Abrir chamado** e preenche
   título, descrição e o setor que vai cuidar (escolha do Djalma no cartão de decisão). O chamado usa o mesmo protocolo
   da conversa (ADR 0637 do ERP) e continua aberto no SAC depois que a conversa é encerrada no Talk.

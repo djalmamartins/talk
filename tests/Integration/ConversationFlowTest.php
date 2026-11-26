@@ -14,7 +14,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $id = $this->inbound('oi');
         $c = $this->conv($id);
-        $this->assertMatchesRegularExpression('/^SAC' . date('Ymd') . '0001$/', $c['protocol']);
+        $this->assertMatchesRegularExpression('/^TLK' . date('Ymd') . '0001$/', $c['protocol']);
         $this->assertSame('bot', $c['status'], 'fica na triagem da Jack');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) n FROM talk_outbox')['n'], 'nada de menu 1, 2, 3');
     }
