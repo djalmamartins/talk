@@ -113,7 +113,7 @@ final class JackMonitorTest extends DbTestCase
 
         // sem o SAC ligado não é problema (o protocolo do Talk é o registro)
         $c = $this->find($this->monitor(false)->overview($this->boss), $id);
-        $this->assertStringNotContainsString('SAC', implode(' ', array_column($c['pendencias'], 'texto')));
+        $this->assertStringNotContainsString('não abriu no SAC', implode(' ', array_column($c['pendencias'], 'texto')));
     }
 
     public function test_transferencia_da_equipe_mostra_que_a_jack_errou_o_setor(): void

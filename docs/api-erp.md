@@ -105,7 +105,7 @@ Toda conversa do Talk vira um chamado no Help Desk. Usa `TicketService::open()` 
 201 {"data": {"id": 500, "protocol": "TK2611140001", "status": "open"}}
 ```
 
-Desde 22/11/2026 (ADR 0637 do ERP) o chamado usa o próprio protocolo do Talk (`talk_protocol`, aammdd + 5 dígitos) e só é
+Desde 22/11/2026 (ADR 0637 do ERP) o chamado usa o próprio protocolo do Talk (`talk_protocol`, SAC + AAAAMMDD + sequência do dia, ex.: `SAC202611260001`; o ERP adota quando o número está livre) e só é
 aberto pelo botão Abrir chamado, com `subject`, `message` e a `area` do setor escolhido. Antes disso, o `protocol` devolvido era o número do chamado no Help Desk (no ERP, `CH` + data + 4 caracteres). O Talk o guarda em
 `talk_conversations.helpdesk_protocol` e é ele que o cliente vê nas mensagens (fora do horário, encerramento).
 Sem `protocol` na resposta, o cliente vê o protocolo do Talk.

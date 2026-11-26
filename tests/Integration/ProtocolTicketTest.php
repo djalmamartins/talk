@@ -39,12 +39,21 @@ final class ProtocolTicketTest extends DbTestCase
         $this->svc = $this->makeService(null, $this->hd);
     }
 
-    public function test_protocolo_sem_sac_na_frente(): void
+    public function test_protocolo_no_formato_do_sac(): void
     {
         $c = $this->conv($this->routed('o portão da garagem quebrou'));
-        $this->assertMatchesRegularExpression('/^' . date('ymd') . '\d{5}$/', $c['protocol']);
-        $this->assertSame('26112200403', ConversationService::plainProtocol('SAC26112200403'));
-        $this->assertSame('CH2611220A01', ConversationService::plainProtocol('CH2611220A01'));
+        $this->assertMatchesRegularExpression('/^SAC' . date('Ymd') . '\d{4}$/', $c['protocol']);
+        $this->assertSame('SAC202611220403', ConversationService::canonicalProtocol('26112200403'));
+        $this->assertSame('SAC202611220403', ConversationService::canonicalProtocol('SAC26112200403'));
+        $this->assertSame('SAC202611221234', ConversationService::canonicalProtocol('sac 2026 1122 1234'));
+        $this->assertSame('SAC2026112212345', ConversationService::canonicalProtocol('26112212345'), 'Depois de 9999 no dia, 5 dígitos.');
+        $this->assertSame('CH2611220A01', ConversationService::canonicalProtocol('ch2611220a01'));
+    }
+
+    public function test_sequencia_passa_de_9999_com_5_digitos(): void
+    {
+        $this->db->run('INSERT INTO talk_protocol_seq (day, `last_value`) VALUES (?, 9999) ON DUPLICATE KEY UPDATE `last_value` = 9999', [date('Y-m-d')]);
+        $this->assertSame('SAC' . date('Ymd') . '10000', $this->svc->nextProtocol());
     }
 
     public function test_conversa_comum_nao_vai_para_o_sac_e_encerra_so_no_talk(): void
@@ -91,19 +100,37 @@ final class ProtocolTicketTest extends DbTestCase
 
     public function test_codigo_aceita_com_ou_sem_sac_e_nao_confunde_telefone(): void
     {
-        $this->assertSame('26112200403', ConversationService::ticketCode('meu protocolo é 26112200403'));
-        $this->assertSame('26112200403', ConversationService::ticketCode('SAC26112200403'));
+        $this->assertSame('SAC202611220403', ConversationService::ticketCode('meu protocolo é SAC202611220403'));
+        $this->assertSame('SAC202611220403', ConversationService::ticketCode('sac 2026 1122 0403'));
+        $this->assertSame('SAC202611220403', ConversationService::ticketCode('o antigo 26112200403'));
+        $this->assertSame('SAC202611220403', ConversationService::ticketCode('SAC26112200403'));
         $this->assertNull(ConversationService::ticketCode('meu telefone é 31999998888'));
         $this->assertNull(ConversationService::ticketCode('11987654321'));
         $this->assertTrue(ConversationService::onlyTicketCode('protocolo 26112200403'));
+        $this->assertTrue(ConversationService::onlyTicketCode('SAC202611220403'));
     }
 
-    public function test_busca_pelo_numero_acha_protocolo_antigo_com_sac(): void
+    public function test_busca_pelo_numero_novo_ou_antigo(): void
     {
         $id = $this->routed('o portão da garagem quebrou');
-        $this->db->run('UPDATE talk_conversations SET protocol = ? WHERE id = ?', ['SAC26112200403', $id]);
+        $this->db->run('UPDATE talk_conversations SET protocol = ?, legacy_protocol = ? WHERE id = ?', ['SAC202611220403', '26112200403', $id]);
         $q = new InboxQuery($this->db, new AccessPolicy());
-        $found = $q->search(new StaffMember(1, true), ['q' => '26112200403']);
-        $this->assertContains($id, array_map('intval', array_column($found['items'] ?? $found, 'conversation_id')));
+        foreach (['SAC202611220403', 'sac 2026 1122 0403', '26112200403', 'SAC26112200403'] as $term) {
+            $found = $q->search(new StaffMember(1, true), ['q' => $term]);
+            $this->assertContains($id, array_map('intval', array_column($found['items'] ?? $found, 'conversation_id')), "Busca por $term.");
+        }
+    }
+
+    public function test_migracao_028_converte_o_formato_antigo(): void
+    {
+        $id = $this->routed('portão');
+        $sql = (string) file_get_contents(__DIR__ . '/../../migrations/028_protocolo_sac_aaaammdd.sql');
+        foreach ([['26112200403', 'SAC202611220403', '26112200403'], ['SAC26112212345', 'SAC2026112212345', 'SAC26112212345'],
+                  ['SAC202611220007', 'SAC202611220007', null]] as [$old, $new, $legacy]) {
+            $this->db->run('UPDATE talk_conversations SET protocol = ?, legacy_protocol = NULL WHERE id = ?', [$old, $id]);
+            $this->db->pdo()->exec($sql);
+            $row = $this->db->one('SELECT protocol, legacy_protocol FROM talk_conversations WHERE id = ?', [$id]);
+            $this->assertSame([$new, $legacy], [$row['protocol'], $row['legacy_protocol']], "Migração de $old.");
+        }
     }
 }
