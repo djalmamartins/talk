@@ -147,3 +147,55 @@ Substitui o que vem acima onde for diferente:
   (padrão **30 s**, era 10 min) e então vai para o Administrativo.
 - No laboratório (sem worker), a tela aberta faz a triagem e os envios a cada ~2 s pelo canal de
   tempo real.
+
+## Atualização 16/11/2026 — Jack V1 continua calada (decisão do Djalma)
+
+O manifesto (`docs/jack/MANIFESTO.md`) trouxe definições antigas de uma Jack que conversa e faz
+perguntas. O Djalma decidiu: **na Jack V1 ela só encaminha, calada**, como está desde a 0.18.0.
+Pergunta de desempate e conversa natural ficam para a Jack Completa. Continuam valendo só os três
+casos em que ela fala: apresentação quando perguntam se é robô, fora do escopo e aviso fora do horário.
+
+## Atualização 16/11/2026 — setor Geral e Jack como atendente (pedidos do Djalma)
+
+Substitui a "fila instantânea" da 0.20.1 quando o setor Geral existe:
+- **Toda conversa nova entra na fila do setor Geral**, à vista de quem atende o Geral (e do supervisor).
+- Depois de `JACK_GENERAL_SECONDS` (padrão **60 s**), com a pessoa sem escrever há `JACK_WAIT_SECONDS`
+  (ou no dobro do tempo, de qualquer jeito), a Jack lê tudo e **distribui calada** para Financeiro,
+  Administrativo ou Manutenção. Assunto desconhecido ou só "bom dia" → Administrativo, como antes.
+- Se um atendente **aceita ou transfere** a conversa no Geral antes disso, a Jack não mexe mais nela; o
+  chamado abre nesse momento.
+- A espera no relatório conta desde a chegada no Geral.
+- Número de WhatsApp dedicado a um setor não passa pelo Geral. Sem o setor Geral (ou `JACK_MODE=off`)
+  vale o fluxo anterior.
+
+Feito na 0.25.0 (etapa JV1.8): a Jack **cadastrada como atendente** ("Jaqueline (Jack)", `talk_users.is_bot = 1`)
+no setor Geral, sem login, autora das mensagens dela. Não recebe transferência, não aparece como online
+e não é editada nem desativada pela tela; liga e desliga com `JACK_MODE`. É o primeiro passo para o boleto (J3/JV1.9): quando pedirem
+a 2ª via, ela avisa que vai olhar, busca o boleto no ERP, envia linha digitável/Pix e link e lembra
+que dá para achar pelo aplicativo, sempre com textos aprovados e as travas da seção "Boleto só com
+identificação inequívoca".
+
+## Atualização 22/11/2026 — a Jack conta o chamado (pedido do Djalma)
+
+Muda a regra "calada" só neste caso: ao encaminhar, a Jack manda uma mensagem natural com cumprimento, número do
+chamado do SAC, equipe, quem já está com a conversa e o link de acompanhamento (ADR 0636 do ERP). Os textos
+são aprovados e variam entre três modelos (`Texts::jackTicketOpened`). Quando o cliente manda só o número do
+chamado, ela responde a situação (`Texts::jackTicketStatus`), apenas para chamados do mesmo contato. Desliga com
+`JACK_TICKET_NOTICE=off`, voltando ao comportamento calado.
+
+## Atualização 22/11/2026 — Jack com IA, etapa A (decisão do Djalma)
+
+Na pergunta "até onde a IA da Jack deve ir nesta primeira etapa?", o Djalma escolheu **"IA entende, textos
+seguem aprovados"**. Confirma a fase J4 desta ADR:
+- A IA só **classifica** a mensagem na lista fechada de intenções e setores, com a mesma trava de confiança.
+  A saída é validada por código; fora da lista, vale a regra.
+- **Não escreve** nada para o cliente: as mensagens continuam vindo de `Service\Texts`.
+- Entra primeiro em **modo sombra** (só registra o que faria) e passa a decidir quando acertar mais que as
+  regras nos cenários fixos e na sombra. Se falhar, demorar ou passar do limite, a Jack volta para as regras.
+- Só o texto da mensagem vai para o provedor, sem nome, telefone, CPF ou unidade.
+Rascunho de resposta (opção B) e conversa livre (opção C) continuam fora. Plano em `docs/jack/IA.md`.
+
+Complemento do mesmo dia: o Djalma escolheu **IA local** em vez de um serviço externo. O modelo (Gemma 3 1B)
+roda na própria máquina: primeiro no Mac (Ollama) e depois no Raspberry Pi (serviço `jack-ia`, llama.cpp).
+Nada sai da máquina e não há custo por mensagem. Uma API externa fica só como reserva futura, pelo mesmo
+adaptador (`src/Jack/AiClassifier.php`). Liga com `JACK_AI=shadow` (só registra) e depois `JACK_AI=on`.

@@ -7,9 +7,10 @@ sem framework), hospedada **separada do ERP** e integrada a ele por **API REST**
   [0003 hospedagem separada + API REST](docs/decisions/0003-hospedagem-separada-api-rest.md)
 - **API que o ERP precisa expor:** [docs/api-erp.md](docs/api-erp.md)
 
-## Produção
-Docker no PC do escritório, com HTTPS automático, worker, backup diário e restauração:
-**[docs/producao.md](docs/producao.md)**.
+## Produção (v1.0)
+Raspberry Pi no escritório, com o túnel da Cloudflare, o WhatsApp, o worker e o backup diário, e o ERP pela API:
+**[docs/raspberry-pi.md](docs/raspberry-pi.md)** (`bash deploy/instalar-pi.sh` faz tudo). PC ou VPS e a referência dos
+serviços: [docs/producao.md](docs/producao.md). Contrato com o ERP: [docs/api-erp.md](docs/api-erp.md).
 
 ## Laboratório local (https://talk.connect.lab)
 No Mac com o XAMPP compartilhado (`dev-apache` + `dev-mysql`):
@@ -28,7 +29,7 @@ manutencao@, gerente.manutencao@). Em **Conexão WhatsApp**, conecte um número 
 ## O que já faz (Fase 1)
 - **Dois tipos de canal atrás de uma interface:** QR Code (Evolution API) e oficial
   (WhatsApp Cloud API, com modelos para envio em massa). Credenciais cifradas (libsodium).
-- **Toda conversa vira chamado com protocolo** `SAC` + AAMMDD + sequência do dia com 5 dígitos (ex.: `SAC26111600004`).
+- **Toda conversa tem número próprio** `TLK` + AAAAMMDD + sequência do dia (ex.: `TLK202611260001`); quando o atendente abre o chamado, o SAC do ERP dá o número `SAC…` e os dois ficam ligados.
 - **Menu de setores** na primeira mensagem (1 Financeiro, 2 Administrativo, 3 Manutenção)
   ou direcionamento automático por palavra-chave ("boleto" → Financeiro).
 - **Identificação pelo telefone** no cadastro do ERP (com/sem DDI e 9º dígito).

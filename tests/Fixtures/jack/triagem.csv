@@ -1,0 +1,109 @@
+frase;setor
+# Frases fictícias, no jeito que o cliente escreve no WhatsApp (erros de digitação, sem acento, picadas).
+# setor: financeiro | administrativo | manutencao | padrao (a Jack não deve ter certeza: vai para o setor padrão)
+# Para acrescentar: uma frase por linha, sem dados reais de clientes (LGPD).
+bom dia preciso do boleto desse mes;financeiro
+me manda a segunda via do condominio por favor;financeiro
+2 via do boleto de outubro;financeiro
+qual a linha digitavel do boleto?;financeiro
+tem pix pra pagar a taxa?;financeiro
+paguei o condominio ontem e ainda aparece em aberto;financeiro
+quero fazer um acordo das parcelas atrasadas;financeiro
+da pra parcelar o debito?;financeiro
+cobraram multa e juros errado no meu boleto;financeiro
+preciso do recibo de quitação do ano passado;financeiro
+o valor da taxa aumentou porque?;financeiro
+nao recebi o boleto esse mes;financeiro
+fatura veio com valor diferente;financeiro
+quero pedir reembolso de uma cobrança em dobro;financeiro
+como faço pra pagar a taxa extra?;financeiro
+estou inadimplente quero regularizar;financeiro
+o codigo de barras do boleto nao le no app do banco;financeiro
+boleto venceu, consigo pagar com juros?;financeiro
+preciso da declaração de quitação de débitos;financeiro
+vcs mandam boleto por email?;financeiro
+oi, preciso pagar o condominio do mes;financeiro
+segunda via;financeiro
+boleto;financeiro
+pagamento em duplicidade;financeiro
+quanto ta o condominio esse mes?;financeiro
+o portão da garagem quebrou;manutencao
+portao nao fecha;manutencao
+elevador parado no 5 andar;manutencao
+o elevador do bloco b ta fazendo barulho estranho;manutencao
+tem um vazamento na minha cozinha vindo de cima;manutencao
+infiltração no teto do banheiro;manutencao
+goteira na garagem;manutencao
+estamos sem agua no bloco a;manutencao
+acabou a agua aqui;manutencao
+falta de luz no corredor do 3 andar;manutencao
+lampada queimada na escada;manutencao
+a luz da portaria ta piscando;manutencao
+interfone nao funciona;manutencao
+cano estourado no subsolo;manutencao
+esgoto voltando no ralo;manutencao
+pia entupida na area comum;manutencao
+cheiro de gas no corredor;manutencao
+a bomba da piscina parou;manutencao
+camera da entrada ta desligada;manutencao
+cerca eletrica disparando;manutencao
+rachadura na parede da garagem;manutencao
+telhado com telha quebrada;manutencao
+caixa d'agua transbordando;manutencao
+tem agua no chao do hall;manutencao
+apareceu barata no lixo da garagem, precisa dedetizar;manutencao
+precisa podar a arvore do jardim;manutencao
+descarga do banheiro da piscina quebrada;manutencao
+pressao da agua muito fraca;manutencao
+o controle do portao parou de abrir;manutencao
+porta do salao esta estragada;manutencao
+fio solto perto do playground;manutencao
+torneira do jardim pingando sem parar;manutencao
+a escada esta molhada e escorregando;manutencao
+precisamos de conserto no portao social;manutencao
+curto circuito na luz da garagem;manutencao
+quero reservar o salao de festas no sabado;administrativo
+como faço reserva da churrasqueira?;administrativo
+quando vai ser a assembleia?;administrativo
+preciso da ata da ultima assembleia;administrativo
+vou fazer mudança dia 10, precisa avisar?;administrativo
+quero atualizar meu cadastro;administrativo
+preciso de uma declaração de residencia;administrativo
+onde acho o regimento interno?;administrativo
+quero ler a convenção do condominio;administrativo
+recebi uma advertencia e nao concordo;administrativo
+vizinho do 302 fazendo barulho toda noite;administrativo
+quero falar com o sindico;administrativo
+preciso de autorização para entrada de prestador;administrativo
+quero cadastrar a tag do meu carro novo;administrativo
+perdi meu controle remoto da garagem, como pego outro?;administrativo
+quero fazer uma reclamação do porteiro;administrativo
+preciso da certidão negativa do condominio;administrativo
+quanto custa pra vcs administrarem nosso condominio?;administrativo
+gostaria de um orçamento de administração;administrativo
+queria uma proposta pro meu predio;administrativo
+quero cotar o serviço de vocês;administrativo
+preciso dos documentos do condominio para o banco;administrativo
+quando sai a ata?;administrativo
+o sindico pode me ligar?;administrativo
+reserva do salão para aniversário;administrativo
+oi;padrao
+bom dia;padrao
+boa tarde tudo bem?;padrao
+ola;padrao
+preciso de ajuda;padrao
+alguem pode me atender?;padrao
+quero falar com um atendente;padrao
+tenho uma duvida;padrao
+obrigado;padrao
+ok;padrao
+?;padrao
+oi vc é um robo?;padrao
+quem fala?;padrao
+liguei e ninguem atendeu;padrao
+me liga por favor;padrao
+tô com um problema aqui;padrao
+pode me ajudar com uma coisa?;padrao
+bom dia, é da connect?;padrao
+quero informação;padrao
+teste;padrao

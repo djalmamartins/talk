@@ -14,7 +14,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $id = $this->inbound('oi');
         $c = $this->conv($id);
-        $this->assertMatchesRegularExpression('/^SAC\d{6}00001$/', $c['protocol']);
+        $this->assertMatchesRegularExpression('/^TLK' . date('Ymd') . '0001$/', $c['protocol']);
         $this->assertSame('bot', $c['status'], 'fica na triagem da Jack');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) n FROM talk_outbox')['n'], 'nada de menu 1, 2, 3');
     }
@@ -23,7 +23,7 @@ final class ConversationFlowTest extends DbTestCase
     {
         $a = $this->conv($this->inbound('oi', '5531911111111'));
         $b = $this->conv($this->inbound('oi', '5531922222222'));
-        $this->assertSame(substr($a['protocol'], 0, 9) . '00002', $b['protocol']);
+        $this->assertSame(substr($a['protocol'], 0, 11) . '0002', $b['protocol']);
     }
 
     public function test_webhook_repetido_e_ignorado(): void
@@ -160,6 +160,7 @@ final class ConversationFlowTest extends DbTestCase
             public function open(array $c, array $ct, ?string $s): ?array { $this->log[] = "open:$s"; return ['id' => 500, 'protocol' => 'CH261115A1B2']; }
             public function transfer(int $t, string $s, int $u, ?string $n): void { $this->log[] = "transfer:$t:$s:$n"; }
             public function close(int $t, int $u, ?string $r): void { $this->log[] = "close:$t"; }
+            public function status(int $t): ?array { return null; }
         };
         $this->svc = $this->makeService(null, $hd);
 
@@ -172,7 +173,7 @@ final class ConversationFlowTest extends DbTestCase
         $this->assertSame('pending', $c['status']);
         $this->assertNull($c['assigned_user_id']);
         $this->assertSame($this->sectors['Manutenção'], (int) $c['sector_id']);
-        $note = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND type = 'transfer'", [$id]);
+        $note = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND type = 'transfer' ORDER BY id DESC LIMIT 1", [$id]);
         $this->assertStringContainsString('Financeiro para Manutenção', $note['body']);
         $this->assertStringContainsString('vazamento no 101', $note['body']);
         $this->assertSame(['open:Financeiro', 'transfer:500:Manutenção:Morador relata vazamento no 101'], $hd->log);
@@ -221,6 +222,7 @@ final class ConversationFlowTest extends DbTestCase
             public function open(array $c, array $ct, ?string $s): ?array { throw new \RuntimeException('ERP 503'); }
             public function transfer(int $t, string $s, int $u, ?string $n): void { throw new \RuntimeException('ERP 503'); }
             public function close(int $t, int $u, ?string $r): void { throw new \RuntimeException('ERP 503'); }
+            public function status(int $t): ?array { return null; }
         };
         $this->svc = $this->makeService(null, $hd);
         $id = $this->routed('preciso do boleto');
@@ -249,7 +251,7 @@ final class ConversationFlowTest extends DbTestCase
         $c = $this->conv($id);
         $this->assertSame('open', $c['status']);
         $this->assertSame($beto, (int) $c['assigned_user_id']);
-        $note = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND type = 'transfer'", [$id])['body'];
+        $note = $this->db->one("SELECT body FROM talk_messages WHERE conversation_id = ? AND type = 'transfer' ORDER BY id DESC LIMIT 1", [$id])['body'];
         $this->assertStringContainsString('para Manutenção (Beto Reparos)', $note);
         $this->assertStringContainsString('Motivo: vazamento no 101', $note);
     }

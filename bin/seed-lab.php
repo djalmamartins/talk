@@ -55,7 +55,8 @@ $users = [
     [5, 'Gerente Manutenção', 'gerente.manutencao@connect.lab', 'manager', 'Manutenção'],
 ];
 foreach ($users as [$id, $name, $email, $role, $sector]) {
-    $db->run('INSERT INTO talk_users (id, name, email, password_hash) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email)', [$id, $name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
+    // is_bot = 0: numa instalação nova a migration 021 cria a Jack com o id 1, que é o do supervisor de teste
+    $db->run('INSERT INTO talk_users (id, name, email, password_hash) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), password_hash = IF(is_bot = 1, VALUES(password_hash), password_hash), is_bot = 0', [$id, $name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
     $sid = $sector ? $ids[$sector] : null;
     $exists = $db->one('SELECT id FROM talk_staff WHERE user_id = ? AND sector_id <=> ?', [$id, $sid]);
     if (!$exists) {
@@ -81,4 +82,15 @@ $db->run(
      ON DUPLICATE KEY UPDATE name = VALUES(name), erp_person_id = VALUES(erp_person_id), erp_snapshot = VALUES(erp_snapshot)',
     ['5531988887654', 'Mariana Souza', 9077, json_encode(['vinculo' => 'owner', 'condominio' => 'Residencial Jardins', 'unidade' => 'Bloco A 101', 'email' => 'mariana@exemplo.com'], JSON_UNESCAPED_UNICODE)]
 );
+// Jack (atendente automática) e o setor Geral, como no bin/setup.php
+if (!$db->one('SELECT id FROM talk_users WHERE is_bot = 1')) {
+    $db->insert('talk_users', ['name' => 'Jaqueline (Jack)', 'email' => 'jack@talk.connect', 'password_hash' => '!sem-login', 'active' => 1, 'is_bot' => 1]);
+}
+if (!$db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' OR menu_key = '0'")) {
+    $db->insert('talk_sectors', ['name' => 'Geral', 'jack_key' => 'geral', 'menu_key' => '0', 'color' => '#6B7280',
+        'description' => 'Toda mensagem nova chega aqui; depois de 1 minuto a Jack distribui para o setor certo.']);
+}
+$db->run("INSERT INTO talk_staff (user_id, sector_id, role)
+          SELECT u.id, s.id, 'agent' FROM talk_users u JOIN talk_sectors s ON s.jack_key = 'geral'
+           WHERE u.is_bot = 1 AND NOT EXISTS (SELECT 1 FROM talk_staff st WHERE st.user_id = u.id AND st.sector_id = s.id)");
 echo "seed de laboratório ok (senha: $pass)\n";

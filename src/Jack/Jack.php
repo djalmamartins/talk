@@ -9,8 +9,9 @@ use ConnectTalk\Support\Db;
  * Jack (Jaqueline): faz a triagem de toda conversa nova, sem menu de números.
  *  - Assunto claro na mensagem → vai para a fila do setor na hora (sem esperar).
  *  - Assunto ainda não claro → espera a pessoa parar de escrever ($waitSeconds) e lê tudo o que ela mandou.
- *  - Assunto claro → abre o chamado no setor certo, EM SILÊNCIO (ADR 0004: direcionar não gera
- *    mensagem ao cliente). Quem fala com a pessoa é o atendente do setor.
+ *  - Assunto claro → abre o chamado no setor certo e conta ao cliente o número e o link de
+ *    acompanhamento, com um texto aprovado (ADR 0004, revisão de 22/11/2026). O resto é com o atendente.
+ *  - Cliente manda o número do chamado → ela responde como ele está.
  *  - Só cumprimentou ("bom dia") → não responde; espera a pessoa dizer o assunto.
  *  - Falou algo que ela não reconhece, ou passou $maxWaitSeconds → setor padrão (Administrativo).
  *  - mode "off": sem triagem; tudo cai direto no setor padrão.
@@ -29,15 +30,37 @@ final class Jack
         private int $maxWaitSeconds = 30,
         private string $fallbackKey = 'administrativo',
         private int $typingBaseSeconds = 20,
+        private int $generalSeconds = 60,
+        private bool $announceTickets = true,
+        private ?AiClassifier $ai = null,
+        private string $aiMode = 'off', // off | shadow (só registra o que a IA faria) | on (IA decide; regras de reserva)
     ) {
+        if (!in_array($aiMode, ['off', 'shadow', 'on'], true) || $ai === null) {
+            $this->aiMode = 'off';
+        }
         if (!in_array($mode, ['off', 'auto'], true)) {
             $this->mode = 'auto'; // "shadow" (fase J1) virou "auto" quando o menu saiu
         }
     }
 
+    private ?int $userId = null;
+
+    /** Cadastro da Jack como atendente (talk_users.is_bot = 1), autora das mensagens dela. Null se não existir. */
+    public function userId(): ?int
+    {
+        $this->userId ??= (int) ($this->db->one('SELECT id FROM talk_users WHERE is_bot = 1 AND active = 1 ORDER BY id LIMIT 1')['id'] ?? 0);
+        return $this->userId ?: null;
+    }
+
     public function mode(): string
     {
         return $this->mode;
+    }
+
+    /** Ela avisa o cliente quando abre o chamado (número e link)? JACK_TICKET_NOTICE=off volta a encaminhar calada. */
+    public function announcesTickets(): bool
+    {
+        return $this->mode !== 'off' && $this->announceTickets;
     }
 
     /** Quanto tempo ela "digita" antes de mandar: base + o tamanho do texto, até 90 s. */
@@ -56,6 +79,36 @@ final class Jack
         return $r['sector'] !== null && $r['confident'];
     }
 
+    /**
+     * Setor Geral (jack_key "geral"): toda conversa nova espera nele, à vista da equipe, até a Jack
+     * distribuir. Sem ele (ou com a Jack desligada) a triagem é a antiga, fora das filas.
+     */
+    public function generalSector(): ?array
+    {
+        return $this->mode === 'off' ? null : $this->sectorByKey('geral');
+    }
+
+    /** No Geral: distribui depois de $generalSeconds com a pessoa calada há $waitSeconds, ou no dobro do tempo de qualquer jeito. */
+    public function isDueInGeneral(int $quietSeconds, int $ageSeconds): bool
+    {
+        return ($ageSeconds >= $this->generalSeconds && $quietSeconds >= $this->waitSeconds) || $ageSeconds >= 2 * $this->generalSeconds;
+    }
+
+    /** Só cumprimentou ("bom dia", "oi")? Então a Jack espera calada a pessoa contar o assunto. */
+    public function isOnlyGreeting(string $text): bool
+    {
+        return (bool) preg_match(self::GREETING, Classifier::normalize($text));
+    }
+
+    /**
+     * Passou deste tempo (segundos) com a Jack e ela ainda não distribuiu: tem algo parado
+     * (normalmente o worker). Tela Serviço da Jack.
+     */
+    public function overdueSeconds(): int
+    {
+        return max(2 * $this->generalSeconds, $this->maxWaitSeconds) + 120;
+    }
+
     /** A pessoa parou de escrever (ou já esperou demais)? */
     public function isDue(int $quietSeconds, int $ageSeconds): bool
     {
@@ -70,26 +123,62 @@ final class Jack
     {
         $r = $this->classifier->classify($text);
         $sector = $r['sector'] !== null && $r['confident'] ? $this->sectorByKey($r['sector']) : null;
-        if ($sector !== null) {
-            $this->record($conv, $sector, $r['intent'], $r);
-            return ['action' => 'route', 'sector' => $sector];
-        }
-        $onlyGreeting = (bool) preg_match(self::GREETING, Classifier::normalize($text));
-        if ($onlyGreeting && $ageSeconds < $this->maxWaitSeconds) {
+        if ($sector === null && $this->isOnlyGreeting($text) && $ageSeconds < $this->maxWaitSeconds) {
             return null; // só cumprimentou: espera calada a pessoa contar o assunto
         }
-        $fallback = $this->fallbackSector();
-        if ($fallback === null) {
-            return null;
+        // IA local (ADR 0004, etapa A): só entende o assunto. Em "on", decide quando tem certeza; senão, regras.
+        $ai = $this->aiMode !== 'off' ? $this->ai->classify($text) : null;
+        $aiSector = $ai !== null && $ai['confident'] && $ai['sector'] !== null ? $this->sectorByKey($ai['sector']) : null;
+        if ($this->aiMode === 'on' && $aiSector !== null) {
+            $this->record($conv, $aiSector, $ai['intent'], ['confident' => true, 'scores' => [], 'matched' => []], 'ia', $ai['ms']);
+            return ['action' => 'route', 'sector' => $aiSector];
         }
-        $this->record($conv, $fallback, null, $r);
-        return ['action' => 'fallback', 'sector' => $fallback];
+        $action = 'route';
+        if ($sector === null) {
+            $sector = $this->fallbackSector();
+            if ($sector === null) {
+                return null;
+            }
+            $action = 'fallback';
+        }
+        $this->record($conv, $sector, $action === 'route' ? $r['intent'] : null, $r);
+        if ($this->aiMode !== 'off') {
+            $this->recordAi($conv, $ai, $aiSector, (int) $sector['id']); // o que a IA teria feito (ou que ela falhou)
+        }
+        return ['action' => $action, 'sector' => $sector];
+    }
+
+    public function aiMode(): string
+    {
+        return $this->aiMode;
+    }
+
+    /** Modo sombra: grava a opinião da IA ao lado da decisão real (final_sector_id = onde a conversa foi). */
+    private function recordAi(array $conv, ?array $ai, ?array $aiSector, int $finalSectorId): void
+    {
+        $this->db->insert('talk_jack_decisions', [
+            'conversation_id' => $conv['id'],
+            'message_id' => (int) ($this->db->one("SELECT MAX(id) id FROM talk_messages WHERE conversation_id = ? AND direction = 'in'", [$conv['id']])['id'] ?? 0),
+            'mode' => 'shadow',
+            'source' => 'ia',
+            'model' => mb_substr($this->ai->model(), 0, 60),
+            'intent' => $ai['intent'] ?? null,
+            'suggested_sector_id' => $aiSector['id'] ?? null,
+            'confident' => $ai !== null && $ai['confident'] ? 1 : 0,
+            'matched' => $ai === null ? 'IA não respondeu' : null,
+            'action' => 'none',
+            'final_sector_id' => $finalSectorId,
+            'ai_ms' => $ai['ms'] ?? null,
+        ]);
     }
 
     /** Registra a decisão (gabarito: final_sector_id é atualizado se um humano transferir). */
-    public function record(array $conv, array $sector, ?string $intent, ?array $r): void
+    public function record(array $conv, array $sector, ?string $intent, ?array $r, string $source = 'regras', ?int $aiMs = null): void
     {
         $this->db->insert('talk_jack_decisions', [
+            'source' => $source,
+            'model' => $source === 'ia' ? mb_substr((string) $this->ai?->model(), 0, 60) : null,
+            'ai_ms' => $aiMs,
             'conversation_id' => $conv['id'],
             'message_id' => (int) ($this->db->one("SELECT MAX(id) id FROM talk_messages WHERE conversation_id = ? AND direction = 'in'", [$conv['id']])['id'] ?? 0),
             'mode' => 'auto',
@@ -160,22 +249,44 @@ final class Jack
 
     /**
      * Acertos por conversa: compara a primeira sugestão confiante com o setor final.
-     * @return array{conversas:int, com_sugestao:int, acertos:int, erros:int, taxa:?float, por_setor:list<array>}
+     * $sectorIds limita aos setores de um gerente (sugeridos ou finais); null = tudo (supervisor).
+     * @param list<int>|null $sectorIds
+     * @return array{modo:string, dias:int, conversas:int, com_sugestao:int, sem_assunto:int, acertos:int, erros:int,
+     *               taxa:?float, por_setor:list<array>, termos_dos_erros:list<array>, erros_recentes:list<array>}
      */
-    public function stats(int $days = 30): array
+    public function stats(int $days = 30, ?array $sectorIds = null): array
     {
+        $scope = '';
+        $args = [$days];
+        if ($sectorIds !== null) {
+            $sectorIds = array_values(array_map('intval', $sectorIds)) ?: [0];
+            $in = implode(',', array_fill(0, count($sectorIds), '?'));
+            $scope = " AND (d.suggested_sector_id IN ($in) OR d.final_sector_id IN ($in))";
+            $args = [$days, ...$sectorIds, ...$sectorIds];
+        }
         $rows = $this->db->all(
-            "SELECT d.conversation_id, d.suggested_sector_id, d.final_sector_id, s.name
+            "SELECT d.conversation_id, d.suggested_sector_id, d.final_sector_id, d.intent, d.matched, d.created_at,
+                    s.name, fs.name AS final_name, c.protocol, ct.name AS contact
                FROM talk_jack_decisions d
                JOIN (SELECT conversation_id, MIN(id) AS id FROM talk_jack_decisions
-                      WHERE confident = 1 AND suggested_sector_id IS NOT NULL AND created_at >= NOW() - INTERVAL ? DAY
+                      WHERE mode = 'auto' AND confident = 1 AND suggested_sector_id IS NOT NULL AND created_at >= NOW() - INTERVAL ? DAY
                       GROUP BY conversation_id) f ON f.id = d.id
-               LEFT JOIN talk_sectors s ON s.id = d.suggested_sector_id",
-            [$days]
+               JOIN talk_conversations c ON c.id = d.conversation_id
+               JOIN talk_contacts ct ON ct.id = c.contact_id
+               LEFT JOIN talk_sectors s ON s.id = d.suggested_sector_id
+               LEFT JOIN talk_sectors fs ON fs.id = d.final_sector_id
+              WHERE 1 = 1$scope
+              ORDER BY d.id DESC",
+            $args
         );
-        $total = (int) ($this->db->one('SELECT COUNT(DISTINCT conversation_id) n FROM talk_jack_decisions WHERE created_at >= NOW() - INTERVAL ? DAY', [$days])['n'] ?? 0);
+        $total = (int) ($this->db->one(
+            "SELECT COUNT(DISTINCT d.conversation_id) n FROM talk_jack_decisions d WHERE d.mode = 'auto' AND d.created_at >= NOW() - INTERVAL ? DAY$scope",
+            $args
+        )['n'] ?? 0);
         $hits = $misses = 0;
         $per = [];
+        $terms = [];
+        $recent = [];
         foreach ($rows as $r) {
             if ($r['final_sector_id'] === null) {
                 continue; // ainda sem setor final
@@ -184,10 +295,31 @@ final class Jack
             $ok ? $hits++ : $misses++;
             $per[$r['name']] ??= ['setor' => $r['name'], 'acertos' => 0, 'erros' => 0];
             $per[$r['name']][$ok ? 'acertos' : 'erros']++;
+            if ($ok) {
+                continue;
+            }
+            $matched = $r['matched'] === null || $r['matched'] === '' ? [] : explode(', ', (string) $r['matched']);
+            foreach ($matched as $t) {
+                $terms[$t] = ($terms[$t] ?? 0) + 1;
+            }
+            if (count($recent) < 20) {
+                // sem o texto da mensagem: o supervisor abre a conversa pelo protocolo se precisar
+                $recent[] = ['conversation_id' => (int) $r['conversation_id'], 'protocolo' => $r['protocol'], 'contato' => $r['contact'],
+                    'sugerido' => $r['name'], 'final' => $r['final_name'], 'intencao' => $r['intent'], 'termos' => $matched,
+                    'quando' => $r['created_at']];
+            }
         }
+        foreach ($per as &$p) {
+            $p['taxa'] = round($p['acertos'] / max(1, $p['acertos'] + $p['erros']), 3);
+        }
+        unset($p);
+        arsort($terms);
         $judged = $hits + $misses;
-        return ['modo' => $this->mode, 'conversas' => $total, 'com_sugestao' => count($rows), 'acertos' => $hits, 'erros' => $misses,
-            'taxa' => $judged ? round($hits / $judged, 3) : null, 'por_setor' => array_values($per)];
+        return ['modo' => $this->mode, 'dias' => $days, 'conversas' => $total, 'com_sugestao' => count($rows),
+            'sem_assunto' => max(0, $total - count($rows)), 'acertos' => $hits, 'erros' => $misses,
+            'taxa' => $judged ? round($hits / $judged, 3) : null, 'por_setor' => array_values($per),
+            'termos_dos_erros' => array_map(fn ($t, $n) => ['termo' => (string) $t, 'vezes' => $n], array_keys(array_slice($terms, 0, 10, true)), array_slice($terms, 0, 10)),
+            'erros_recentes' => $recent];
     }
 
     private function sectorByKey(string $key): ?array

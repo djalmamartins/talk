@@ -19,7 +19,7 @@ final class TeamService
     public const MIN_PASSWORD = 8;
     private const ROLES = ['agent', 'manager', 'supervisor'];
 
-    public function __construct(private Db $db, private EventBus $events, private ?string $ip = null)
+    public function __construct(private Db $db, private EventBus $events, private ?string $ip = null, private bool $erpLogin = false)
     {
     }
 
@@ -29,11 +29,11 @@ final class TeamService
     {
         $this->assertSupervisor($u);
         $rows = $this->db->all(
-            "SELECT u.id, u.name, u.email, u.active, u.erp_user_id, u.last_seen_at, u.created_at,
+            "SELECT u.id, u.name, u.email, u.active, u.is_bot, u.erp_user_id, u.last_seen_at, u.created_at,
                     (u.last_seen_at IS NOT NULL AND u.last_seen_at >= NOW() - INTERVAL 60 SECOND) AS online,
                     (SELECT COUNT(*) FROM talk_conversations c WHERE c.assigned_user_id = u.id AND c.status = 'open') AS open_count,
                     (SELECT COUNT(*) FROM talk_conversations c WHERE c.assigned_user_id = u.id AND c.status = 'closed' AND c.closed_at >= CURDATE()) AS closed_today
-               FROM talk_users u ORDER BY u.active DESC, u.name"
+               FROM talk_users u ORDER BY u.is_bot DESC, u.active DESC, u.name"
         );
         $staff = [];
         foreach ($this->db->all('SELECT user_id, sector_id, role FROM talk_staff') as $s) {
@@ -44,7 +44,7 @@ final class TeamService
             $roles = array_column($rows, 'role');
             $role = in_array('supervisor', $roles, true) ? 'supervisor' : (in_array('manager', $roles, true) ? 'manager' : 'agent');
             return [
-                'id' => (int) $r['id'], 'name' => $r['name'], 'email' => $r['email'], 'active' => (bool) $r['active'],
+                'id' => (int) $r['id'], 'name' => $r['name'], 'email' => $r['email'], 'active' => (bool) $r['active'], 'bot' => (bool) $r['is_bot'],
                 'erp_user_id' => $r['erp_user_id'] !== null ? (int) $r['erp_user_id'] : null,
                 'role' => $role,
                 'sector_ids' => array_values(array_map('intval', array_filter(array_column($rows, 'sector_id'), fn ($v) => $v !== null))),
@@ -58,11 +58,24 @@ final class TeamService
     {
         $this->assertSupervisor($u);
         $old = $id !== null ? $this->findUser($id) : null;
+        if ($old !== null) {
+            $this->assertNotBot($old);
+        }
+        if ($this->erpLogin && $old === null) {
+            throw new DomainError('A equipe vem do Connect ERP: dê a permissão "Atendimento por WhatsApp" no ERP e clique em "Atualizar do ERP".');
+        }
         $name = trim(preg_replace('/\s+/', ' ', (string) ($in['name'] ?? '')));
         $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
+        if ($this->erpLogin) {
+            // nome, e-mail e conta do ERP vêm do ERP; aqui só papel e setores
+            $name = (string) $old['name'];
+            $email = (string) $old['email'];
+            $in['erp_user_id'] = $old['erp_user_id'];
+        }
         $role = (string) ($in['role'] ?? 'agent');
         $sectors = array_values(array_unique(array_map('intval', (array) ($in['sector_ids'] ?? []))));
-        $password = (string) ($in['password'] ?? '');
+        // login pelo ERP (ErpLogin): senha do Talk não existe; o cadastro aqui só prepara papel e setores pelo e-mail do ERP
+        $password = $this->erpLogin ? '' : (string) ($in['password'] ?? '');
         $erp = isset($in['erp_user_id']) && $in['erp_user_id'] !== '' && $in['erp_user_id'] !== null ? (int) $in['erp_user_id'] : null;
 
         if ($name === '' || mb_strlen($name) > 100) {
@@ -87,7 +100,7 @@ final class TeamService
                 throw new DomainError('Setor não encontrado.');
             }
         }
-        if ($old === null || $password !== '') {
+        if (!$this->erpLogin && ($old === null || $password !== '')) {
             $this->checkPassword($password);
         }
         if ($old !== null && $id === $u->userId && $role !== 'supervisor') {
@@ -100,7 +113,7 @@ final class TeamService
         $id = $this->db->transaction(function () use ($old, $id, $name, $email, $password, $erp, $role, $sectors): int {
             if ($old === null) {
                 $id = $this->db->insert('talk_users', [
-                    'name' => $name, 'email' => $email, 'password_hash' => password_hash($password, PASSWORD_DEFAULT), 'erp_user_id' => $erp,
+                    'name' => $name, 'email' => $email, 'password_hash' => password_hash($password !== '' ? $password : bin2hex(random_bytes(24)), PASSWORD_DEFAULT), 'erp_user_id' => $erp,
                 ]);
             } else {
                 $this->db->run('UPDATE talk_users SET name = ?, email = ?, erp_user_id = ?, updated_at = NOW() WHERE id = ?', [$name, $email, $erp, $id]);
@@ -131,7 +144,7 @@ final class TeamService
     public function setActive(StaffMember $u, int $id, bool $active): array
     {
         $this->assertSupervisor($u);
-        $this->findUser($id);
+        $this->assertNotBot($this->findUser($id));
         if (!$active && $id === $u->userId) {
             throw new DomainError('Você não pode desativar a si mesmo.');
         }
@@ -162,6 +175,9 @@ final class TeamService
     /** Qualquer pessoa troca a própria senha, confirmando a atual. */
     public function changeOwnPassword(int $userId, string $current, string $new): void
     {
+        if ($this->erpLogin) {
+            throw new DomainError('A senha é a do Connect ERP: troque por lá.', 403);
+        }
         $row = $this->findUser($userId);
         if (!password_verify($current, $row['password_hash'])) {
             throw new DomainError('Senha atual incorreta.');
@@ -199,7 +215,7 @@ final class TeamService
         );
         return array_map(fn ($r) => [
             'id' => (int) $r['id'], 'name' => $r['name'], 'jack' => $r['jack_key'] !== null, 'color' => $r['color'],
-            'description' => $r['description'], 'active' => (bool) $r['active'],
+            'description' => $r['description'], 'active' => (bool) $r['active'], 'menu_key' => (string) $r['menu_key'],
             'people' => (int) $r['people'], 'waiting' => (int) $r['waiting'], 'open_count' => (int) $r['open_count'], 'channels' => (int) $r['channels'],
         ], $rows);
     }
@@ -304,6 +320,14 @@ final class TeamService
             throw new DomainError('Atendente não encontrado.', 404);
         }
         return $row;
+    }
+
+    /** A Jack aparece na equipe, mas não é editada nem desativada por aqui (liga e desliga com JACK_MODE). */
+    private function assertNotBot(array $row): void
+    {
+        if ((int) ($row['is_bot'] ?? 0) === 1) {
+            throw new DomainError('A Jack é a atendente automática: não dá para editar nem desativar por aqui.');
+        }
     }
 
     private function findSector(int $id): array

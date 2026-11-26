@@ -1,5 +1,248 @@
 # Changelog
 
+## [1.5.0] — 2026-11-26 — tudo vindo do ERP e sem a Jack
+Pedidos do Djalma em 26/11/2026 (ADR 0006, revisão).
+### Alterado
+- **Sem a Jack em cena:** toda conversa nova cai na **fila Geral**, que todos veem, e cada um pega a sua; depois dá para
+  transferir para o setor certo (`TALK_ENTRY=geral`). Sem menu, sem mensagem automática e **sem distribuição
+  automática** (`AUTO_ASSIGN=off`). "Serviço da Jack" sai do menu, a Jack sai da Equipe e o selo "Jack" sai dos setores.
+  O menu de setores da 1.4.0 continua disponível com `TALK_ENTRY=menu`.
+- **Equipe vinda do Connect ERP:** com o login pelo ERP, a lista de atendentes é quem tem no ERP a permissão
+  "Atendimento por WhatsApp". O botão "Atualizar do ERP" (e a abertura da tela) traz quem é novo, atualiza nome e e-mail
+  e desativa quem perdeu o acesso, devolvendo os atendimentos dele para a fila. Aqui só se escolhem papel e setores.
+- **Painel de informações da conversa** com espaço em volta, sem a borda verde-escura no protocolo atual e sem barra de
+  rolagem para o lado; texto comprido quebra a linha.
+- **Abas do topo** (Atendentes, Setores, Registro de alterações e as das outras telas) em verde clarinho, sem borda.
+- **Protocolo do Talk `TLK` + AAAAMMDD + sequência** em cada conversa, sem e-mail. Só o botão Abrir chamado cria o
+  `SAC…` no ERP, e os dois números ficam ligados e aparecem um no outro; números antigos continuam achados na busca
+  (eee9ab0, da conversa de chamados).
+
+
+## [1.4.1] — 2026-11-22 — acertos visuais pedidos pelo Djalma
+### Alterado
+- **Visão geral da fila:** os ícones ficam centralizados no quadrado colorido (antes ficavam no canto de cima à
+  esquerda por causa de uma regra do `.kpi span`) e cada indicador fica centralizado na sua coluna.
+- **Menu lateral igual ao do Connect ERP**, nas cores do Talk: logo com botão de recolher (a escolha fica guardada no
+  navegador), alternador de sistemas, grupos Atendimento / Acompanhamento / Administração e a pessoa no rodapé.
+  Recolhido mostra só os ícones e o símbolo do Talk (some o texto "Connect Talk"); no tablet (901 a 1100 px) já abre
+  recolhido; no celular (até 900 px) vira gaveta aberta pelo botão ☰ do topo.
+- **Sino de notificações como no Studio do ERP:** clicar num aviso abre um pop-up com Abrir, Ver depois e Dispensar.
+  Abrir e Dispensar tiram o aviso do sino, e ele só volta quando há novidade (alguém novo na fila, outra mensagem,
+  outro agendamento com falha). "Limpar todas" dispensa tudo de uma vez. A API `/api/notifications` passa a mandar
+  `key` e `sig` em cada item. A escolha fica guardada no navegador.
+- **Ícone novo do Connect Talk:** o logo do WhatsApp (arquivo enviado pelo Djalma) com o símbolo da Connect em branco
+  no lugar do telefone (favicon, ícones do app, alternador de sistemas e menu recolhido). Os rascunhos anteriores
+  ficaram em `docs/icone/`.
+- **Som de aviso sempre ligado, sem o botão "Clique aqui para ativar o som":** o áudio é liberado em silêncio no
+  primeiro clique ou tecla na página (o navegador só deixa tocar depois disso). Continua dando para desligar no menu
+  do usuário.
+- Item ativo do menu sem a faixa verde mais escura na lateral.
+
+## [1.4.0] — 2026-11-22 — primeira versão de produção
+Pedido do Djalma em 22/11/2026: versão de produção sem a Jack, com entrada só para os funcionários do ERP (ADR 0006).
+### Adicionado
+- **Login só pelo Connect ERP** (`TALK_LOGIN=erp`): botão "Entrar pelo Connect ERP", mesmo e-mail, senha e 2FA do ERP, e só
+  para quem tem no ERP a permissão "Atendimento por WhatsApp (Connect Talk)", por papel ou liberada no cadastro do usuário
+  (ADR 0643 do ERP). O Talk confere a cada 10 minutos se o acesso continua. Senha do Talk, "Trocar senha" e a senha em
+  Equipe deixam de existir nesse modo.
+- **Menu de setores no WhatsApp** no lugar da Jack (`TALK_MENU=on`): "responda com o número do setor", aceita número,
+  emoji ou nome, repete uma vez e, sem escolha, vai para o setor padrão.
+- `bin/erp-check.php` avisa quando o token não tem o escopo `staff.login`.
+### Alterado
+- **Jack desligada** por padrão (`JACK_MODE=off`); volta numa versão seguinte.
+- O instalador pede o e-mail do supervisor "o mesmo do Connect ERP".
+
+### Protocolo único com o SAC (22/11/2026)
+### Alterado
+- **Cada conversa tem número próprio: TLK + AAAAMMDD + sequência do dia** (ex.: `TLK202611260001`; 5 dígitos depois
+  de 9999). O **SAC…** é só do chamado, que o ERP cria quando o atendente clica em Abrir chamado (ADR 0637 do ERP); os
+  dois números ficam ligados e aparecem juntos na tela ("Protocolo TLK… · chamado SAC… no SAC"), e o chamado leva o TLK
+  no texto. Modelo aprovado pelo Djalma em 26/11/2026. As migrações 028 e 029 convertem os números antigos
+  (`26112200403`, `SAC26112200403` e o `SAC2026…` da manhã de 26/11 viram `TLK2026…`) e guardam o antigo em
+  `legacy_protocol`; a busca e a consulta pelo WhatsApp acham a conversa pelo TLK, pelo SAC do chamado, pelos antigos
+  e pelo número digitado com espaços ou sem o prefixo.
+- **Chamado só pelo botão Abrir chamado** (`SAC_AUTO_TICKET=off`, padrão): conversa comum fica só no Talk. O diálogo pede
+  título, descrição e **para qual setor** vai o chamado. O chamado aberto assim continua no SAC depois que a conversa
+  é encerrada no Talk.
+- A tela mostra "Protocolo N" e, quando há chamado, "chamado no SAC" com o link de acompanhar.
+### Corrigido
+- O título digitado no Abrir chamado não chegava ao SAC (a conversa já tinha a coluna `subject` vazia e ela valia).
+
+## [1.3.0] — 2026-11-22
+Pedidos do Djalma em 22/11/2026, durante os testes da 1.1.0.
+### Adicionado
+- **Aviso de avaliação** para quem atendeu, no sino e num aviso na tela, assim que o cliente responde a nota:
+  5 estrelas é "Parabéns!", 4 é "Muito bom!", 3 ou menos é "Vamos dar uma olhada?" com convite para rever a conversa.
+  Mostra o comentário do cliente, fica no sino por 12 h e o aviso na tela aparece uma vez por avaliação.
+- Lembrete com som **a cada minuto enquanto houver alguém esperando na fila**.
+- Aviso "Clique aqui para ativar o som dos avisos" quando o navegador ainda não deixou tocar.
+### Alterado
+- **A Fila de atendimento é a página inicial** e o primeiro item do menu. Atendimentos fica em `/atendimentos`;
+  links antigos (`/?c=ID`, `/?aba=`, `/?abrir=`) continuam abrindo Atendimentos.
+- O som toca na hora quando alguém entra na fila, uma conversa é transferida ou distribuída para a pessoa, ou
+  um cliente dela responde, em qualquer tela (antes a tela da Fila só conferia a cada 20 s, com 25 s de folga).
+
+## [1.2.0] — 2026-11-22
+Pedido do Djalma em 22/11/2026: uma aba no menu para acompanhar o serviço da Jack.
+### Adicionado
+- **Serviço da Jack** (`/servico`, menu lateral, para supervisor e gerentes): o que a Jack está fazendo agora, o que
+  ela não fez ou deu problema, as respostas que mandou ao cliente (com a situação da entrega), a **ideia** (o que
+  ela entendeu e por quais palavras) e o **procedimento** (assumiu no Geral, encaminhou, abriu o chamado no SAC,
+  entregou para alguém, respondeu a situação do chamado). Filtros Hoje/7/30 dias, abas Tudo, Fazendo agora,
+  Não fez ou deu problema e Respostas enviadas, busca por protocolo, chamado ou contato, e o **passo a passo** de
+  cada conversa em linha do tempo. Atualiza sozinha a cada 15 s.
+- Problemas que a tela aponta: mensagem da Jack que falhou ou está presa na fila de envio, chamado que não abriu no
+  SAC (só com o ERP ligado), conversa parada com a Jack além do tempo (worker parado), assunto que ela não
+  reconheceu (foi para o setor padrão) e setor que a equipe corrigiu depois.
+- API `GET /api/jack/service` e `GET /api/jack/service/{id}` (mesma regra de acesso). Gerente vê só o que passou
+  pelos setores dele.
+- **Lista de atendimentos**: cada linha é um atendimento da Jack; clicar abre uma janela com a ideia, o
+  procedimento, o que ela não fez e o passo a passo (pedido do Djalma às 11h07 de 22/11).
+- **Sugestões para a Jack melhorar**: na janela do atendimento, quem acompanha diz o que ela devia ter
+  entendido, respondido ou feito, e qual seria o setor certo. Aba **Sugestões** com Novas, Aplicadas e
+  Descartadas; só o supervisor marca. Tabela `talk_jack_feedback` (migração 024). API
+  `POST /api/jack/service/{id}/feedback`, `GET /api/jack/feedback` e `POST /api/jack/feedback/{id}/status`.
+- `docs/jack/IA.md`: plano para a Jack passar a usar IA (o que decidir, o que providenciar e a ordem).
+- **Jack com IA, etapa A** (decisão do Djalma, registrada na ADR 0004): a IA só vai entender o assunto; as
+  respostas continuam sendo os textos aprovados.
+- **Placar regras x IA** (IA1): `php bin/jack-cenarios.php [--ia]` usa as mesmas frases fixas da 0.27.0
+  (`tests/Fixtures/jack/triagem.csv` e as 40 de conferência) mais as sugestões com setor certo da tela Serviço
+  da Jack. A comparação que vale é nas 40 de conferência: regras 60% exato e 77,5% no setor certo.
+- **IA local da Jack** (escolha do Djalma: Gemma 3 1B na própria máquina, primeiro no Mac): adaptador
+  `src/Jack/AiClassifier.php` (formato OpenAI, Ollama ou llama-server), JSON fechado, dados pessoais mascarados,
+  timeout e volta para as regras. `JACK_AI=off|shadow|on` (padrão off). Em sombra, a tela Serviço da Jack mostra
+  o que a IA diria em cada atendimento e o placar do período. Migração 025 (`source`, `model`, `ai_ms` em
+  `talk_jack_decisions`); os acertos do Painel contam só as decisões reais.
+- `tools/local/jack-ia-lab.sh` (Mac: Ollama + Gemma 3 1B, placar e modo de teste), `bin/jack-cenarios.php --ia`
+  e serviço `jack-ia` (perfil `ia`) no compose do Pi, com o modelo em `deploy/ia/modelo.gguf`.
+- **Carga de teste da Jack** (`bin/jack-carga.php enviar | reteste | placar`, só no lab): 500 mensagens fictícias
+  de 60 clientes fictícios, triagem, conferência do setor e reteste do que ela errou com outro cliente. Tabela
+  `talk_jack_carga` (migração 026); marca "teste" na tela Serviço da Jack. Números de teste têm DDD 00 e
+  **nunca saem**: o WhatsApp de verdade recusa (`TestNumberGuard`) e o ERP não abre chamado nem consulta o
+  cadastro deles. Primeira rodada no laboratório da nuvem: 93% no setor certo, nenhum erro grave.
+- `bin/simular.php`: uma mensagem de cliente no número simulado, pelo Terminal.
+- O acompanhamento é só leitura: usa o que a Jack já grava (`talk_jack_decisions` e as mensagens e notas
+  assinadas por ela).
+
+## [1.1.0] — 2026-11-22
+Pedidos do Djalma em 22/11/2026: fila mais completa, distribuição automática e o chamado do SAC contado ao cliente.
+### Adicionado
+- **Distribuição automática** (`AUTO_ASSIGN=on`, padrão): quando só uma pessoa está online para o setor (atendente
+  do setor ou supervisor), a conversa vai direto para ela, aparece no sino e fica uma nota interna. Quem mandou a
+  conversa para a fila de propósito não a recebe de volta. Quem entra depois pega a fila parada.
+- **Fila de atendimento**: mostra quem é a pessoa no ERP (vínculo, condomínio e unidade), o setor de destino, o
+  assunto, a espera e **com quem está** (atendente, Jack ou ninguém), com o último movimento ("Jack encaminhou para
+  Manutenção", "Distribuída para Ana"). Nova visão **Em atendimento**, com o tempo desde o aceite.
+- **A Jack conta o chamado** (`JACK_TICKET_NOTICE=on`, padrão): ao encaminhar, cumprimenta pela hora, diz o número
+  do chamado do SAC, a equipe, quem já está com a conversa e o link de acompanhamento, com três variações de texto.
+- **Consulta pelo número**: o cliente manda o número do chamado (ou o protocolo do Talk) no WhatsApp e a Jack
+  responde a situação, a última resposta da equipe e o link. Só mostra chamados do mesmo contato; a consulta não
+  entra na fila de ninguém.
+- O chamado no SAC leva contato, condomínio e unidade, setor, início e a conversa até ali (últimas 40 mensagens).
+- `talk_conversations.helpdesk_url` (migração 023) e o link "acompanhar" no painel do contato.
+### Alterado
+- "Help Desk" virou **SAC** nas telas e mensagens. O erro de "SAC não ligado" explica o que configurar.
+- Aba **Meus**: mostra também as conversas na fila que a pessoa pode atender.
+### Corrigido
+- Conversa encaminhada para um setor não aparecia para o supervisor em Meus nem em Em atendimento.
+- `bin/seed-lab.php` num laboratório novo: a migração 021 criava a Jack com o id 1, o mesmo do supervisor.
+
+## [1.0.0] — 2026-11-18
+Fecha o primeiro roteiro (S1 a S8 e U1 a U6). O Talk fica separado do ERP, instalado num Raspberry Pi no escritório,
+e busca os dados do ERP pela API (ADR 0005).
+### Adicionado
+- **Instalação no Raspberry Pi** (`deploy/instalar-pi.sh` e `docs/raspberry-pi.md`):
+  - confere o aparelho e instala o Docker;
+  - gera as chaves uma vez;
+  - pergunta o domínio, o token do túnel e a ligação com o ERP;
+  - sobe tudo, cria o primeiro supervisor e confere o ERP.
+  Rodar de novo não troca nada.
+- **Cloudflare Tunnel** (`COMPOSE_PROFILES=tunnel`, padrão): HTTPS sem abrir porta no roteador, sem IP fixo e com
+  CGNAT. O Caddy (Let's Encrypt) continua como opção (`COMPOSE_PROFILES=caddy`).
+- **2ª via do boleto** na conversa:
+  - o botão "2ª via" mostra os boletos em aberto do morador no ERP (`GET /talk/charges`, ADR 0386 do ERP);
+  - o atendente escolhe um, e ele vai ao cliente com a referência, o vencimento, o valor, a linha digitável, o Pix
+    copia e cola e o link do app do morador;
+  - o ERP decide o que pode sair: só proprietário ou responsável financeiro com o telefone do cadastro, até 3 boletos.
+- `php bin/erp-check.php`: confere o endereço e o token do ERP sem gravar nada nem mostrar dado de ninguém.
+### Alterado
+- Pensado para o Pi:
+  - todas as imagens têm versão ARM 64 bits;
+  - o banco usa 256 MB de buffer (`DB_BUFFER_POOL`);
+  - os logs do Docker ficam limitados a 30 MB por serviço;
+  - o backup vai para uma pasta configurável (`BACKUP_DIR`, de preferência um disco externo).
+- O `deploy/.env.example` vem sem domínio preenchido (o instalador pergunta).
+### Corrigido
+- Planilha do Painel: nenhuma célula vira fórmula no Excel (nome de contato como `=HYPERLINK(...)` ganha um
+  apóstrofo). O mesmo achado veio da revisão de segurança do ERP.
+## [0.28.0] — 2026-11-22
+### Alterado
+- **Jack reconhece mais assuntos.** Pesos e termos novos no classificador, sobretudo no Administrativo
+  (cadastro, síndico, regimento, convenção, mudança, ata, reserva, documentos, certidão, proposta) e
+  alguns do Financeiro e da Manutenção. Nas 105 frases de ajuste: de 70,5% para 99,0%. Nas 40 frases
+  de conferência (escritas depois, não usadas no ajuste): 60% de acerto exato e 77,5% no setor certo.
+  Nenhum erro grave nas duas.
+- Pergunta sobre o síndico agora vai em silêncio para o Administrativo (antes a Jack respondia "fora do
+  meu escopo" e transferia para o mesmo setor).
+
+## [0.27.0] — 2026-11-22
+### Adicionado
+- **Frases fixas para medir a triagem da Jack** (JV1.2). `tests/Fixtures/jack/triagem.csv` tem 105
+  frases fictícias no jeito do WhatsApp, cada uma com o setor certo. `php tools/jack-cenarios.php` mostra
+  o acerto por setor e lista os erros; o teste `JackScenariosTest` trava se aparecer erro grave ou se o
+  acerto cair. Primeira medição: 70,5% de acerto exato, 87,6% das conversas no setor certo, nenhum erro
+  grave; o Administrativo é o mais fraco (7 de 25).
+
+## [0.26.0] — 2026-11-16
+### Alterado
+- **Saiu a aba "Fila" de Atendimentos** (pedido do Djalma). Com o setor Geral ela ficou repetida: a
+  tela abre em "Meus", e quem espera atendimento aparece em **Fila de atendimento** e no sino. O
+  contador no menu lateral passa a vir do sino. Links antigos `/?aba=pending` levam para `/fila`.
+
+### Adicionado
+- **Aviso de transferência no sino.** Quando alguém transfere uma conversa para você ou para a fila
+  de um setor seu, aparece "Conversa transferida para você/para o setor" com o nome do cliente, o
+  protocolo e quem transferiu, e toca o alerta. O aviso some quando alguém do setor aceita, ou quando
+  quem recebeu abre a conversa. Migration `022_transfer_alert.sql`.
+
+### Corrigido
+- **`bin/migrate.php` parava com "Duplicate column"** quando uma migration mudou de nome depois de já
+  ter rodado (as da Jack viraram 020–022 ao juntar com o principal). Coluna ou índice que já existe
+  agora é pulado com o aviso "já existe, mantido".
+
+## [0.25.0] — 2026-11-16
+### Adicionado
+- **Jack cadastrada como atendente** (JV1.8). "Jaqueline (Jack)" aparece em Equipe e setores, no setor
+  Geral, como atendente automática "sempre ligada". As mensagens dela saem com o nome dela na
+  conversa. Ela não faz login, não recebe transferência, não aparece entre os atendentes online e não
+  é editada nem desativada pela tela (liga e desliga com `JACK_MODE`). Migration
+  `021_jack_atendente.sql`.
+
+## [0.24.0] — 2026-11-16
+### Adicionado
+- **Setor Geral.** Toda mensagem nova cai na fila do Geral, à vista de quem atende o Geral e do
+  supervisor. Depois de 1 minuto (`JACK_GENERAL_SECONDS`), com a pessoa sem escrever, a Jack lê tudo e
+  distribui calada para Financeiro, Administrativo ou Manutenção. Se alguém aceitar ou transferir no
+  Geral antes, a Jack não mexe mais na conversa e o chamado abre nesse momento. A espera conta desde a
+  chegada. Número dedicado a um setor não passa pelo Geral. A migration `020_jack_geral.sql` cria o
+  setor em quem já tem setores; o `bin/setup.php` cria na primeira instalação.
+
+### Planejado
+- Jack cadastrada como atendente (JV1.8) e boleto pelo WhatsApp com conversa e aviso do aplicativo
+  (JV1.9), no `ROADMAP.md` e na ADR 0004.
+
+## [0.23.0] — 2026-11-16
+### Adicionado
+- **Acertos da Jack no Painel** (Jack V1, etapa JV1.1). Supervisor e gerentes veem a taxa de acerto
+  da Jack no período, por setor sugerido, as palavras que mais levaram a erro e os 20 últimos erros
+  (protocolo, para onde ela mandou e onde a conversa ficou), com link para a conversa. O gerente vê
+  só o que passou pelos setores dele. O texto do cliente não aparece no painel.
+
+### Documentação
+- `docs/jack/MANIFESTO.md`: manifesto e especificação da Jack (V1 e Completa), confrontado com o
+  código da 0.21.0, com a tabela do que está feito, planejado e faltando. Plano da Jack V1 em etapas
+  no `ROADMAP.md`.
+
 ## [0.22.0] — 2026-11-16
 ### Adicionado
 - **Status do atendimento na conversa**: seletor no topo com Na fila, Em atendimento, Aguardando

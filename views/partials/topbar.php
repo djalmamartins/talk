@@ -4,6 +4,7 @@ $initials ??= '';
 $onInbox = ($active ?? '') === 'inbox';
 ?>
 <header class="topbar">
+  <button type="button" class="tb-icon tb-menu" data-sb-open aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <form class="tb-search" id="search-form" action="/" method="get" role="search">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
     <label class="sr-only" for="search">Buscar conversas</label>
@@ -14,7 +15,7 @@ $onInbox = ($active ?? '') === 'inbox';
     <details class="tb-drop" id="tb-notif">
       <summary class="tb-icon" aria-label="Notificações" title="Notificações"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15zM10 20a2 2 0 004 0"/></svg><span class="tb-count" id="tb-notif-n" hidden></span></summary>
       <div class="tb-panel wide" role="region" aria-label="Notificações">
-        <h2>Notificações</h2>
+        <h2 class="tb-notif-head">Notificações <button type="button" class="tb-clear" id="tb-notif-clear" hidden>Limpar todas</button></h2>
         <div id="tb-notif-list"><p class="tb-empty">Carregando…</p></div>
       </div>
     </details>
@@ -22,7 +23,9 @@ $onInbox = ($active ?? '') === 'inbox';
       <summary class="tb-user" aria-label="Menu do usuário"><span class="avatar xs"><?= htmlspecialchars($initials) ?></span><span class="tb-user-txt"><b><?= htmlspecialchars($userName) ?></b><small class="live" id="live">● conectando</small></span><svg class="tb-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></summary>
       <div class="tb-panel">
         <h2><?= htmlspecialchars($userName) ?><small><?= htmlspecialchars($userEmail ?? '') ?></small><small><?= htmlspecialchars($roleLabel ?? '') ?></small></h2>
+<?php if (empty($erpLoginOn)): ?>
         <button type="button" class="tb-item" id="my-password"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg><span>Trocar senha</span></button>
+        <?php endif ?>
         <button type="button" class="tb-item" id="sound-toggle" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg><span><b>Som de alerta</b><small id="sound-state">Ligado: toca quando chega mensagem</small></span></button>
         <div class="tb-sep"></div>
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button class="tb-item"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg><span>Sair</span></button></form>
@@ -30,3 +33,14 @@ $onInbox = ($active ?? '') === 'inbox';
     </details>
   </div>
 </header>
+<dialog id="notif-dialog" class="notif-dialog" aria-labelledby="notif-dialog-title">
+  <button type="button" class="notif-x" data-notif="later" aria-label="Fechar">×</button>
+  <span class="tb-ico notif-ico" id="notif-dialog-ico" aria-hidden="true"><svg viewBox="0 0 24 24"></svg></span>
+  <h2 id="notif-dialog-title">Notificação</h2>
+  <p id="notif-dialog-text"></p>
+  <menu>
+    <button type="button" data-notif="dismiss" title="Some do sino até aparecer algo novo">Dispensar</button>
+    <button type="button" data-notif="later">Ver depois</button>
+    <button type="button" class="primary" data-notif="open">Abrir</button>
+  </menu>
+</dialog>
