@@ -29,7 +29,7 @@ manutencao@, gerente.manutencao@). Em **Conexão WhatsApp**, conecte um número 
 ## O que já faz (Fase 1)
 - **Dois tipos de canal atrás de uma interface:** QR Code (Evolution API) e oficial
   (WhatsApp Cloud API, com modelos para envio em massa). Credenciais cifradas (libsodium).
-- **Toda conversa vira chamado com protocolo** `SAC` + AAMMDD + sequência do dia com 5 dígitos (ex.: `SAC26111600004`).
+- **Toda conversa vira chamado com protocolo** `SAC` + AAAAMMDD + sequência do dia (ex.: `SAC202611260001`), o mesmo número do chamado no SAC do ERP.
 - **Menu de setores** na primeira mensagem (1 Financeiro, 2 Administrativo, 3 Manutenção)
   ou direcionamento automático por palavra-chave ("boleto" → Financeiro).
 - **Identificação pelo telefone** no cadastro do ERP (com/sem DDI e 9º dígito).

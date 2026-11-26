@@ -4,7 +4,7 @@ const isLab = document.body.dataset.lab === '1';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // protocolo como todos veem: os antigos tinham "SAC" na frente (até a 1.0)
-const proto = (p) => String(p ?? '').replace(/^SAC(?=\d{11}$)/, '');
+const proto = (p) => String(p ?? ''); // SAC + AAAAMMDD + sequência, igual ao SAC (ADR 0637 do ERP)
 const hhmm = (d) => (d ? new Date(d.replace(' ', 'T')).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 
 const state = { tab: 'mine', sector: '', current: null, me: null, sectors: [], users: {}, search: '' };
