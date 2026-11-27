@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Connect Talk",
+    "slug": "connect-talk",
+    "scheme": "connecttalk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "bundleIdentifier": "br.com.connect.talk",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Para enviar fotos ao cliente no atendimento."
+      }
+    },
+    "android": {
+      "package": "br.com.connect.talk",
+      "adaptiveIcon": {
+        "backgroundColor": "#12804A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["POST_NOTIFICATIONS"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#12804A",
+          "defaultChannel": "atendimento"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Para enviar fotos ao cliente no atendimento.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "talkUrl": ""
+    }
+  }
+}

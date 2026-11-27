@@ -5,3 +5,10 @@ storage/
 deploy/.env
 deploy/backups/
 *.gguf
+
+# app do celular (mobile/)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/

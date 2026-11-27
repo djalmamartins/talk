@@ -36,6 +36,7 @@ empresa só (`docs/porte-atendechat.md`).
 | U11 | Fila como página inicial, som sempre que alguém cai na fila, aviso de avaliação para o atendente | pedido de 22/11 | feito (1.3.0) |
 | P1 | Primeira versão de produção: login só pelo ERP (talk.access por usuário), Jack desligada com menu de setores, protocolo único com o SAC | pedido de 22/11, ADR 0006 | feito (1.4.0) |
 | v1.0 | Fechamento do primeiro roteiro: Talk separado no Raspberry Pi, dados do ERP pela API (pessoas, chamados, 2ª via) | decisão de 18/11 | feito (1.0.0) |
+| A1 | App para iPhone e Android (React Native): fila, meus atendimentos, conversa, avisos e notificações | pedido de 27/11 | feito (1.6.0); falta ícone definitivo, contas das lojas e publicação |
 | J2+ | Jack: ver o plano da Jack V1 abaixo | ADR 0004, `docs/jack/MANIFESTO.md` | depois do sistema |
 
 ## Jack V1
