@@ -38,6 +38,7 @@ $conversations = $app['conversations'];
 $started = time();
 $maxSeconds = 60 * max(1, (int) $app['env']('WORKER_MAX_MINUTES', '60'));
 $lastTriage = 0;
+$lastPush = 0;
 $lastBeat = 0;
 $errors = 0;
 $stop = false;
@@ -57,6 +58,10 @@ while (!$stop) {
             $conversations->triage();
             $app['schedules']->runDue();
             $lastTriage = time();
+        }
+        if ($app['push_on'] && time() - $lastPush >= 3) { // notificações do app no celular a cada 3 s
+            $app['push']->run();
+            $lastPush = time();
         }
         $sent = $worker->runOnce() + $worker->fetchMedia() + $app['campaigns']->runDue(); // envio em massa no ritmo de cada campanha
         $errors = 0;

@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0] — 2026-11-27 — app para iPhone e Android
+Pedido do Djalma em 27/11/2026 (ADR 0007, docs/app-movel.md). Layout aprovado no padrão da lista de mensagens do iPhone.
+### Adicionado
+- **App do Talk em React Native (Expo)** na pasta `mobile/`: Entrar (pelo Connect ERP, ou senha no laboratório), Fila com
+  filtro por setor e botão Atender, Meus atendimentos (Todos, Não lidas, Aguardando, Encerrados), Conversa (mensagens,
+  foto, nota interna, respostas rápidas com `/`, anexo, Transferir, Aguardando cliente, Encerrar, Reabrir), Avisos e Você.
+  Barra de abas flutuante, cores e símbolo da Connect; ícone provisório até o Djalma escolher.
+- **Token por aparelho** (`Authorization: Bearer tka_…`, migração 030): só o hash no banco, vence em 30 dias sem uso,
+  cai ao Sair, ao desativar a pessoa ou quando o ERP tira o acesso. Login pelo ERP no celular com código de uso único
+  (`/app/entrar` → ERP → `connecttalk://entrar`). Rotas novas: `GET /api/app/config`, `POST /api/app/token`,
+  `POST /api/app/login`, `POST /api/app/push`, `POST /api/app/logout`.
+- **Notificações no celular** pelo serviço de push do Expo, enviadas pelo worker: novo na fila, mensagem do cliente na
+  sua conversa e transferência. `PUSH_PREVIEW=nome` (padrão) mostra só o nome do cliente.
+- `public/.htaccess` passa o cabeçalho `Authorization` ao PHP.
+
 ## [1.5.0] — 2026-11-26 — tudo vindo do ERP e sem a Jack
 Pedidos do Djalma em 26/11/2026 (ADR 0006, revisão).
 ### Alterado

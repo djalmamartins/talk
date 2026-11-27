@@ -41,15 +41,35 @@ if (rtrim((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/') === '/
     exit;
 }
 
-session_name('talk_session');
-session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Lax']);
-session_start();
-if (empty($_SESSION['csrf'])) {
-    $_SESSION['csrf'] = bin2hex(random_bytes(16));
-}
-
 $method = $_SERVER['REQUEST_METHOD'];
 $path = rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/', '/') ?: '/';
+
+// App do Talk no celular (docs/app-movel.md): Authorization: Bearer tka_… no lugar do cookie, só na API, no tempo real
+// e nos arquivos. Sem sessão PHP: $_SESSION vira só a memória deste pedido, e o CSRF não se aplica (não há cookie).
+$appToken = null;
+$authHeader = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+if ($authHeader === '' && function_exists('getallheaders')) {
+    $authHeader = (string) (array_change_key_case(getallheaders())['authorization'] ?? '');
+}
+if (preg_match('/^Bearer\s+(\S+)$/', $authHeader, $bm)
+    && (str_starts_with($path, '/api/') || $path === '/events' || str_starts_with($path, '/media/'))) {
+    $appToken = $app['app_tokens']->authenticate($bm[1]);
+    if ($appToken === null) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Entre de novo no app.']);
+        exit;
+    }
+    $_SESSION = ['user_id' => $appToken['user_id'], 'user_name' => $appToken['name'], 'auth_at' => $appToken['created_at'],
+        'erp_checked_at' => $appToken['erp_checked_at'], 'csrf' => bin2hex(random_bytes(16))];
+} else {
+    session_name('talk_session');
+    session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Lax']);
+    session_start();
+    if (empty($_SESSION['csrf'])) {
+        $_SESSION['csrf'] = bin2hex(random_bytes(16));
+    }
+}
 
 $json = static function ($data, int $status = 200): never {
     http_response_code($status);
@@ -64,13 +84,24 @@ if ($method === 'POST' && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CO
 }
 $body = static fn (): array => json_decode((string) file_get_contents('php://input'), true) ?: $_POST;
 // sessão vale enquanto o usuário está ativo e a senha não mudou depois do login
-$sessionOk = static function () use ($app): bool {
+$sessionOk = static function () use ($app, $appToken): bool {
     if (empty($_SESSION['user_id'])) {
         return false;
     }
     $checked = (int) ($_SESSION['erp_checked_at'] ?? 0);
+    $before = $checked;
     $erpOk = $app['erp_login']->revalidate((int) $_SESSION['user_id'], $checked); // tirou talk.access no ERP: sai em minutos
     $_SESSION['erp_checked_at'] = $checked;
+    if ($appToken !== null) {
+        if (!$erpOk) {
+            $app['app_tokens']->revoke($appToken['id']);
+            return false;
+        }
+        if ($checked !== $before) {
+            $app['app_tokens']->saveErpCheck($appToken['id'], $checked);
+        }
+        return $app['login']->sessionValid((int) $_SESSION['user_id'], (int) ($_SESSION['auth_at'] ?? 0));
+    }
     if (!$erpOk || !$app['login']->sessionValid((int) $_SESSION['user_id'], (int) ($_SESSION['auth_at'] ?? 0))) {
         $_SESSION = [];
         session_regenerate_id(true);
@@ -85,7 +116,10 @@ $user = static function () use ($app, $json, $sessionOk) {
     }
     return $app['staff']->find((int) $_SESSION['user_id']);
 };
-$csrf = static function () use ($json): void {
+$csrf = static function () use ($json, $appToken): void {
+    if ($appToken !== null) {
+        return; // app: token no cabeçalho, sem cookie, então não há CSRF
+    }
     $t = $_SERVER['HTTP_X_CSRF'] ?? $_POST['csrf'] ?? '';
     if (!hash_equals($_SESSION['csrf'], (string) $t)) {
         $json(['error' => 'Sessão expirada, recarregue a página.'], 403); // 419 não existe no Apache (vira 500)
@@ -105,6 +139,8 @@ $upload = static function () use ($json): array {
     }
     return [(string) file_get_contents($f['tmp_name']), (string) $f['type'], (string) $f['name']];
 };
+// endereço que abre o app no celular (connecttalk://entrar); muda só se o app for publicado com outro
+define('APP_SCHEME', preg_match('/^[a-z][a-z0-9+.-]{2,30}$/', (string) $env('APP_SCHEME', '')) ? (string) $env('APP_SCHEME') : 'connecttalk');
 // versão dos arquivos de tela: muda a cada atualização, e o navegador não fica com CSS/JS velho
 define('TALK_ASSET_V', (string) max(array_map('filemtime', array_merge([__FILE__], glob(__DIR__ . '/assets/*.css') ?: [], glob(__DIR__ . '/assets/*.js') ?: []))));
 $view = static function (string $name, array $vars = []) use ($app): never {
@@ -132,6 +168,9 @@ if ($isLab) {
             $app['campaigns']->runDue();
             $app['worker']->runOnce();
             $app['worker']->fetchMedia();
+            if ($app['push_on']) {
+                $app['push']->run();
+            }
         } catch (\Throwable $e) {
             error_log('[talk] worker: ' . $e->getMessage());
         }
@@ -153,6 +192,62 @@ try {
         $headers = function_exists('getallheaders') ? getallheaders() : [];
         $r = $app['webhook']->handle($channel, (string) file_get_contents('php://input'), $headers);
         $json(['processed' => $r['processed']], $r['status']);
+    }
+
+    // ---------------------------------------------------------------- app do Talk no celular (docs/app-movel.md)
+    // Como o app entra: GET /api/app/config diz se é pelo ERP ou por senha.
+    if ($path === '/api/app/config' && $method === 'GET') {
+        $json(['name' => 'Connect Talk', 'login' => $app['erp_login']->enabled() ? 'erp' : 'senha', 'scheme' => APP_SCHEME]);
+    }
+    // Login pelo ERP: o app abre /app/entrar?state=… no navegador do sistema; daqui vai ao ERP, que devolve a
+    // /ambiente/entrar/talk/{código}; lá o Talk manda o navegador de volta ao app (connecttalk://entrar?code=…&state=…).
+    if ($path === '/app/entrar' && $method === 'GET') {
+        $state = (string) ($_GET['state'] ?? '');
+        if (!$app['erp_login']->enabled() || !\ConnectTalk\Service\AppTokens::validState($state)) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Abra o login pelo app do Connect Talk.';
+            exit;
+        }
+        $_SESSION['app_state'] = $state;
+        header('Cache-Control: no-store, private');
+        header('Location: ' . $app['erp_web_url'] . '/ambiente/talk');
+        exit;
+    }
+    // o app troca o código de uso único pelo token do aparelho
+    if ($path === '/api/app/token' && $method === 'POST') {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($app['login']->blocked('app-code', $ip)) {
+            $json(['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.'], 429);
+        }
+        $in = $body();
+        $r = $app['app_tokens']->redeem((string) ($in['code'] ?? ''), (string) ($in['state'] ?? ''),
+            (string) ($in['device'] ?? ''), (string) ($in['platform'] ?? ''));
+        if ($r === null) {
+            $app['login']->failed('app-code', $ip);
+            $json(['error' => 'O login venceu. Tente entrar de novo.'], 401);
+        }
+        $json(['token' => $r['token'], 'user' => ['id' => $r['user_id'], 'name' => $app['db']->one('SELECT name FROM talk_users WHERE id = ?', [$r['user_id']])['name'] ?? '']]);
+    }
+    // laboratório e TALK_LOGIN=senha: e-mail e senha do Talk direto no app
+    if ($path === '/api/app/login' && $method === 'POST') {
+        if ($app['erp_login']->enabled()) {
+            $json(['error' => 'Entre pelo Connect ERP.'], 409);
+        }
+        $in = $body();
+        $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($app['login']->blocked($email, $ip)) {
+            $json(['error' => 'Muitas tentativas. Espere 15 minutos e tente de novo.'], 429);
+        }
+        $u = $app['db']->one('SELECT * FROM talk_users WHERE email = ? AND active = 1 AND is_bot = 0', [$email]);
+        if (!$u || !password_verify((string) ($in['password'] ?? ''), $u['password_hash'])) {
+            $app['login']->failed($email, $ip);
+            $json(['error' => 'E-mail ou senha inválidos.'], 401);
+        }
+        $app['login']->succeeded($email);
+        $token = $app['app_tokens']->issue((int) $u['id'], (string) ($in['device'] ?? ''), (string) ($in['platform'] ?? ''));
+        $json(['token' => $token, 'user' => ['id' => (int) $u['id'], 'name' => $u['name']]]);
     }
 
     // ---------------------------------------------------------------- login
@@ -181,6 +276,14 @@ try {
             http_response_code(403);
             $view('login', ['error' => 'Seu usuário do ERP não tem acesso ao Talk, ou o link venceu. Peça a permissão "Atendimento por WhatsApp" ao administrador e entre de novo.',
                 'isLab' => $isLab, 'erpLogin' => $app['erp_web_url'] . '/ambiente/talk']);
+        }
+        // login começado pelo app: o navegador do celular volta ao app com um código de uso único, sem sessão na web
+        if (!empty($_SESSION['app_state'])) {
+            $state = (string) $_SESSION['app_state'];
+            unset($_SESSION['app_state']);
+            $code = $app['app_tokens']->issueLoginCode((int) $who['id'], $state);
+            header('Location: ' . APP_SCHEME . '://entrar?code=' . $code . '&state=' . rawurlencode($state));
+            exit;
         }
         session_regenerate_id(true);
         $_SESSION['user_id'] = $who['id'];
@@ -376,6 +479,21 @@ try {
             $csrf();
         }
         $svc = $app['conversations'];
+
+        // app: endereço de notificação do aparelho e Sair (só com o token do app)
+        if (str_starts_with($path, '/api/app/')) {
+            if ($appToken === null) {
+                $json(['error' => 'Só pelo app.'], 400);
+            }
+            if ($path === '/api/app/push' && $method === 'POST') {
+                $app['app_tokens']->setPushToken($appToken['id'], (string) ($body()['push_token'] ?? ''));
+                $json(['ok' => true]);
+            }
+            if ($path === '/api/app/logout' && $method === 'POST') {
+                $app['app_tokens']->revoke($appToken['id']);
+                $json(['ok' => true]);
+            }
+        }
 
         if ($path === '/api/me') {
             $names = [];

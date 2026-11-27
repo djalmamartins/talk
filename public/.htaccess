@@ -1,4 +1,7 @@
 RewriteEngine On
+# app do celular: passa o cabeçalho Authorization (Bearer) para o PHP em qualquer modo do Apache
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]
 

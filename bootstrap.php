@@ -67,7 +67,11 @@ $crypto = Crypto::fromBase64((string) $env('TALK_KEY'));
 $entry = strtolower((string) $env('TALK_ENTRY', 'geral'));
 $generalId = null;
 if ($entry === 'geral' && strtolower((string) $env('JACK_MODE', 'off')) === 'off') {
-    $generalId = (int) ($db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' AND active = 1 LIMIT 1")['id'] ?? 0) ?: null;
+    try {
+        $generalId = (int) ($db->one("SELECT id FROM talk_sectors WHERE jack_key = 'geral' AND active = 1 LIMIT 1")['id'] ?? 0) ?: null;
+    } catch (\PDOException) {
+        $generalId = null; // banco ainda sem tabelas (primeira instalação): bin/migrate.php também passa por aqui
+    }
 }
 $policy = new AccessPolicy($generalId);
 $events = new EventBus($db);
@@ -123,12 +127,21 @@ $gateways = new GatewayFactory($db, $crypto, $http,
     ['base_url' => (string) $env('EVOLUTION_URL', ''), 'api_key' => (string) $env('EVOLUTION_API_KEY', '')],
     simulateQr: $env('APP_ENV') === 'lab');
 
+// app do Talk no celular (docs/app-movel.md): token por aparelho e notificações pelo Expo
+$appTokens = new \ConnectTalk\Service\AppTokens($db, (int) $env('APP_TOKEN_DAYS', '30'));
+$staffRepo = new StaffRepository($db);
+
 return [
     'env' => $env,
     'db' => $db,
     'crypto' => $crypto,
     'policy' => $policy,
-    'staff' => new StaffRepository($db),
+    'staff' => $staffRepo,
+    'app_tokens' => $appTokens,
+    'push' => new \ConnectTalk\Service\PushNotifier($db, $http, $policy, $staffRepo, $appTokens,
+        strtolower((string) $env('PUSH_PREVIEW', 'nome')), (string) $env('PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+        (string) $env('EXPO_ACCESS_TOKEN', '')),
+    'push_on' => $env('PUSH', 'on') !== 'off',
     'conversations' => $conversations,
     'inbox' => new InboxQuery($db, $policy),
     'webhook' => new WebhookHandler($gateways, $conversations),
